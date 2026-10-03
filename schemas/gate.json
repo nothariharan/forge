@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GATE_OPENED / GATE_RESOLVED",
+  "type": "object",
+  "properties": {
+    "gate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "risk": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "approved",
+        "denied"
+      ]
+    }
+  },
+  "required": [
+    "gate_id",
+    "action",
+    "risk",
+    "status"
+  ]
+}

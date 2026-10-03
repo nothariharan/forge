@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RUN_COMPLETED",
+  "type": "object",
+  "description": "Last event of a run; its ts closes the benchmark's timed window.",
+  "properties": {
+    "status": {
+      "type": "string",
+      "minLength": 1,
+      "description": "e.g. completed, budget_exhausted, aborted"
+    },
+    "summary": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "status"
+  ]
+}

@@ -29,6 +29,7 @@ ledger.runs()                          # ["demo", ...]
 ledger.verify("demo")                  # (True, None) or (False, first_bad_seq)
 ledger.export_jsonl("demo", "demo.jsonl")
 Ledger("other.db").import_jsonl("demo.jsonl")   # keeps seq/ts/hashes; refuses a run_id that already exists
+ledger.import_jsonl("events.jsonl", validate_payloads=False)   # envelope + chain only, e.g. for bench/arm_a.py episodes
 
 for event in ledger.subscribe("demo", after_seq=0):   # blocks, polls every 0.2s; feed this to SSE
     ...
@@ -51,10 +52,10 @@ The envelope is the team's shared contract, `schemas/event.schema.json`. No othe
 | `run_id` | str | caller | |
 | `agent` | str | caller | any non-empty string; usually `librarian` `hypothesizer` `referee` `planner` `experimenter` `analyst` `safety` `system` |
 | `type` | str | caller | one of the event types below |
-| `refs` | dict | caller | optional ids: `hid`, `eid`, `parent`, `gate_id` (free-form, default `{}`) |
+| `refs` | dict | caller | optional ids: `hid`, `eid`, `parent`, `gate_id` (free-form). Left out of the event when empty |
 | `payload` | dict | caller | validated against the schema for `type` |
 | `ai_generated` | bool | caller | default `False` |
-| `prev_hash` | str | ledger | hash of the previous event in the run; `"0"*64` for the first |
+| `prev_hash` | str | ledger | hash of the previous event in the run; `"GENESIS"` for the first |
 | `hash` | str | ledger | `sha256(prev_hash + canonical_json(event_without_hash))`, hex |
 
 `canonical_json = json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`
@@ -107,7 +108,7 @@ A distribution, not a point value: `sd` must be > 0. `eid` is optional in the sc
 ```
 
 ### RUN_STARTED (`run.json`)
-`eid` and `hid` are required (benchmark). `candidate` is optional: the configuration being tested.
+`eid` and `hid` are required (benchmark). `candidate` is optional: the name or configuration being tested (string or object).
 ```json
 {"eid": "E1", "hid": "H1", "code_hash": "9f2c1e7", "data_ver": "openml-task-7592/adult-v2", "seed": 0, "candidate": {"imputation": "median_mode", "missing_indicators": true}}
 ```

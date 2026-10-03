@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CONSENSUS",
+  "type": "object",
+  "properties": {
+    "eid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agreement": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "accepted": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "eid",
+    "agreement",
+    "accepted"
+  ]
+}

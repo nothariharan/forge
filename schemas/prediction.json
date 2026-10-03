@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PREDICTION_COMMITTED",
+  "type": "object",
+  "properties": {
+    "hid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "metric": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mean": {
+      "type": "number"
+    },
+    "sd": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "eid": {
+      "type": "string",
+      "minLength": 1,
+      "description": "experiment this prediction preregisters; bench/report.py only counts a run as preregistered if a PREDICTION_COMMITTED with its eid comes before RUN_STARTED"
+    }
+  },
+  "required": [
+    "hid",
+    "metric",
+    "mean",
+    "sd"
+  ],
+  "description": "A distribution (mean, sd), never a point value."
+}

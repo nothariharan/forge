@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SURPRISE",
+  "type": "object",
+  "properties": {
+    "eid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "observed": {
+      "type": "number"
+    },
+    "surprise_score": {
+      "type": "number"
+    },
+    "threshold": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "eid",
+    "hid",
+    "observed",
+    "surprise_score",
+    "threshold"
+  ]
+}

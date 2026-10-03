@@ -12,6 +12,7 @@
     "run_id": {"type": "string", "minLength": 1},
     "agent": {"type": "string", "minLength": 1},
     "type": {"type": "string", "enum": ["RUN_CREATED", "EVIDENCE_ADDED", "HYPOTHESIS_PROPOSED", "NOVELTY_VERDICT", "PREDICTION_COMMITTED", "EXPERIMENT_SELECTED", "RUN_STARTED", "RUN_FINISHED", "FINDING", "CONSENSUS", "SURPRISE", "REPLAN", "POLICY_DENIED", "GATE_OPENED", "GATE_RESOLVED", "RUN_COMPLETED", "ERROR"]},
+    "refs": {"type": "object", "description": "Optional cross-reference ids (hid, eid, parent, gate_id). The ledger always writes it, {} when empty."},
     "payload": {"type": "object"},
     "ai_generated": {"type": "boolean"},
     "prev_hash": {"type": "string", "pattern": "^(GENESIS|[a-f0-9]{64})$"},
