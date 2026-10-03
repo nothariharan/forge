@@ -8,7 +8,7 @@
 
 - `core/ledger.py`: append-only, hash-chained SQLite ledger with `append`, `read`, `runs`, `verify`, `subscribe`, `export_jsonl`, `import_jsonl`.
 - `core/schemas.py` + `schemas/*.json`: one payload schema per event type; the envelope is `schemas/event.schema.json`.
-- `core/fake_events.py`: writes a 31-event fixture run covering every event type except `ERROR`. All data in it is made up.
+- `core/fake_events.py`: writes a 31-event fixture run covering every event type except `ERROR`. It is shaped like Hari's provisional candidate (OpenML task 7592, adult, accuracy; see `SCIENCE_CONTRACT.md`), and every run reports an `accuracy` metric. All numbers and citations in it are made up; it will be updated if the task or metric changes.
 - `cli/verify.py`: checks a run's hash chain; non-zero exit on failure.
 - Full reference with one example per payload: `LEDGER.md`.
 
@@ -37,7 +37,11 @@ Confirmed and implemented as proposed:
 | `PREDICTION_COMMITTED` | `eid` | optional (see below) |
 | `REPLAN` | `trigger_eid` | optional (see below) |
 
-`bench/report.py` was run on the fixture: it times the run from `RUN_CREATED` to `RUN_COMPLETED` and reports 4 hypotheses, 2 attempts, 1 replan and 0 preregistration violations. It reports 0 valid experiments because there is no locked metric name yet.
+`bench/report.py` was run on the fixture: it times the run from `RUN_CREATED` to `RUN_COMPLETED` and reports 4 hypotheses, 2 attempts, 1 replan and 0 preregistration violations. With `metric_name: accuracy` in the episode manifest it also reports 2 valid experiments and 2 hypotheses tested.
+
+## Not blocking anyone
+
+The ledger and UI are built against the fake generator and do not depend on the science question. No lane needs to wait for this one; the reverse is also true.
 
 ## Decisions needed
 

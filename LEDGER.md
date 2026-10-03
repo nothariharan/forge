@@ -71,20 +71,20 @@ between those two events. Keys marked "benchmark" below are the ones `bench/repo
 ### RUN_CREATED (`run_created.json`)
 Only `question` is required.
 ```json
-{"question": "On OpenML task 31, does gradient boosting beat a random forest on 10-fold AUC?", "budget": 100.0, "mode": "fake"}
+{"question": "On OpenML task 7592 (adult), does adding missingness indicators to median/mode imputation change logistic-regression accuracy?", "budget": 100.0, "mode": "fake"}
 ```
 
 ### EVIDENCE_ADDED (`evidence.json`)
 `ref` is a DOI or arXiv id. `quote_span` is the verbatim quote that supports the claim
 (`tools/citation_check.py` calls the same thing `quote` in its own input file).
 ```json
-{"claims": [{"text": "SAM improves generalization on clean CIFAR-10.", "ref": "arXiv:0000.00001", "quote_span": "SAM reduces test error from 3.5% to 2.7%"}]}
+{"claims": [{"text": "Missingness indicators can help when missingness is informative.", "ref": "arXiv:0000.00001", "quote_span": "adding an indicator lets the model use informative missingness"}]}
 ```
 
 ### HYPOTHESIS_PROPOSED (`hypothesis.json`)
 The id field is `hid` (benchmark). `prior` is in 0..1.
 ```json
-{"hid": "H1", "claim": "Default XGBoost beats a default random forest on credit-g.", "prediction": "AUC gain of about 0.02.", "falsifier": "Gain below 0.005 with a CI that includes 0.", "prior": 0.6}
+{"hid": "H1", "claim": "Adding missingness indicators to median/mode imputation raises accuracy on adult.", "prediction": "Accuracy gain of about 0.004.", "falsifier": "Gain below 0.001 with a CI that includes 0.", "prior": 0.6}
 ```
 
 ### NOVELTY_VERDICT (`novelty.json`)
@@ -97,32 +97,32 @@ The id field is `hid` (benchmark). `prior` is in 0..1.
 A distribution, not a point value: `sd` must be > 0. `eid` is optional in the schema, but include it
 (benchmark): a run only counts as preregistered if a `PREDICTION_COMMITTED` with its `eid` comes before its `RUN_STARTED`.
 ```json
-{"hid": "H1", "eid": "E1", "metric": "auc_gain_xgb_vs_rf", "mean": 0.02, "sd": 0.005}
+{"hid": "H1", "eid": "E1", "metric": "accuracy_gain", "mean": 0.004, "sd": 0.001}
 ```
 
 ### EXPERIMENT_SELECTED (`spec.json`)
 `chosen` must be the `eid` of one of the candidates.
 ```json
-{"candidates": [{"eid": "E1", "hid": "H1", "design": "Default XGBoost vs default RF, 10-fold CV", "est_cost": 12.0, "eig": 0.41}, {"eid": "E2", "hid": "H2", "design": "Sweep over 50/100/200/500 trees", "est_cost": 30.0, "eig": 0.52}], "chosen": "E1", "budget_left": 88.0}
+{"candidates": [{"eid": "E1", "hid": "H1", "design": "Median/mode imputation with vs without missingness indicators, 10-fold CV", "est_cost": 12.0, "eig": 0.41}, {"eid": "E2", "hid": "H2", "design": "Same comparison, scored on rows with and without missing values", "est_cost": 30.0, "eig": 0.52}], "chosen": "E1", "budget_left": 88.0}
 ```
 
 ### RUN_STARTED (`run.json`)
 `eid` and `hid` are required (benchmark). `candidate` is optional: the configuration being tested.
 ```json
-{"eid": "E1", "hid": "H1", "code_hash": "9f2c1e7", "data_ver": "openml-task-31/credit-g-v1", "seed": 0, "candidate": {"model": "xgboost", "tuned": false}}
+{"eid": "E1", "hid": "H1", "code_hash": "9f2c1e7", "data_ver": "openml-task-7592/adult-v2", "seed": 0, "candidate": {"imputation": "median_mode", "missing_indicators": true}}
 ```
 
 ### RUN_FINISHED (`run.json`)
 Same as RUN_STARTED plus two required fields (benchmark): `status` (`"ok"` or a failure value) and
 `metrics` (object of numbers; `{}` is fine for a failed run).
 ```json
-{"eid": "E1", "hid": "H1", "code_hash": "9f2c1e7", "data_ver": "openml-task-31/credit-g-v1", "seed": 0, "status": "ok", "metrics": {"auc_xgb": 0.789, "auc_rf": 0.785, "auc_gain": 0.004}}
+{"eid": "E1", "hid": "H1", "code_hash": "9f2c1e7", "data_ver": "openml-task-7592/adult-v2", "seed": 0, "status": "ok", "metrics": {"accuracy": 0.8516, "accuracy_baseline": 0.8514, "accuracy_gain": 0.0002}}
 ```
 
 ### FINDING (`finding.json`)
 `ci` is `[low, high]`. `verdict` is `SUPPORTS`, `REFUTES` or `INCONCLUSIVE`.
 ```json
-{"eid": "E1", "effect": 0.004, "ci": [-0.006, 0.014], "verdict": "INCONCLUSIVE"}
+{"eid": "E1", "effect": 0.0002, "ci": [-0.0011, 0.0015], "verdict": "INCONCLUSIVE"}
 ```
 
 ### CONSENSUS (`consensus.json`)
@@ -133,7 +133,7 @@ Same as RUN_STARTED plus two required fields (benchmark): `status` (`"ok"` or a 
 
 ### SURPRISE (`surprise.json`)
 ```json
-{"eid": "E1", "hid": "H1", "observed": 0.004, "surprise_score": 3.2, "threshold": 2.0}
+{"eid": "E1", "hid": "H1", "observed": 0.0002, "surprise_score": 3.8, "threshold": 2.0}
 ```
 
 ### REPLAN (`replan.json`)
@@ -175,7 +175,8 @@ Only `message` is required.
 ## Fake run generator
 
 Writes 31 schema-valid events covering every type except `ERROR` (all data is made up), through the real
-`Ledger.append`. A copy of its output is checked in as `schemas/examples/sample-run.jsonl`, with real hashes,
+`Ledger.append`. It is shaped like the science lane's provisional candidate (OpenML task 7592, adult, accuracy);
+every number and citation in it is invented. A copy of its output is checked in as `schemas/examples/sample-run.jsonl`, with real hashes,
 so it can be replayed with `import_jsonl`.
 
 ```bash
