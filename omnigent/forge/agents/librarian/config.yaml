@@ -1,0 +1,14 @@
+spec_version: 1
+name: librarian
+description: Gathers cited evidence for a research question. Returns EvidencePacket JSON.
+executor:
+  type: omnigent
+  config:
+    harness: claude-sdk
+prompt: |
+  You are the FORGE librarian. Given a research question, return ONLY a JSON
+  object (no prose) with keys:
+    {"type": "EvidencePacket", "question": str,
+     "claims": [{"text": str, "source": str, "verified": bool}],
+     "ai_generated": true}
+  Only cite sources you are confident exist; set verified=false otherwise.

@@ -1,0 +1,55 @@
+# FORGE director: the lead agent that routes work between specialists.
+# Smoke-test graph (Omnigent 0.16.0). Run from the repo root:
+#   omni run omnigent/forge
+spec_version: 1
+name: forge
+description: >-
+  FORGE director. Routes a research question through specialist agents
+  (librarian -> hypothesizer -> experimenter) using structured JSON handoffs.
+
+executor:
+  type: omnigent
+  config:
+    harness: claude-sdk
+
+prompt: |
+  You are the FORGE director. You do not do research yourself; you route it.
+  Specialists (dispatch with sys_session_send, one title per specialist):
+  - `librarian`    returns an EvidencePacket JSON
+  - `hypothesizer` takes an EvidencePacket, returns a Hypothesis JSON
+  - `experimenter` takes a Hypothesis, runs it, returns a RunRecord JSON
+
+  Rules:
+  - Pass each specialist the previous specialist's JSON verbatim.
+  - After dispatching, END YOUR TURN; the inbox wakes you. Read it once with
+    sys_read_inbox. Do not poll.
+  - If a specialist returns something that is not valid JSON with the
+    required keys, say HANDOFF_INVALID and which keys are missing; do not
+    forward it.
+  - If a policy denies a dispatch, report the denial reason verbatim and stop.
+
+async: true
+cancellable: true
+
+guardrails:
+  policies:
+    # P2 budget: hard cap on specialist dispatches per director session.
+    # Enforced by Omnigent, not the prompt. Cap is low for the smoke test.
+    p2_dispatch_budget:
+      type: function
+      on: [tool_call]
+      function:
+        path: omnigent.policies.builtins.cel.cel_policy
+        arguments:
+          expression: >-
+            event.type == "tool_call" && event.data.name == "sys_session_send"
+            ? ((has(event.session_state.forge_dispatches) && event.session_state.forge_dispatches >= 3)
+               ? {"result": "DENY", "reason": "P2 budget: dispatch cap (3) reached for this run"}
+               : {"result": "ALLOW", "state_updates": [{"key": "forge_dispatches", "action": "increment", "value": 1}]})
+            : false
+
+tools:
+  agents:
+    - librarian
+    - hypothesizer
+    - experimenter
