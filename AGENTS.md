@@ -6,15 +6,15 @@ FORGE is a computational scientific discovery lab for Hack-Nation × Databricks,
 ## Source of truth and current status
 - `docs/` contains the supplied design/planning material and source PDFs. Treat them as references; claims and algorithms must be independently verified and cited before appearing as established facts in a submission.
 - `docs/PROJECT_PLAN.md` is the current implementation plan and decision log. Update it when a decision changes.
-- The initial science domain is provisional: AI/ML research on OpenML datasets. Science lead must select one exact question, dataset/task, metric, comparison, and stopping rule before implementation assumptions become fixed.
-- Omnigent is mandatory in the intended final workflow. Its exact config and policy interfaces are unknown until inspected and smoke-tested. Do not invent valid Omnigent syntax: record version/commit and validate examples against installed docs/source.
-- This repository is being bootstrapped. A role branch is a collaboration lane, not a permanent owner lock. Integrate through small PRs to `main`.
+- The official target is Track 03, **Agentic Scientific Discovery**, in [`docs/references/reference-02.pdf`](docs/references/reference-02.pdf). The separate `docs/references/hackathon-brief.pdf` is an ElevenLabs AI Apprentice brief and is not the FORGE rubric. OpenML Adult task 7592 is currently a feasibility candidate, not a locked scientific question or benchmark protocol.
+- Omnigent is the underlying agent runtime, harness-composition and policy-enforcement layer. FORGE is the scientific workflow and user-facing lab. The current graph has partial smoke-test evidence: multi-harness handoff and P2 denial passed; P6 UI approval and enforced handoff validation remain unverified. Record version/config and distinguish verified behavior from planned behavior.
+- The repository is past initial bootstrap; a role branch is a collaboration lane, not a permanent owner lock. Integrate through small PRs to `main`.
 
 ## Collaboration lanes
-- `work/orchestration`: orchestration lead owns `omnigent/`, `agents/`, and `policies/`; proves multi-agent structured handoff and a real policy denial; wires agents to ledger events.
+- `work/orchestration`: orchestration lead owns `omnigent/`, `agents/`, and `policies/`; completes enforced handoff validation, wires agents to ledger events, and verifies P6 in the UI before experiment execution is treated as approved.
 - `work/science`: science + planner owns question selection, `tools/openml_run.py`, experiment runner, `core/beliefs.py`, prediction/surprise/planner scoring, and Analyst contracts. Lock the question and metric early and announce the contract before downstream work.
 - `work/benchmark`: benchmark + rigor owns `bench/`, baseline single-agent arm, metric definitions, seeds/error bars, `tools/citation_check.py`, top-finding novelty check, README claims/limits, submission and next-experiment write-up. Start with metric definitions and baseline harness; synchronize with science on the locked question.
-- `work/core-ui`: core + UI + CLI owns `core/ledger.py`, `schemas/`, `server.py` (SSE), `cli/`, and `ui/`. Build against the agreed event contract/fake event generator immediately; do not block UI work on live agents. Replace fake producer once orchestration emits compatible events.
+- `work/core-ui`: the lane covers `core/ledger.py`, `schemas/`, `server.py` (SSE), `cli/`, and `ui/`, but contributors may split core/CLI and frontend UI work by agreement. Build consumers against the fake event generator. Keep the UI focused on the research use case and use the room metaphor with simple animated SVG mascots; pixel-art assets are not required. Make Omnigent visible as the underlying runtime/policy layer, not as a substitute for demonstrating the scientific workflow.
 - Any contributor may fix bugs outside their lane after coordinating with the lane owner. Role lanes do not grant exclusive write rights.
 
 ## Contracts that must stay stable

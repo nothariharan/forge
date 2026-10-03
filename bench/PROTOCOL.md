@@ -2,6 +2,8 @@
 
 **Status:** draft v0.1, not locked. Fields marked **TBD (science)** depend on the science contract (`docs/coordination/SCIENCE_CONTRACT.md`) and are filled in once Hari locks the question. The protocol is committed and frozen **before** any comparative run; later changes get a dated entry in the change log at the bottom.
 
+**Challenge target:** Track 03 “Agentic Scientific Discovery” (`docs/references/reference-02.pdf`). The benchmark contributes to the 20% discovery acceleration/learning and 15% rigor criteria. It must name a real bottleneck, define a defensible denominator, compare against a baseline, report actual improvement and cost, and connect results to a next experiment. The 10× target is a moonshot, not a required or assumed result. The science candidate and protocol fields below remain unapproved until Hari and Akshat lock them together.
+
 **Owner:** Akshat (`work/benchmark`). **Depends on:** science contract (Hari), event schema (Ish), Omnigent runner (Saksham).
 
 ## 1. Claim under test
@@ -150,12 +152,13 @@ Stored under `results/bench/<bench_id>/<arm>/seed-<n>/`:
 
 ## 13. Open questions for Hari (science)
 
-1. Exact question, OpenML task ID, dataset version, split protocol.
-2. Metric name, direction, practical threshold.
-3. Candidate space for the oracle sweep, and whether a sweep is affordable.
-4. Primary metric: decision correctness or experiments to the top candidate.
-5. Budget values: wall clock, USD/tokens, max attempts.
-6. Whether seeds 1 to 5 can drive the split and training RNG through `tools/openml_run.py`.
+1. Is the Adult missingness question valuable enough for the 25% breakthrough-potential criterion, after a scoped prior-art check? If not, propose a more meaningful question that is still testable in the hackathon window.
+2. Once Hari locks the question: task ID, dataset version, split protocol, primary metric/direction/threshold, candidate space and oracle affordability.
+3. Primary benchmark outcome: decision correctness or experiments/time to reach the oracle top set; define the bottleneck and denominator explicitly.
+4. Matched wall-clock/token/USD/compute budgets and maximum attempts.
+5. Repetitions, paired seeds, uncertainty method, and whether `tools/openml_run.py` implements them as specified.
+6. Review `bench/baseline_prompt.md` independently of the benchmark lane before protocol freeze.
+7. Migrate `bench/arm_a.py` to `Ledger.append` while preserving payload schemas and verify/import behavior.
 
 ## Change log
 

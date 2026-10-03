@@ -2,13 +2,13 @@
 
 - **Owner:** Ish
 - **Branch:** `work/core-ui`
-- **Status:** ledger, payload schemas, fake event generator and `verify` CLI are in this branch with tests. Server (SSE), full CLI and UI are not started.
+- **Status:** ledger, payload schemas, fake event generator and `verify` CLI are merged to `main`. Server (SSE), full CLI and product UI are not started. Current split: Ish is taking the remaining core/CLI work; assign the UI implementation separately.
 
 ## Done
 
 - `core/ledger.py`: append-only, hash-chained SQLite ledger with `append`, `read`, `runs`, `verify`, `subscribe`, `export_jsonl`, `import_jsonl`.
 - `core/schemas.py` + `schemas/*.json`: one payload schema per event type; the envelope is `schemas/event.schema.json`.
-- `core/fake_events.py`: writes a 31-event fixture run covering every event type except `ERROR`. It is shaped like Hari's provisional candidate (OpenML task 7592, adult, accuracy; see `SCIENCE_CONTRACT.md`). All numbers and citations in it are made up; it will be updated when the task and metric are locked (Akshat has proposed ROC AUC).
+- `core/fake_events.py`: writes a 31-event fixture run covering every event type except `ERROR`. It is shaped like Hari's provisional candidate (OpenML task 7592, Adult; see `SCIENCE_CONTRACT.md`). All numbers and citations are made up; mark them as demo data and update metric labels if the science/benchmark leads lock a different protocol.
 - `schemas/examples/sample-run.jsonl`: the bootstrap two-line placeholder is replaced by that fixture, with real hashes, so it replays through `import_jsonl`.
 - `cli/verify.py`: checks a run's hash chain; non-zero exit on failure.
 - Full reference with one example per payload: `LEDGER.md`.
@@ -45,21 +45,19 @@ Implemented as Akshat proposed in `BENCHMARK.md`:
 
 Resolved between Akshat's updated PR #2 and this ledger PR: `bench/arm_a.py` now emits the fields required by the payload schemas for hypotheses, predictions, runs, replans, and completion. It stores unchanged decisions in `decisions.jsonl` rather than emitting a `FINDING`. Akshat reports that a local merge of the current science, ledger, and benchmark branches passes 55 tests with payload validation enabled, and that an Arm A episode imports and verifies through the ledger.
 
-The remaining follow-up is to replace Arm A's duplicate JSONL writer with `Ledger.append` after this ledger is merged. That migration should preserve the shared event shapes and hash format.
+Akshat owns the Arm A migration in the benchmark lane. It should preserve the shared event shapes and hash format.
 
 ## Not blocking anyone
 
-The ledger and UI are built against the fake generator and do not depend on the science question.
+The ledger, future UI and CLI can use the fake generator and do not depend on the science question.
 
 ## Decisions needed
 
-- **All:** accept `refs` in the shared schema, or not.
 - **Hari (science):** are predictions committed per hypothesis or per experiment? If per experiment, `eid` on `PREDICTION_COMMITTED` becomes required.
-- **Akshat:** citation checker accepts `quote_span` and `text` in the evidence claim shape.
 - **Saksham (orchestration):** agent names are free-form strings in the envelope; send the names the Omnigent agents will log under.
 
 ## Next actions
 
-1. `server.py` with an SSE endpoint on top of `Ledger.subscribe`.
-2. UI and `forge tail` against the fake run.
-3. Retarget the fixture once the task and metric are locked.
+1. Ish: `server.py` with an SSE endpoint on top of `Ledger.subscribe`, then CLI `tail`, `status`, and `replay` against the fake run.
+2. Assigned UI contributor: implement the research-lab view against fixture/replay events, following `ui/README.md`.
+3. Retarget metric labels in the fixture once the task and metric are locked.

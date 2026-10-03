@@ -1,19 +1,21 @@
 # FORGE
 
-**FORGE** is a planned computational scientific discovery lab for Hack-Nation × Databricks Track 03. Its central goal is to measure whether a structured, tool-using, multi-agent harness improves the quality or throughput of a reproducible research loop over a single-agent baseline.
+**FORGE** is a computational scientific discovery lab being built for Hack-Nation × Databricks Track 03. It makes a bounded research workflow visible: agents find evidence, propose a falsifiable hypothesis, run a reproducible computational experiment, inspect the result, and choose what to do next. Its central evaluation question is whether an Omnigent-orchestrated, tool-using multi-agent harness improves the quality or throughput of that loop over a matched single-agent baseline.
 
 The intended loop is **question → evidence → hypothesis → preregistered experiment → result → updated decision**. Agent-generated hypotheses are labeled as such. Findings are provisional and require appropriate expert validation.
 
 ## Project status
 
-This repository is at setup stage. The domain (AI/ML research with OpenML), architecture details, Omnigent integration, and evaluation protocol are proposals pending smoke tests and an explicit science question. No performance results are claimed yet.
+The core event ledger, payload schemas, fake event stream, and Omnigent smoke-test graph are in `main`. Omnigent handoff and an engine-enforced dispatch cap passed the documented smoke test; human approval in the UI and schema validation at handoff remain unverified. OpenML Adult task 7592 has a corrected one-fold feasibility comparison, but the research question and benchmark protocol are not locked, the full ten-fold runner is not validated, and no comparative benchmark evidence exists. Treat all measured outputs as feasibility-only unless explicitly labeled otherwise.
 
 ## Start here
 
 - [Contributor and agent guide](AGENTS.md)
 - [Implementation plan and decision gates](docs/PROJECT_PLAN.md)
+- [Official Track 03 challenge brief](docs/references/reference-02.pdf)
 - [Coordination board](docs/coordination/WORKSTREAMS.md)
 - [Original technical design](docs/source/forge-technical-design.md)
+- [UI direction and demo requirements](ui/README.md)
 - [Source documents and provenance](docs/SOURCE_INDEX.md)
 
 ## Work lanes
@@ -36,4 +38,4 @@ forge bench "<locked research question>"
 forge verify <run_id>
 ```
 
-See the implementation plan for phase gates. The project is not yet runnable.
+See the implementation plan for phase gates. Individual components and the ledger fixture can be run, but the complete FORGE workflow and product UI are not yet runnable end to end.

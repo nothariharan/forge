@@ -2,6 +2,10 @@
 
 Status: **provisional candidate; corrected one-fold feasibility run recorded; benchmark protocol and full runner validation pending.** Science lead: Hari (proposed).
 
+## Challenge alignment
+
+The governing brief is `docs/references/reference-02.pdf`, Track 03 “Agentic Scientific Discovery.” It requires one specific question, a reproducible computational experiment, and a result that informs the next decision. The planner should compare at least two possible tests and justify its choice by expected learning, feasibility and cost. The Adult task below remains a candidate only; its scientific value and prior art need review before locking it.
+
 ## Feasibility candidate (2026-10-04)
 
 - Candidate question: How should missing categorical values be handled on OpenML Adult, and does the best strategy depend on the model?

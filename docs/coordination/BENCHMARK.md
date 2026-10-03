@@ -2,7 +2,7 @@
 
 - **Owner:** Akshat
 - **Branch:** `work/benchmark`
-- **Status:** protocol draft v0.1, citation checker, and report generator ready. Nothing has been benchmarked yet and no results exist.
+- **Status:** protocol draft v0.1, citation checker, and report generator ready. The one-fold Adult run in `SCIENCE_CONTRACT.md` is feasibility-only, not benchmark evidence. No matched A-vs-B benchmark has been run.
 
 ## Done
 
@@ -15,7 +15,7 @@
 
 ### Event payload keys (for Ish, core/UI; and Saksham, orchestration)
 
-`bench/report.py` reads these keys from `payload` in `schemas/event.schema.json` events. This is a **proposal**; nothing in the shared schema has been changed. Please confirm or tell me the names you prefer:
+`bench/report.py` reads these keys from `payload` in `schemas/event.schema.json` events. These keys are implemented in the merged shared schemas; coordinate before changing them:
 
 | Event | Payload keys used |
 |---|---|
@@ -46,15 +46,15 @@ Also used: `RUN_CREATED` and `RUN_COMPLETED` timestamps mark the timed window.
 | `RUN_COMPLETED` | arm A adds `status: "completed"`. |
 | `quote_span` vs `quote` | `tools/citation_check.py` accepts both, and `text` as the claim, so evidence claims can be passed in unchanged. |
 
-`tests/test_arm_a.py::test_payloads_pass_shared_payload_schemas` validates every arm A event with `core.schemas`; it is skipped until PR #4 is merged and runs automatically after.
+`tests/test_arm_a.py::test_payloads_pass_shared_payload_schemas` validates every Arm A event with `core.schemas`; it is active after PR #4 merged.
 
 ### Science contract (for Hari)
 
-The open questions are listed in `bench/PROTOCOL.md` section 13: task ID, metric and threshold, candidate space for the oracle sweep, primary metric choice, budget values, and seed handling in `tools/openml_run.py`.
+The open questions are listed in `bench/PROTOCOL.md` section 13. First review whether the Adult missingness question has enough scientific value; then lock task, metric and threshold, candidate space for the oracle sweep, primary outcome, budget values, and seed handling in `tools/openml_run.py` with Hari.
 
-### Baseline arm (for Saksham)
+### Baseline arm (for Akshat)
 
-Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/arm_a.py` already writes arm A's events in the shared schema format (hash chained per the design doc; it should switch to `core/ledger.py` once that is merged). The remaining piece is the launcher, which depends on how the smoke test starts agents.
+Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/arm_a.py` already writes events in the shared schema format. It still needs to switch to `core/ledger.py` and have a launcher compatible with the Omnigent run setup.
 
 ## Blockers
 
@@ -62,7 +62,7 @@ Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/ar
 
 ## Next actions
 
-1. Lock the protocol TBDs with Hari once the science contract is filled in, then write the sweep spec and run the oracle.
-2. ~~Baseline prompt and arm A episode tools~~ drafted: `bench/baseline_prompt.md`, `bench/arm_a.py`. Still to do: the launcher that starts the single agent with the filled prompt and budget, after the Omnigent smoke test shows how agents are launched. The prompt needs a review from someone outside the benchmark lane.
-3. ~~Oracle sweep script~~ done: `bench/oracle.py`.
-4. Novelty check on the top finding, then README limits and the submission write-up.
+1. Review the candidate's prior art and scientific value against the official Track 03 brief; recommend whether to retain it or replace it.
+2. With Hari, lock the question and protocol TBDs, including the bottleneck/denominator, candidate tests, budgets, primary metric, seeds and stopping rule.
+3. Migrate Arm A to `Ledger.append`; finish the single-agent launcher and get an independent review of `bench/baseline_prompt.md` before freezing the protocol.
+4. Validate the full OpenML runner before writing/running an oracle sweep. Then complete the matched comparison, uncertainty/cost analysis, citation/novelty checks, and next-experiment write-up.

@@ -4,12 +4,13 @@ This file is the repo-visible handoff board. Update status and interfaces in a P
 
 | Lane | Branch | Lead (confirm with team) | First deliverable | Current status |
 |---|---|---|---|---|
-| Orchestration | `work/orchestration` | To confirm | Omnigent version/config check, 2-agent handoff and policy denial | Ready to start |
-| Science + planner | `work/science` | Hari (proposed by requester) | Lock question/task/metric and run one deterministic experiment | Ready to start |
-| Benchmark + rigor | `work/benchmark` | Akshat (proposed by requester) | Protocol, metrics and baseline runner | Ready to start; depends on science contract |
-| Core + UI + CLI | `work/core-ui` | Ish (proposed by requester) | Event schema/fixture and fake generator/replay skeleton | Intentionally begins against agreed fake-event contract |
+| Orchestration | `work/orchestration` | Saksham (based on PR #5) | Omnigent graph, engine policy proof, event wiring | Partial smoke test merged; P6 UI verification, enforced handoff validation, and ledger wiring remain |
+| Science + planner | `work/science` | Hari | Lock question/task/metric and validate the full runner | One-fold feasibility only; protocol and runner validation remain |
+| Benchmark + rigor | `work/benchmark` | Akshat | Assess candidate value, then freeze protocol with Hari; complete baseline and measured comparison plan | Protocol v0.1 and tooling exist; science-dependent fields, candidate-value review, independent prompt review, and Arm A `Ledger.append` migration remain |
+| Core + CLI | `work/core-ui` | Ish | SSE server and `forge tail` / status / replay against the fake stream | Ledger/schemas/fake stream/verify CLI merged; SSE and broader CLI remain |
+| Product UI | `work/core-ui` | To assign | Research-lab room view with SVG agent mascots, driven by fake/replay events | Direction and demo path documented in `ui/README.md`; implementation not started |
 
-Names are inferred from the supplied chat excerpt and should be confirmed by the team. Work can move between people as needed. Branch ownership never prevents collaboration.
+Owners reflect the current team allocation and can change as work shifts. Confirm new assignments in team chat and record them here. Branch ownership never prevents collaboration.
 
 ## Shared interfaces
 
@@ -17,6 +18,7 @@ Names are inferred from the supplied chat excerpt and should be confirmed by the
 - Example event stream: `schemas/examples/sample-run.jsonl`.
 - Science experiment contract: `schemas/experiment.schema.json` and `docs/coordination/SCIENCE_CONTRACT.md`.
 - Omnigent findings: `docs/coordination/OMNIGENT_SMOKE_TEST.md`.
+- UI and demo requirements: `ui/README.md`.
 
 ## Daily handoff template
 

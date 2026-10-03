@@ -1,10 +1,32 @@
 # FORGE implementation plan
 
-**Status:** bootstrap plan; no scientific question, Omnigent smoke test, or benchmark result is locked yet.
+**Status (2026-10-04):** implementation is underway. Ledger/schemas/fake-event generator and an Omnigent graph are merged. Omnigent handoff and P2 dispatch denial passed a smoke test; P6 UI approval and enforced handoff validation are still open. OpenML Adult task 7592 has a one-fold feasibility result only. The exact research question and benchmark protocol are not locked, and no A-vs-B benchmark result exists.
 
 ## Objective and evaluation thesis
 
 Build a computational research lab where specialist agents use tools and structured handoffs to generate cited evidence, propose labeled hypotheses, preregister falsifiable predictions, select bounded experiments, analyze results, and change the next action. The project must show (1) actual Omnigent orchestration, (2) a genuine feedback/replanning loop, and (3) a fair measured comparison against a single-agent baseline. We will report measured outcomes, even if the multi-agent system is slower or less accurate.
+
+The authoritative challenge is Track 03, **Agentic Scientific Discovery**, in [`docs/references/reference-02.pdf`](references/reference-02.pdf), especially pages 2–4 (24-hour challenge). Its rubric is 30% Omnigent orchestration, 25% breakthrough potential, 20% discovery acceleration and learning, 15% scientific rigor, and 10% creativity/responsibility. The 10× figure is the moonshot; the brief asks teams to report the improvement they actually observe and values evidence over the largest multiplier.
+
+The demo should make the use case legible first: a person can follow one research question from cited evidence through a falsifiable prediction, bounded experiment, result and revised next step. Show Omnigent as the real infrastructure that routes the specialist agents and enforces policies; do not let architecture branding or mascot animation replace evidence of the research loop. The demo should use replayable ledger events when live model/tool access is unavailable and label replay/demo data clearly.
+
+## Current implementation snapshot
+
+- **Core:** append-only ledger, payload schemas, 31-event fake run, and verify CLI are merged. Remaining core work includes SSE over `Ledger.subscribe`, the full `forge` CLI, and wiring the UI to replay/live ledger events.
+- **Orchestration:** Omnigent 0.16.0 graph is merged. Mixed-harness handoff and P2 dispatch cap were exercised. P6 approval was not confirmed in the web UI; handoff validation is still prompt-level; agent events are not yet ledgered.
+- **Science:** Adult task 7592 feasibility is one official fold and one seed. Akshat proposed a nine-candidate space and ROC AUC as primary metric, but these are not frozen. The full ten-fold runner has not completed a validation run.
+- **Benchmark:** protocol v0.1 and baseline/oracle tooling exist, but protocol-dependent fields remain TBD. Arm A still needs to move from its duplicate JSONL writer to `Ledger.append`; no comparative evidence exists yet.
+- **UI:** no product UI is implemented. Build from the fake event stream; the visual direction is documented in `ui/README.md`.
+
+## Challenge-specific proof points
+
+The two-minute demo and submitted artifacts must make these visible:
+
+1. **Omnigent (30%):** Omnigent orchestrates multiple specialist agents, their tool use and structured handoffs; policies enforce human approval and other safety boundaries.
+2. **Scientific value (25%):** one specific, worthwhile question with a credible path to meaningful evidence. The OpenML Adult missingness question remains provisional and needs a prior-art/value review before it is selected.
+3. **Acceleration and learning (20%):** name the bottleneck, define the denominator and baseline, report measured time/throughput/cost honestly, and show a result that changes the next scientific decision. The plan must contain at least two candidate tests and explain why the selected test offers a good balance of expected learning, feasibility and cost.
+4. **Rigor (15%):** cited evidence, reproducible experiment and raw results, controls, uncertainty, limitations and a next-experiment proposal.
+5. **Responsibility (10%):** label AI-generated hypotheses, preserve uncertainty, and show a human approval gate for consequential actions.
 
 ## Non-negotiable evidence standards
 
@@ -17,11 +39,11 @@ Build a computational research lab where specialist agents use tools and structu
 
 ## Decisions to lock in the first working session
 
-1. Exact ML question framed as a falsifiable comparison, selected by the science lead after a small feasibility run.
+1. Exact ML question framed as a falsifiable comparison, selected by the science lead after feasibility and reviewed by benchmark lead.
 2. One OpenML task/dataset with stable task ID, version/snapshot, license, split protocol, and a metric where direction and practical effect threshold are clear.
 3. Experiment budget and safe execution limits; baseline agent/model and allowed tools.
 4. Outcome/quality rubric, number of seeds and repetitions, primary metric, secondary metrics, and analysis method.
-5. Omnigent version/commit, Claude Code invocation mode, actual agent/policy config format, handoff representation, and a minimal successful two-agent run plus one policy denial.
+5. Omnigent version/commit, Claude Code invocation mode, actual agent/policy config format, enforced handoff validation, a minimal successful multi-agent run, policy denial, and verified human approval in the UI.
 
 Do not build planner assumptions around an unverified Omnigent feature. If the smoke test fails, record the failure and choose a transparent fallback runner while retaining Omnigent evaluation as an unresolved rubric risk.
 
@@ -118,6 +140,7 @@ Serialize events canonically and hash previous hash plus canonical event fields.
 ### Phase 3 — minimum closed loop
 
 - Connect Omnigent specialists with tool calls, policy enforcement, evidence/hypothesis/experiment contracts, bounded runner, analysis, and replanning.
+- Present at least two candidate tests to the planner; record the learning/feasibility/cost rationale for the selected test.
 - **Exit:** one real result demonstrably changes (or explicitly leaves unchanged with recorded rationale for) a subsequent experiment choice; the full path is traceable in ledger.
 
 ### Phase 4 — comparison and rigor
@@ -127,18 +150,17 @@ Serialize events canonically and hash previous hash plus canonical event fields.
 
 ### Phase 5 — presentation and handoff
 
-- Build UI around real and replayed events, record two-minute demo, finalize README, submission narrative, setup and reproduction commands, and next-experiment document.
-- **Exit:** demo can be replayed offline; no result claims lack raw evidence; clean-checkout reproduction path is documented.
+- Build UI around real and replayed events, record the required two-minute demo, finalize README, submission narrative, setup and reproduction commands, and next-experiment document.
+- **Exit:** demo can be replayed offline; it shows the question, Omnigent handoffs, experiment, result, resulting next decision and measured bottleneck improvement; no result claims lack raw evidence; clean-checkout reproduction path is documented.
 
 ## Time-boxed 24-hour execution suggestion
 
-- Before clock: Phase 0 smoke tests and dependency installation.
-- Hours 0–2: science locks task/metric/protocol; benchmark specifies paired baseline; core publishes event fixture; orchestration validates minimum graph.
-- Hours 2–6: parallel baseline runner, Omnigent handoff/policy, ledger and UI fake-event consumer.
-- Hours 6–12: close one real computational loop and save artifacts.
-- Hours 12–18: matched runs, citation/novelty checks, budget/quality analysis; stop feature work if reliability is threatened.
-- Hours 18–21: replay UI, offline demo, fix only blocking issues.
-- Hours 21–24: reproduce cleanly, write limitations/next experiment, capture demo and submission evidence.
+- **Before kickoff:** verify Omnigent setup, team model access, data/tool access and that at least one bounded experiment runs manually.
+- **First 4 hours:** choose the scientific domain and question, measurable outcome, data/tools and discovery bottleneck. Confirm feasibility, define at least two candidate tests, and lock the baseline and denominator for the improvement claim.
+- **Next 14 hours:** build the specialist workflow and policies in Omnigent, connect the ledger and experiment runner, and complete a closed loop in which a result changes the next decision. Save run artifacts and implement the matched baseline in parallel.
+- **Final 6 hours:** strengthen and reproduce the experiment, calculate the measured improvement and costs, complete scoped citation/novelty checks, document uncertainty and the next experiment, and prepare the two-minute demo and offline replay.
+
+Stop adding features if the working scientific loop or reproducibility is at risk. The required demo should show evidence and a next decision before optional rooms, extra agents or animation polish.
 
 Cut order: polish/extra rooms → multi-analyst ensemble → tournament ranking → advanced EIG. Preserve the actual Omnigent proof, baseline, a real result-driven replan, human gate, ledger/replay, and honest measurement.
 
@@ -152,9 +174,10 @@ Cut order: polish/extra rooms → multi-analyst ensemble → tournament ranking 
 
 ## Open issues
 
-- Verify the hackathon brief, event schedule, and rubric from the archived official brief PDF.
-- Confirm exact Omnigent release/config/policy APIs against upstream source and smoke test.
+- The official challenge is verified as `docs/references/reference-02.pdf`; use it as the rubric source. The separately archived ElevenLabs brief is not relevant to FORGE.
+- Pin the exact Omnigent release/config dependencies and complete P6 UI approval plus enforced handoff validation.
 - Confirm Claude Code account/runtime availability and team access; do not commit secrets.
-- Science lead to lock exact OpenML task and benchmark question.
-- Map original PDF filenames to meaningful titles by inspecting their title pages; until then their archive names are neutral IDs.
+- Science lead and benchmark lead to assess whether the Adult missingness candidate has enough scientific value, then lock one question, task, metric, candidate space, budgets, seeds and stopping rule together.
+- Validate a complete ten-fold OpenML runner invocation and save the raw artifact before an oracle sweep.
+- Complete Arm A's `Ledger.append` integration, SSE, CLI and UI replay before connecting live agents.
 - Verify every named paper/tool/algorithm source from primary references before submission citation.
