@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import argparse
 import time
 import urllib.request
 from pathlib import Path
@@ -17,11 +18,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
+from sklearn.impute import MissingIndicator, SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from threadpoolctl import threadpool_limits
 
 
 BASE = "https://www.openml.org"
@@ -65,6 +67,9 @@ def parse_arff(raw: bytes) -> tuple[list[str], list[dict[str, str]]]:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", default="schemas/examples/openml-7592-feasibility.json")
+    args = parser.parse_args()
     task = json.loads(fetch(TASK_URL, "task-7592.json"))[
         "task"
     ]
@@ -100,7 +105,7 @@ def main() -> None:
     categorical = [c for c in categorical if c in feature_names]
     numeric = [c for c in feature_names if c not in categorical]
     X = pd.DataFrame([{k: (np.nan if row[k] == "?" else row[k]) for k in feature_names} for row in rows])
-    y = np.asarray([row[target] for row in rows], dtype=object)
+    y = np.asarray([1 if row[target].strip() == ">50K" else 0 for row in rows], dtype=np.int8)
     missing_cells = sum(v == "?" for row in rows for v in row.values())
     missing_features = sum(any(row[c] == "?" for row in rows) for c in feature_names)
     missing_rows = sum(any(row[c] == "?" for c in feature_names) for row in rows)
@@ -110,10 +115,15 @@ def main() -> None:
                          ("scale", StandardScaler())]
         categorical_steps = [("impute", SimpleImputer(strategy="most_frequent")),
                              ("encode", OneHotEncoder(handle_unknown="ignore"))]
-        transform = ColumnTransformer([
+        transformers = [
             ("numeric", Pipeline(numeric_steps), numeric),
             ("categorical", Pipeline(categorical_steps), categorical),
-        ])
+        ]
+        if indicators:
+            # Only the three Adult categorical columns with missing values.
+            missing_cols = [c for c in ("workclass", "occupation", "native-country") if c in categorical]
+            transformers.append(("categorical_missing", MissingIndicator(features="all"), missing_cols))
+        transform = ColumnTransformer(transformers)
         return Pipeline([("preprocess", transform),
                          ("model", LogisticRegression(max_iter=1000, random_state=0))])
 
@@ -121,13 +131,20 @@ def main() -> None:
     for label, indicators in [("median_mode", False), ("median_mode_plus_missing_indicators", True)]:
         started = time.perf_counter()
         model = make_pipeline(indicators)
-        model.fit(X.iloc[train_ids], y[train_ids])
-        prediction = model.predict(X.iloc[test_ids])
+        with threadpool_limits(limits=1):
+            model.fit(X.iloc[train_ids], y[train_ids])
+            probability = model.predict_proba(X.iloc[test_ids])[:, list(model.classes_).index(1)]
+        prediction = (probability >= 0.5).astype(np.int8)
         runtime = time.perf_counter() - started
-        results.append({"comparison": label, "accuracy": float(accuracy_score(y[test_ids], prediction)),
-                        "runtime_seconds": round(runtime, 4)})
+        results.append({
+            "comparison": label,
+            "roc_auc": float(roc_auc_score(y[test_ids], probability)),
+            "log_loss": float(log_loss(y[test_ids], probability, labels=[0, 1])),
+            "accuracy": float(accuracy_score(y[test_ids], prediction)),
+            "runtime_seconds": round(runtime, 4),
+        })
 
-    print(json.dumps({
+    result = {
         "status": "FEASIBILITY_ONLY_NOT_BENCHMARK_EVIDENCE",
         "task_id": TASK_ID,
         "task_name": task["task_name"],
@@ -137,17 +154,21 @@ def main() -> None:
         "dataset_license": data_meta.get("licence"),
         "split_protocol": "OpenML task native stratified 10-fold CV, repeat 0, fold 0 only",
         "split_sizes": {"train": len(train_ids), "test": len(test_ids)},
-        "metric": {"name": "accuracy", "direction": "maximize", "source": "explicitly selected for feasibility; OpenML task API lists no evaluation_measure"},
+        "metric": {"primary_candidate": "roc_auc", "direction": "maximize", "source": "selected provisionally after review; OpenML task API lists no evaluation_measure", "secondary": ["log_loss", "accuracy"]},
         "model": "LogisticRegression(max_iter=1000, random_state=0)",
         "missing_cells_in_dataset": missing_cells,
         "rows_with_missing_feature_values": missing_rows,
         "features_with_missing_values": {c: sum(row[c] == "?" for row in rows) for c in feature_names if any(row[c] == "?" for row in rows)},
         "data_sha256": hashlib.sha256((CACHE / "adult.arff").read_bytes()).hexdigest(),
-        "features_with_missing_values": missing_features,
+        "features_with_missing_feature_count": missing_features,
         "results": results,
         "setup_issues": ["OpenML Python client was not installed; fetched task metadata, data, and official split directly from OpenML APIs."],
-        "caveats": ["Single fold and single seed; not inferential evidence.", "Accuracy is only a feasibility metric and may not reflect credit-risk costs."],
-    }, indent=2))
+        "caveats": ["Single fold and single seed; not inferential evidence.", "Provisional metric selection; subgroup fairness metrics and the full candidate comparison are not included in this one-fold feasibility check."],
+    }
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
