@@ -28,13 +28,33 @@
 
 Also used: `RUN_CREATED` and `RUN_COMPLETED` timestamps mark the timed window.
 
+### Experiment runner (for Hari)
+
+`bench/oracle.py` calls the runner as `run(task_id, params: dict, seed: int) -> {"metrics": {name: value}, ...}`, configured as `"runner": "tools.openml_run:run"` in the sweep spec. If `tools/openml_run.py` ends up with a different signature, tell me and I'll adapt `oracle.py`, or we add a thin wrapper.
+
+### Shared ledger payload schemas (with Ish, PR #4)
+
+`bench/arm_a.py` payloads now satisfy the per-event schemas in `schemas/*.json` from PR #4, and an arm A episode imports into `core/ledger.py` with `validate_payloads=True` and verifies (checked on a local merge of `work/core-ui`, `work/science` and `work/benchmark`: 55 tests passed). Resolutions of the table in `CORE_UI.md`:
+
+| Event | Resolution |
+|---|---|
+| `PREDICTION_COMMITTED` | arm A adopts the schema: `hid`, `metric`, `mean`, `sd` (> 0), plus `eid` and `falsifier`. No need to loosen the schema. |
+| `HYPOTHESIS_PROPOSED` | arm A adds `prediction`, `falsifier`, `prior`, the same fields FORGE's Hypothesizer must give. |
+| `RUN_STARTED` / `RUN_FINISHED` | arm A adds `hid`, `code_hash` (sha256 of the runner source), `data_ver` (set at `init`, e.g. `openml:1590@2`) and `seed`. Event `metrics` keep numeric values only; lists such as per-fold scores stay in `run_records.jsonl`. |
+| `REPLAN` | arm A adds `reason` and `reopened`, keeps `trigger_eid`. |
+| `FINDING` | arm A no longer emits it for an unchanged plan; those decisions go to `decisions.jsonl`. |
+| `RUN_COMPLETED` | arm A adds `status: "completed"`. |
+| `quote_span` vs `quote` | `tools/citation_check.py` accepts both, and `text` as the claim, so evidence claims can be passed in unchanged. |
+
+`tests/test_arm_a.py::test_payloads_pass_shared_payload_schemas` validates every arm A event with `core.schemas`; it is skipped until PR #4 is merged and runs automatically after.
+
 ### Science contract (for Hari)
 
 The open questions are listed in `bench/PROTOCOL.md` section 13: task ID, metric and threshold, candidate space for the oracle sweep, primary metric choice, budget values, and seed handling in `tools/openml_run.py`.
 
 ### Baseline arm (for Saksham)
 
-Arm A must run with the same model, tools and sandbox limits as FORGE, and emit the same event types it can produce, so one report script scores both arms. I'll build the arm A runner once the Omnigent smoke test shows how agents are launched.
+Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/arm_a.py` already writes arm A's events in the shared schema format (hash chained per the design doc; it should switch to `core/ledger.py` once that is merged). The remaining piece is the launcher, which depends on how the smoke test starts agents.
 
 ## Blockers
 
@@ -42,7 +62,7 @@ Arm A must run with the same model, tools and sandbox limits as FORGE, and emit 
 
 ## Next actions
 
-1. Lock the protocol TBDs with Hari once the science contract is filled in.
-2. Arm A runner (`bench/arms.py`) and the baseline prompt, after the Omnigent smoke test.
-3. Oracle sweep script for the locked task.
+1. Lock the protocol TBDs with Hari once the science contract is filled in, then write the sweep spec and run the oracle.
+2. ~~Baseline prompt and arm A episode tools~~ drafted: `bench/baseline_prompt.md`, `bench/arm_a.py`. Still to do: the launcher that starts the single agent with the filled prompt and budget, after the Omnigent smoke test shows how agents are launched. The prompt needs a review from someone outside the benchmark lane.
+3. ~~Oracle sweep script~~ done: `bench/oracle.py`.
 4. Novelty check on the top finding, then README limits and the submission write-up.

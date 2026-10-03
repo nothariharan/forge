@@ -24,7 +24,8 @@ Usage:
     python tools/citation_check.py final_report.md -o citations.json
 
 refs.json is a list of objects: {"ref": "<id or url>", "quote": "...",
-"claim": "...", "fulltext_path": "..."}; only "ref" is required. For a
+"claim": "...", "fulltext_path": "..."}; only "ref" is required. Evidence
+claims as logged in EVIDENCE_ADDED ({"ref", "text", "quote_span"}) work as is. For a
 Markdown/text input, identifiers are extracted with regexes and have no quotes.
 """
 
@@ -245,7 +246,9 @@ def check_ref(item: dict, fetch: Fetcher = default_fetcher) -> RefResult:
     ref = str(item["ref"])
     kind, norm = classify(ref)
     result = RefResult(ref=ref, kind=kind, normalized_id=norm, resolved=None, resolver=None,
-                       quote=item.get("quote") or None, claim=item.get("claim") or None)
+                       # "quote_span" is the key used by EVIDENCE_ADDED claims (schemas/evidence.json).
+                       quote=item.get("quote") or item.get("quote_span") or None,
+                       claim=item.get("claim") or item.get("text") or None)
     if kind == "unknown":
         result.resolved = False
         result.notes.append("not a recognizable DOI, arXiv ID, OpenAlex ID or URL")

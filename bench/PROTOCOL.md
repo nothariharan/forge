@@ -14,7 +14,7 @@ We report whatever we observe, including B being slower or worse. No 10x claim. 
 
 | Arm | What it is | What it gets |
 |---|---|---|
-| **A: baseline** | One Claude Code agent, one session, plain prompt: the question, the allowed tools, the budget, and the required output format. No planner, no referee, no consensus, no policy gates beyond the shared sandbox limits. | Same model, tools, data, budget and seed list as B. |
+| **A: baseline** | One Claude Code agent, one session, plain prompt (`bench/baseline_prompt.md`): the question, the allowed tools, the budget, and the required output format. It acts through `bench/arm_a.py`. No planner, no referee, no consensus, no policy gates beyond the shared sandbox limits. | Same model, tools, data, budget and seed list as B. |
 | **B: FORGE** | Full harness through Omnigent: Librarian, Hypothesizer, Referee, Planner, Experimenter, Analyst, Safety, with policies P1 to P6. | Same as A. |
 | C1 to C3 (optional ablations) | B minus Referee; B with a random-order Planner; B with a single Analyst (no consensus). | Run only if time allows after A and B are complete. |
 
@@ -98,6 +98,7 @@ Correctness is scored against a **deterministic oracle**, never LLM self-grading
 - The oracle is an exhaustive (or large fixed) sweep of the candidate space on the locked task and seeds, run once by the benchmark harness outside both arms.
 - It defines the oracle-best candidate and the set of candidates within the practical threshold.
 - **TBD (science):** candidate space, practical threshold, metric direction.
+- Tool: `python3 bench/oracle.py <spec.json> --out results/bench/<bench_id>`. Every (candidate, seed) result is appended to `sweep_runs.jsonl`, including failures. A candidate with any failed seed is listed but cannot be the best. The top set is the complete candidates whose mean is within the practical threshold of the best mean.
 
 If the question has no sweepable candidate space, the primary metric falls back to a pre-specified rubric scored **blind to arm** by a human, with the rubric committed here before runs.
 
