@@ -1,0 +1,52 @@
+{
+  "status": "FEASIBILITY_ONLY_NOT_BENCHMARK_EVIDENCE",
+  "task_id": 7592,
+  "task_name": "adult",
+  "dataset_id": 1590,
+  "dataset_version": 2,
+  "target": "class",
+  "split": {
+    "protocol": "OpenML stratified 10-fold CV",
+    "repeat": 0,
+    "fold": 0,
+    "train_rows": 43957,
+    "test_rows": 4885
+  },
+  "metric": {
+    "name": "accuracy",
+    "direction": "maximize",
+    "chosen_for_feasibility": true,
+    "openml_task_metric_defined": false
+  },
+  "model": "LogisticRegression(max_iter=1000, random_state=0)",
+  "results": [
+    {
+      "comparison": "median_mode",
+      "accuracy": 0.851381780962129,
+      "runtime_seconds": 4.7141
+    },
+    {
+      "comparison": "median_mode_plus_missing_indicators",
+      "accuracy": 0.851381780962129,
+      "runtime_seconds": 9.4671
+    }
+  ],
+  "caveats": [
+    "One fold and one seed only.",
+    "Not benchmark evidence or proof of equivalence.",
+    "The task API does not specify an evaluation metric; accuracy was selected locally for feasibility.",
+    "Accuracy alone is not sufficient for a credit/income prediction task."
+  ],
+  "setup_issues": [
+    "OpenML Python client unavailable; downloaded task metadata, dataset, and official split directly from OpenML APIs.",
+    "Local pandas dependency installed to execute the run."
+  ],
+  "features_with_missing_values": {
+    "workclass": 2799,
+    "occupation": 2809,
+    "native-country": 857
+  },
+  "rows_with_missing_feature_values": 3620,
+  "missing_cells_in_dataset": 6465,
+  "data_sha256": "77aa1703717a29f0f5642e94c3ba1defd2486f0b34d4d8eccc1b37a5f7d226b0"
+}
