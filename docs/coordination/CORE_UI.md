@@ -41,19 +41,11 @@ Implemented as Akshat proposed in `BENCHMARK.md`:
 | `PREDICTION_COMMITTED` | `eid` | optional |
 | `REPLAN` | `trigger_eid` | optional |
 
-## Open: `bench/arm_a.py` payloads vs the payload schemas
+## Arm A payload alignment
 
-`arm_a.py` writes its own `events.jsonl` today, so nothing breaks. If it switches to `Ledger.append`, these payloads are rejected by the current schemas. Either the schemas loosen or arm A adds the fields; both arms should end up with the same shapes.
+Resolved between Akshat's updated PR #2 and this ledger PR: `bench/arm_a.py` now emits the fields required by the payload schemas for hypotheses, predictions, runs, replans, and completion. It stores unchanged decisions in `decisions.jsonl` rather than emitting a `FINDING`. Akshat reports that a local merge of the current science, ledger, and benchmark branches passes 55 tests with payload validation enabled, and that an Arm A episode imports and verifies through the ledger.
 
-| Event | arm A writes | schema requires |
-|---|---|---|
-| `HYPOTHESIS_PROPOSED` | `hid`, `claim`, `label` | also `prediction`, `falsifier`, `prior` |
-| `PREDICTION_COMMITTED` | `eid`, `hid`, `prediction` (free object), `falsifier` | `hid`, `metric`, `mean`, `sd` (Gaussian only) |
-| `RUN_FINISHED` | `eid`, `status`, `metrics`, `wall_seconds`, `error` | also `hid`, `code_hash`, `data_ver`, `seed` |
-| `RUN_STARTED` | no `code_hash`, `data_ver` | `code_hash`, `data_ver` |
-| `REPLAN` | `trigger_eid`, `decision` | `reason`, `reopened` |
-| `FINDING` (unchanged plan) | `eid`, `decision`, `plan_changed` | `effect`, `ci`, `verdict` |
-| `RUN_COMPLETED` | `candidate` | `status` |
+The remaining follow-up is to replace Arm A's duplicate JSONL writer with `Ledger.append` after this ledger is merged. That migration should preserve the shared event shapes and hash format.
 
 ## Not blocking anyone
 
@@ -62,9 +54,8 @@ The ledger and UI are built against the fake generator and do not depend on the 
 ## Decisions needed
 
 - **All:** accept `refs` in the shared schema, or not.
-- **Akshat + Ish:** resolve the arm A table above. The biggest one is the prediction shape: Gaussian `mean`/`sd` only, or a free-form distribution object as arm A and `schemas/experiment.schema.json` use.
 - **Hari (science):** are predictions committed per hypothesis or per experiment? If per experiment, `eid` on `PREDICTION_COMMITTED` becomes required.
-- **Akshat:** evidence claims use `quote_span`; `tools/citation_check.py` reads `quote`. One side renames, or the caller maps the key.
+- **Akshat:** citation checker accepts `quote_span` and `text` in the evidence claim shape.
 - **Saksham (orchestration):** agent names are free-form strings in the envelope; send the names the Omnigent agents will log under.
 
 ## Next actions
