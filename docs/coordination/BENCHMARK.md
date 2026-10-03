@@ -38,7 +38,7 @@ The open questions are listed in `bench/PROTOCOL.md` section 13: task ID, metric
 
 ### Baseline arm (for Saksham)
 
-Arm A must run with the same model, tools and sandbox limits as FORGE, and emit the same event types it can produce, so one report script scores both arms. I'll build the arm A runner once the Omnigent smoke test shows how agents are launched.
+Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/arm_a.py` already writes arm A's events in the shared schema format (hash chained per the design doc; it should switch to `core/ledger.py` once that is merged). The remaining piece is the launcher, which depends on how the smoke test starts agents.
 
 ## Blockers
 
@@ -47,6 +47,6 @@ Arm A must run with the same model, tools and sandbox limits as FORGE, and emit 
 ## Next actions
 
 1. Lock the protocol TBDs with Hari once the science contract is filled in, then write the sweep spec and run the oracle.
-2. Arm A runner (`bench/arms.py`) and the baseline prompt, after the Omnigent smoke test.
+2. ~~Baseline prompt and arm A episode tools~~ drafted: `bench/baseline_prompt.md`, `bench/arm_a.py`. Still to do: the launcher that starts the single agent with the filled prompt and budget, after the Omnigent smoke test shows how agents are launched. The prompt needs a review from someone outside the benchmark lane.
 3. ~~Oracle sweep script~~ done: `bench/oracle.py`.
 4. Novelty check on the top finding, then README limits and the submission write-up.

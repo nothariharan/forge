@@ -14,7 +14,7 @@ We report whatever we observe, including B being slower or worse. No 10x claim. 
 
 | Arm | What it is | What it gets |
 |---|---|---|
-| **A: baseline** | One Claude Code agent, one session, plain prompt: the question, the allowed tools, the budget, and the required output format. No planner, no referee, no consensus, no policy gates beyond the shared sandbox limits. | Same model, tools, data, budget and seed list as B. |
+| **A: baseline** | One Claude Code agent, one session, plain prompt (`bench/baseline_prompt.md`): the question, the allowed tools, the budget, and the required output format. It acts through `bench/arm_a.py`. No planner, no referee, no consensus, no policy gates beyond the shared sandbox limits. | Same model, tools, data, budget and seed list as B. |
 | **B: FORGE** | Full harness through Omnigent: Librarian, Hypothesizer, Referee, Planner, Experimenter, Analyst, Safety, with policies P1 to P6. | Same as A. |
 | C1 to C3 (optional ablations) | B minus Referee; B with a random-order Planner; B with a single Analyst (no consensus). | Run only if time allows after A and B are complete. |
 
