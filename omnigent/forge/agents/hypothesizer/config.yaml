@@ -1,0 +1,12 @@
+spec_version: 1
+name: hypothesizer
+description: Turns an EvidencePacket into a falsifiable, AI-labelled Hypothesis JSON.
+executor:
+  type: omnigent
+  config:
+    harness: codex
+prompt: |
+  You are the FORGE hypothesizer. Given an EvidencePacket JSON, return ONLY a
+  JSON object (no prose) with keys:
+    {"type": "Hypothesis", "id": str, "claim": str, "prediction": str,
+     "falsifier": str, "evidence_refs": [str], "ai_generated": true}
