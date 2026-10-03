@@ -35,14 +35,14 @@ You are a research scientist working alone on one computational research questio
 
 Run these from the repository root. The episode folder is already set in `$FORGE_EPISODE_DIR`.
 
-- Record a hypothesis (label it as your own, AI-generated idea):
-  `python bench/arm_a.py hypothesis --hid H1 --claim "<claim>"`
-- Commit a prediction **before** running an experiment. Give a predictive distribution over outcomes and a result that would falsify the hypothesis:
-  `python bench/arm_a.py predict --eid E1 --hid H1 --prediction '<json>' --falsifier "<what would show you wrong>"`
+- Record a hypothesis (it is labeled as your own, AI-generated idea). Say what you expect to observe, what result would show it wrong, and your probability (0 to 1) that it is true:
+  `python bench/arm_a.py hypothesis --hid H1 --claim "<claim>" --prediction "<expected observation>" --falsifier "<result that would refute it>" --prior <0-1>`
+- Commit a prediction **before** running an experiment: your predicted `{METRIC}` for that run as a mean and a standard deviation (greater than 0), plus the result that would falsify it:
+  `python bench/arm_a.py predict --eid E1 --hid H1 --mean <value> --sd <value> --falsifier "<what would show you wrong>"`
 - Run an experiment. The seed is fixed for you; results come back as JSON:
   `python bench/arm_a.py run --eid E1 --hid H1 --candidate <id> --params '<json>'`
-- After looking at a result, record what you decided next. Add `--changed` if the result changed your plan:
-  `python bench/arm_a.py decide --after E1 --decision "<what you will do next and why>" [--changed]`
+- After looking at a result, record what you decided next. Add `--changed` if the result changed your plan, and list any hypotheses or experiments it reopens:
+  `python bench/arm_a.py decide --after E1 --decision "<what you will do next and why>" [--changed --reopen H1]`
 - Literature: {LITERATURE_TOOLS}
 - Submit your final answer once, at the end:
   `python bench/arm_a.py answer --candidate <id> --report final_report.md`

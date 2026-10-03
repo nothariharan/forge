@@ -8,6 +8,8 @@ import pytest
 BENCH = os.path.join(os.path.dirname(__file__), "..", "bench")
 sys.path.insert(0, BENCH)
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 import arm_a  # noqa: E402
 import report  # noqa: E402
 
@@ -26,7 +28,7 @@ def episode(tmp_path, monkeypatch):
     ep = tmp_path / "bench" / "A" / "seed-1"
     monkeypatch.setenv("FORGE_EPISODE_DIR", str(ep))
     arm_a.main(["init", "--seed", "1", "--question", "Q?", "--metric", "auc",
-                "--runner", "fake_run_mod:run", "--task-id", "31", "--run-id", "A-1"])
+                "--runner", "fake_run_mod:run", "--task-id", "31", "--data-ver", "openml:31@1", "--run-id", "A-1"])
     return ep
 
 
@@ -35,10 +37,12 @@ def _events(ep):
 
 
 def test_full_episode_is_schema_shaped_hash_chained_and_scorable(episode, tmp_path):
-    arm_a.main(["hypothesis", "--hid", "H1", "--claim", "rf beats lr"])
-    arm_a.main(["predict", "--eid", "E1", "--hid", "H1", "--prediction", '{"p_better": 0.7}', "--falsifier", "rf <= lr"])
+    arm_a.main(["hypothesis", "--hid", "H1", "--claim", "rf beats lr", "--prediction", "rf auc > lr auc",
+                "--falsifier", "rf <= lr", "--prior", "0.6"])
+    arm_a.main(["predict", "--eid", "E1", "--hid", "H1", "--mean", "0.82", "--sd", "0.01", "--falsifier", "auc < 0.8"])
     arm_a.main(["run", "--eid", "E1", "--hid", "H1", "--candidate", "lr", "--params", '{"model": "lr"}'])
-    arm_a.main(["decide", "--after", "E1", "--decision", "try rf next", "--changed"])
+    arm_a.main(["decide", "--after", "E1", "--decision", "try rf next", "--changed", "--reopen", "H1"])
+    arm_a.main(["decide", "--after", "E1", "--decision", "keep going"])
     arm_a.main(["run", "--eid", "E2", "--hid", "H1", "--candidate", "rf", "--params", '{"model": "rf"}'])  # no prediction
     arm_a.main(["run", "--eid", "E3", "--hid", "H1", "--candidate", "boom", "--params", '{"model": "boom"}'])
     report_md = tmp_path / "draft.md"
@@ -60,6 +64,10 @@ def test_full_episode_is_schema_shaped_hash_chained_and_scorable(episode, tmp_pa
     records = [json.loads(l) for l in open(episode / "run_records.jsonl")]
     assert [r["status"] for r in records] == ["ok", "ok", "error"] and "crashed" in records[2]["error"]
     assert (episode / "final_report.md").read_text() == "# answer: rf"
+    decisions = [json.loads(l) for l in open(episode / "decisions.jsonl")]
+    assert decisions == [{**decisions[0], "after": "E1", "decision": "keep going", "plan_changed": False}]
+    started = next(e for e in events if e["type"] == "RUN_STARTED")["payload"]
+    assert started["data_ver"] == "openml:31@1" and started["seed"] == 1 and started["code_hash"].startswith("sha256:")
 
     m = report.episode_metrics(str(episode), {"best": "rf", "within_threshold": ["rf"]})
     assert m["attempts"] == 3 and m["valid_experiments"] == 1
@@ -70,7 +78,12 @@ def test_full_episode_is_schema_shaped_hash_chained_and_scorable(episode, tmp_pa
 
 def test_guards(episode):
     with pytest.raises(SystemExit, match="already started"):
-        arm_a.main(["init", "--seed", "1", "--question", "Q", "--metric", "auc", "--runner", "x:y", "--task-id", "1"])
+        arm_a.main(["init", "--seed", "1", "--question", "Q", "--metric", "auc", "--runner", "x:y", "--task-id", "1",
+                    "--data-ver", "v1"])
+    with pytest.raises(SystemExit, match="sd must be greater than 0"):
+        arm_a.main(["predict", "--eid", "E9", "--hid", "H1", "--mean", "0.8", "--sd", "0", "--falsifier", "x"])
+    with pytest.raises(SystemExit, match="prior must be between"):
+        arm_a.main(["hypothesis", "--hid", "H9", "--claim", "c", "--prediction", "p", "--falsifier", "f", "--prior", "1.5"])
     arm_a.main(["run", "--eid", "E1", "--hid", "H1", "--candidate", "lr", "--params", '{"model": "lr"}'])
     with pytest.raises(SystemExit, match="already used"):
         arm_a.main(["run", "--eid", "E1", "--hid", "H1", "--candidate", "lr", "--params", '{"model": "lr"}'])
@@ -82,4 +95,18 @@ def test_guards(episode):
 def test_requires_episode_dir(monkeypatch):
     monkeypatch.delenv("FORGE_EPISODE_DIR", raising=False)
     with pytest.raises(SystemExit, match="FORGE_EPISODE_DIR"):
-        arm_a.main(["hypothesis", "--hid", "H1", "--claim", "x"])
+        arm_a.main(["hypothesis", "--hid", "H1", "--claim", "x", "--prediction", "p", "--falsifier", "f", "--prior", "0.5"])
+
+
+def test_payloads_pass_shared_payload_schemas(episode, tmp_path):
+    """Runs once core/schemas.py (PR #4) is on the branch; skipped before that."""
+    core_schemas = pytest.importorskip("core.schemas")
+    arm_a.main(["hypothesis", "--hid", "H1", "--claim", "c", "--prediction", "p", "--falsifier", "f", "--prior", "0.5"])
+    arm_a.main(["predict", "--eid", "E1", "--hid", "H1", "--mean", "0.8", "--sd", "0.01", "--falsifier", "f"])
+    arm_a.main(["run", "--eid", "E1", "--hid", "H1", "--candidate", "lr", "--params", '{"model": "lr"}'])
+    arm_a.main(["run", "--eid", "E2", "--hid", "H1", "--candidate", "boom", "--params", '{"model": "boom"}'])
+    arm_a.main(["decide", "--after", "E1", "--decision", "switch", "--changed", "--reopen", "H1"])
+    arm_a.main(["answer", "--candidate", "lr"])
+    for e in _events(episode):
+        core_schemas.validate(e["type"], e["payload"])
+        core_schemas.validate_envelope(e)

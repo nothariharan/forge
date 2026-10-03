@@ -156,3 +156,10 @@ def test_cli_on_markdown(tmp_path, monkeypatch, capsys):
     data = json.loads(out.read_text())
     assert data["summary"]["resolvable"] == 1
     assert "1 refs: 1 resolved" in capsys.readouterr().err
+
+
+def test_accepts_evidence_claim_shape():
+    fetch = make_fetcher({"https://export.arxiv.org/": cc.Response(200, ARXIV_OK)})
+    r = cc.check_ref({"ref": "arXiv:1706.03762", "text": "Transformers replace recurrence",
+                      "quote_span": "recurrent or convolutional neural networks"}, fetch)
+    assert r.quote_status == "found" and r.claim == "Transformers replace recurrence"

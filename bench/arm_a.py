@@ -13,12 +13,18 @@ same way they would be if FORGE's gate failed.
 
 The episode folder comes from --episode or $FORGE_EPISODE_DIR.
 
-    python bench/arm_a.py init --arm A --seed 1 --question "..." --metric auc --runner tools.openml_run:run --task-id 31
-    python bench/arm_a.py hypothesis --hid H1 --claim "..."
-    python bench/arm_a.py predict --eid E1 --hid H1 --prediction '{"p_better": 0.6}' --falsifier "..."
-    python bench/arm_a.py run --eid E1 --hid H1 --candidate rf --params '{"model": "rf"}'
-    python bench/arm_a.py decide --after E1 --decision "..." [--changed]
-    python bench/arm_a.py answer --candidate rf --report final_report.md
+    python bench/arm_a.py init --arm A --seed 1 --question "..." --metric roc_auc \
+        --runner tools.openml_run:run --task-id 7592 --data-ver openml:1590@2
+    python bench/arm_a.py hypothesis --hid H1 --claim "..." --prediction "..." --falsifier "..." --prior 0.5
+    python bench/arm_a.py predict --eid E1 --hid H1 --mean 0.905 --sd 0.004 --falsifier "..."
+    python bench/arm_a.py run --eid E1 --hid H1 --candidate lr_mode --params '{"model": "lr"}'
+    python bench/arm_a.py decide --after E1 --decision "..." [--changed --reopen H1]
+    python bench/arm_a.py answer --candidate lr_mode --report final_report.md
+
+Payloads follow the per-event schemas in schemas/*.json (core/schemas.py), so
+arm A events are accepted by the shared ledger. A decision that leaves the
+plan unchanged is not a ledger event (FINDING needs an effect and CI); it goes
+to decisions.jsonl in the episode folder.
 
 Hashing follows the design doc: hash = sha256(prev_hash + canonical_json(event
 without hash)). Swap in core/ledger.py once it is merged so both arms share
@@ -29,7 +35,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
+import numbers
 import os
 import shutil
 import subprocess
@@ -113,6 +121,7 @@ def cmd_init(ep: Episode, a) -> None:
         "task_id": a.task_id,
         "metric_name": a.metric,
         "runner": a.runner,
+        "data_ver": a.data_ver,
         "model": a.model,
         "git_commit": _git_commit(),
         "started_at": _now(),
@@ -124,14 +133,32 @@ def cmd_init(ep: Episode, a) -> None:
 
 
 def cmd_hypothesis(ep: Episode, a) -> None:
-    ep.emit("HYPOTHESIS_PROPOSED", {"hid": a.hid, "claim": a.claim, "label": "AI-generated"}, True)
+    if not 0 <= a.prior <= 1:
+        raise SystemExit("--prior must be between 0 and 1")
+    ep.emit("HYPOTHESIS_PROPOSED", {"hid": a.hid, "claim": a.claim, "prediction": a.prediction,
+                                    "falsifier": a.falsifier, "prior": a.prior, "label": "AI-generated"}, True)
     print(f"recorded hypothesis {a.hid}")
 
 
 def cmd_predict(ep: Episode, a) -> None:
-    prediction = json.loads(a.prediction)
-    ep.emit("PREDICTION_COMMITTED", {"eid": a.eid, "hid": a.hid, "prediction": prediction, "falsifier": a.falsifier}, True)
+    if a.sd <= 0:
+        raise SystemExit("--sd must be greater than 0: a prediction is a distribution, not a point value")
+    metric = ep.manifest()["metric_name"]
+    ep.emit("PREDICTION_COMMITTED", {"eid": a.eid, "hid": a.hid, "metric": metric, "mean": a.mean, "sd": a.sd,
+                                     "falsifier": a.falsifier}, True)
     print(f"committed prediction for {a.eid}")
+
+
+def _code_hash(runner_ref: str) -> str:
+    """sha256 of the runner's source file, so a result is tied to the exact code that produced it."""
+    module = importlib.import_module(runner_ref.partition(":")[0])
+    with open(module.__file__, "rb") as f:
+        return "sha256:" + hashlib.sha256(f.read()).hexdigest()
+
+
+def _numeric_metrics(metrics: dict) -> dict:
+    # The event schema allows numbers only; lists such as per-fold scores stay in run_records.jsonl.
+    return {k: v for k, v in metrics.items() if isinstance(v, numbers.Real) and not isinstance(v, bool)}
 
 
 def cmd_run(ep: Episode, a) -> None:
@@ -139,13 +166,15 @@ def cmd_run(ep: Episode, a) -> None:
     if any(e["type"] == "RUN_STARTED" and e["payload"].get("eid") == a.eid for e in ep.events()):
         raise SystemExit(f"experiment id {a.eid} was already used; pick a new one")
     params = json.loads(a.params)
+    runner = resolve_runner(m["runner"])
+    ident = {"eid": a.eid, "hid": a.hid, "code_hash": _code_hash(m["runner"]), "data_ver": m["data_ver"], "seed": m["seed"]}
     committed = any(e["type"] == "PREDICTION_COMMITTED" and e["payload"].get("eid") == a.eid for e in ep.events())
-    ep.emit("RUN_STARTED", {"eid": a.eid, "hid": a.hid, "candidate": a.candidate, "params": params,
-                            "seed": m["seed"], "prediction_committed": committed}, False, agent="harness")
+    ep.emit("RUN_STARTED", {**ident, "candidate": a.candidate, "params": params, "prediction_committed": committed},
+            False, agent="harness")
     t0 = time.monotonic()
-    record = {"eid": a.eid, "hid": a.hid, "candidate": a.candidate, "params": params, "seed": m["seed"]}
+    record = {**ident, "candidate": a.candidate, "params": params}
     try:
-        result = resolve_runner(m["runner"])(m["task_id"], params, m["seed"])
+        result = runner(m["task_id"], params, m["seed"])
         metrics = (result or {}).get("metrics", {})
         status = "ok" if metrics.get(m["metric_name"]) is not None else "missing_metric"
         record.update(status=status, metrics=metrics, raw=result)
@@ -155,17 +184,20 @@ def cmd_run(ep: Episode, a) -> None:
     record["wall_seconds"] = round(time.monotonic() - t0, 3)
     with open(os.path.join(ep.path, "run_records.jsonl"), "a", encoding="utf-8") as f:
         f.write(json.dumps(record, default=str) + "\n")
-    ep.emit("RUN_FINISHED", {"eid": a.eid, "status": status, "metrics": metrics,
-                             "wall_seconds": record["wall_seconds"], "error": record.get("error")}, False, agent="harness")
-    print(json.dumps({"eid": a.eid, "status": status, "metrics": metrics, "error": record.get("error")}))
+    finished = {**ident, "status": status, "metrics": _numeric_metrics(metrics), "wall_seconds": record["wall_seconds"]}
+    if record.get("error"):
+        finished["error"] = record["error"]
+    ep.emit("RUN_FINISHED", finished, False, agent="harness")
+    print(json.dumps({"eid": a.eid, "status": status, "metrics": metrics, "error": record.get("error")}, default=str))
 
 
 def cmd_decide(ep: Episode, a) -> None:
-    # A changed plan counts as a result-driven replan (metric S8); an unchanged one is still logged.
+    # A changed plan counts as a result-driven replan (metric S8).
     if a.changed:
-        ep.emit("REPLAN", {"trigger_eid": a.after, "decision": a.decision}, True)
+        ep.emit("REPLAN", {"trigger_eid": a.after, "reason": a.decision, "reopened": a.reopen or []}, True)
     else:
-        ep.emit("FINDING", {"eid": a.after, "decision": a.decision, "plan_changed": False}, True)
+        with open(os.path.join(ep.path, "decisions.jsonl"), "a", encoding="utf-8") as f:
+            f.write(json.dumps({"ts": _now(), "after": a.after, "decision": a.decision, "plan_changed": False}) + "\n")
     print("recorded decision")
 
 
@@ -178,7 +210,7 @@ def cmd_answer(ep: Episode, a) -> None:
         dest = os.path.join(ep.path, "final_report.md")
         if os.path.abspath(a.report) != os.path.abspath(dest):
             shutil.copyfile(a.report, dest)
-    ep.emit("RUN_COMPLETED", {"candidate": a.candidate}, True)
+    ep.emit("RUN_COMPLETED", {"status": "completed", "candidate": a.candidate}, True)
     print(f"final answer recorded: {a.candidate}")
 
 
@@ -194,17 +226,22 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--metric", required=True)
     s.add_argument("--runner", required=True, help="module:function, same runner as FORGE")
     s.add_argument("--task-id", required=True)
+    s.add_argument("--data-ver", required=True, help="dataset identifier and version, e.g. openml:1590@2")
     s.add_argument("--model", help="model ID used by the agent")
     s.add_argument("--run-id")
 
     s = sub.add_parser("hypothesis")
     s.add_argument("--hid", required=True)
     s.add_argument("--claim", required=True)
+    s.add_argument("--prediction", required=True, help="what you expect to observe if the claim is true")
+    s.add_argument("--falsifier", required=True, help="the result that would show the claim is wrong")
+    s.add_argument("--prior", type=float, required=True, help="your probability, 0 to 1, that the claim is true")
 
     s = sub.add_parser("predict")
     s.add_argument("--eid", required=True)
     s.add_argument("--hid", required=True)
-    s.add_argument("--prediction", required=True, help="JSON predictive distribution")
+    s.add_argument("--mean", type=float, required=True, help="predicted value of the episode metric")
+    s.add_argument("--sd", type=float, required=True, help="uncertainty of the prediction (standard deviation, > 0)")
     s.add_argument("--falsifier", required=True)
 
     s = sub.add_parser("run")
@@ -217,6 +254,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--after", required=True, help="experiment id whose result informed this decision")
     s.add_argument("--decision", required=True)
     s.add_argument("--changed", action="store_true", help="the result changed the plan")
+    s.add_argument("--reopen", nargs="*", help="hypothesis or experiment ids the change reopens")
 
     s = sub.add_parser("answer")
     s.add_argument("--candidate", required=True)
