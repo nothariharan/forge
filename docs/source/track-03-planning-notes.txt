@@ -1,0 +1,104 @@
+Locked in: **Track 03.** Here's the breakdown to build from.
+
+## The brief, restated precisely
+
+Build an AI lab that makes discovery 10× faster. Multiple agents that **research → form hypotheses → plan and run experiments → learn from results → decide what to run next.**
+
+**Mandatory dependency:** orchestrate everything through **Omnigent**. Either the Databricks-managed version at `workspace-url/omnigent`, or the open-source repo. This isn't optional — it's 30% of your score.
+
+**Must demonstrate, explicitly:**
+- Multiple *specialist* agents passing **structured outputs** to each other
+- Agents **using tools**
+- Agents **replanning after a result** — not a linear pipeline
+
+**The loop:** Question → Evidence → Hypothesis → Experiment → Result → Updated decision
+
+**The experiment must be computational:** simulation, screening, benchmark, model comparison, dataset analysis, or sensitivity analysis. It must produce evidence that *changes the next decision.* No wet lab.
+
+**Also required:** name the bottleneck, report a **measured** speedup (1.5× and 3× both count), cite sources, label AI-generated hypotheses as AI, and gate risky actions behind human approval via a safety agent.
+
+**Deliverables:** repo · agent specs + policies · 2-min demo · cited evidence · experiment code and results · **the next experiment you'd run**
+
+---
+
+## The rubric, decoded
+
+| Weight | What it actually demands |
+|---|---|
+| **30% Omnigent** | Real orchestration, visible. Configured specialist agents under one orchestrator with real policy files — not a Python script with Omnigent mentioned in the README. |
+| **25% Breakthrough potential** | Would a domain expert care? Subjective. Requires a question worth asking. |
+| **20% Acceleration & learning** | Measured speedup with a denominator. "Evidence over claim" — they will check. |
+| **15% Rigor** | Cited sources, real baselines, honest error bars. The ablation discipline Robin used. |
+| **10% Creativity / responsibility** | Guardrails, human-in-loop, labeled AI hypotheses. |
+
+**The scoring shape matters:** 50% is Omnigent + rigor. Those two are *fully within your control*. The 50% on "breakthrough potential" + "acceleration" depends on picking a question and measuring honestly. So the reliable path is to max the controllable half first.
+
+---
+
+## The Omnigent reality check — do this before anything else
+
+The repo is **`omnigent-ai/omnigent`** (10,433 stars, Apache-2.0). Not `databricks/omnigent` — that 404s.
+
+Two things to know:
+
+1. **It's 4 months old with 1,692 open issues.** Not a mature dependency. Smoke-test a2-agent handoff *before* you design around it.
+2. **It orchestrates coding harnesses** — Claude Code, Codex, Cursor, custom agents — with policy enforcement and sandboxing.
+
+That second point is the unlock. **Your specialist agents can literally be configured harness instances.** A "Principal Investigator," a "Literature Reviewer," a "Experiment Runner," and a "Safety Critic" each become a prompt + policy file, orchestrated by Omnigent. That's the cheapest honest path to satisfying the 30%, and it means your agents can *write and run their own experiment code* rather than you piping outputs around by hand.
+
+---
+
+## What to keep in mind
+
+**The frontier is a Nature paper, not a blog post.** Robin published in Nature vol 655 (May 2026), 267k accesses. Crow + Falcon + Finch. Sakana AI-Scientist-v2 is the open equivalent. Aster used 30 B200s. Cosmic clone loses.
+
+**Measure speedup the way Robin did.** Not "AI is faster." Specifically: *551 papers in 30 min vs. ~294 human hours → 200×. Cost $10.76 per run.* Denominator, baseline, and cost. Aster's equivalent: 0.9098 vs 0.9109 BPB.
+
+**Report the ablation. This is your best material.** Robin's own numbers:
+- OpenAI Deep Research, identical prompt →17 candidates, **zero hits**, never proposed ROCK inhibition
+- Plain o4-mini replacing their lit agents → **44.5% hallucinated references**
+- Their data-analysis harness → **22.8%** vs 1.6% for raw Claude on the same panel
+
+That's a rigorous, verifiable claim that **harness architecture beats base model capability.** Judges can check it against a published paper. It converts "our agents are good" into evidence.
+
+**Anticipate the HN objections.** That thread is your judge simulation: *"plausible-sounding slop," "experts will have to re-validate each finding," "the bottleneck is resource-constrained."* Robin's ripasudil result turned out to be out-of-patent with the mechanism already in the literature. **Run a novelty check on your own finding before the demo.** If it's a rediscovery, say so — that's rigor, not failure.
+
+**A closed loop is not a linear pipeline.** The state transition `Hₜ → experiment → real result → Hₜ₊₁` is the whole game. If your result doesn't change what you do next, you've built a chatbot with a calculator.
+
+**Don't over-claim speedup.** Rubric says 1.5× and 3× count. Aster, a funded lab, posted **+5.68%**. A modest, measured, honest number beats an ambitious one they can discredit.
+
+**Use `stanford-oval/storm`** (MIT, 31,560 stars) for the cited-evidence module — it researches a topic and generates a full report with citations. Don't build that.
+
+**Steal `Scientific Agent Skills`** (arXiv 2609.00065) — 163 procedural workflows, 16 areas. Its thesis is that defensible analysis depends on *procedural choices*, not code generation. Directly serves the 15% rigor.
+
+---
+
+## Domain choice — you have real freedom here
+
+The brief allows bio, materials, energy, climate, agriculture, physics, AI, neuro, or astronomy. **No bio background required.** Pick where you can define a bottleneck precisely and measure it against a real baseline.
+
+| Domain | Why it works | Risk |
+|---|---|---|
+| **ML systems / efficiency** | Baselines everywhere, fast experiments, you understand the domain | Aster owns this turf |
+| **Materials / energy** | Concrete numbers, open datasets, non-bio | Harder to claim novelty |
+| **Climate** | Real baselines, public data, meaningful | Slower experiments |
+| **Astronomy** | Open data, scorable, non-bio, underexplored | Fewer ready-made harnesses |
+
+My read: **materials or climate**, with a fast simulation as the lab. You get a real bottleneck, a real baseline, and a measurement nobody can dispute. Avoid competing head-on with Aster's benchmark territory.
+
+---
+
+## The build order
+
+**Tonight (non-negotiable):** smoke-test Omnigent with a 2-agent handoff. If it fails, you find out now.
+
+**Before kickoff:** pick the domain, name the bottleneck, and get one experiment running end-to-end manually. If you can't get a single result without the agent loop working, you'll be debugging in hour 14.
+
+**Hour 0–6:** agents + policies in Omnigent, structured output contracts between them.
+**Hour 6–14:** the loop closes — evidence actually feeding the next decision.
+**Hour 14–20:** ablation + measured speedup against a real baseline.
+**Hour 20–24:** demo, novelty check, write the next experiment.
+
+---
+
+Want me to start the Omnigent smoke test now? It's the one thing that can still change the plan, and it's the one thing you can't do during the hack.

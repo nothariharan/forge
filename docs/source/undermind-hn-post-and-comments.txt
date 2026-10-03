@@ -1,0 +1,1753 @@
+Hacker Newsnew | past | comments | ask | show | jobs | submit	login
+Launch HN: Undermind (YC S24) – AI agent for discovering scientific papers
+292 points by jramette on July 25, 2024 | hide | past | favorite | 126 comments
+Hey HN! We’re Josh and Tom from Undermind (https://www.undermind.ai/). We’re building a search engine for complex scientific research. There's a demo video at https://www.loom.com/share/10067c49e4424b949a4b8c9fd8f3b12c?..., as well as example search results on our homepage.
+We’re both physicists, and one of our biggest frustrations during grad school was finding research — There were a lot of times when we had to sit down to scope out new ideas for a project and quickly become a deep expert, or we had to find solutions to really complex technical problems, but the only way to do that was manually dig through papers on Google Scholar for hours. It was very tedious, to the point where we would often just skip the careful research and hope for the best. Sometimes you’d get burned a few months later because someone already solved the problem you thought was novel and important, or you’d waste your time inventing/building a solution for something when one already existed.
+
+The problem was there’s just no easy way to figure out what others have done in research, and load it into your brain. It’s one of the biggest bottlenecks for doing truly good, important research.
+
+We wanted to fix that. LLMs clearly help, but are mostly limited to general knowledge. Instead, we needed something that would pull in research papers, and give you exactly what you need to know, even for very complex ideas and topics. We realized the way to do this is to mimic the research strategies we already know work, because we do them ourselves, and so we built an agent-like LLM pipeline to carefully search in a way that mimics human research strategies.
+
+Our search system works a bit differently from casual search engines. First, we have you chat back and forth with an LLM to make sure we actually understand your really complex research goals up front, like you’re talking to a colleague. Then the system carefully searches for you for ~3 minutes. At a high level, it does something similar to tree search, following citation rabbit holes and adapting based on what it discovers to look for more content over multiple iterations (the same way you would if you decided to spend a few hours). The 3 minute delay is annoying, but we’re optimizing for quality of results rather than latency right now. At the end there’s a report.
+
+We’re trying to achieve two things with this careful, systematic agent-like discovery process:
+
+1. We want to be very accurate, and only recommend very specific results if you ask for a specific topic. To do this, we carefully read and evaluate content from papers with the highest quality LLMs (we’re just reading abstracts and citations for now, because they’re more widely accessible - but also working on adding full texts).
+
+2. We want to find everything relevant to your search, because in research it’s crucial to know if something exists or not. The key to being exhaustive is the adaptive algorithms we’ve developed (following citations, changing strategy based on what we find, etc). However, one cool feature of the automated pipeline is we can track the discovery process as the search proceeds. Early on, we find many good results, and later on they get more sparse, until all the good leads are exhausted and we stop finding anything helpful. We can statistically model that process, and figure out when we’ve found everything (it actually has an interesting exponential saturation behavior, which you can read a bit more about in our whitepaper (https://www.undermind.ai/static/Undermind_whitepaper.pdf), which we wrote for a previous prototype.)
+
+You can try searching yourself here: https://www.undermind.ai/query_app/promotion/. This is a special HN link where, for today, we’ve dropped the signup gate for your first few searches. Usually we require login so you can save searches.
+
+We’re excited to share this with you! We’d love to hear about your experiences searching, what’s clear or not, and any feedback. We’ll be here to answer any questions or comments.
+
+
+	
+kelloggm on July 25, 2024 | next [–]
+
+I'm a CS academic who _should_ be working on finalizing a new submission, so when I saw this on HN I decided to give it a try and see if it could find anything in the literature that I'd missed. Somewhat to my surprise, it did - the top 10 results contained two items that I really ought to have found myself (they're from my own community!), but that I'd missed. There were also some irrelevant results mixed in (and lots of things I was already aware of), but overall I'm very impressed with this and will try it out again in the future. Nice work :)
+
+	
+mnode on July 26, 2024 | prev | next [–]
+
+I tried this with a question for an area I know well. It's pretty impressive but missed some key references.
+I'd love to see limitations like this quantified and clearly flagged. Otherwise there's a danger that people may the assume results are definitive, and this could have the opposite outcome to that intended (much time spent working on something only to disocver it's been done already).
+
+
+	
+jramette on July 26, 2024 | parent | next [–]
+
+Yes, this is one of the most important aspects of the tool; in cases where you care about getting everything, make sure to take a look at the estimated percent of papers found at the bottom of the summary section. That gives you a sense of how complete the set of references likely are. We've tuned it to get around half of the total papers for the "median" user query on a first pass. If users desire, they can "extend" the search to have Undermind look for more papers. Additional caveat to remember with the current system is that it only accesses abstracts, so if you'd need to look in the full text to know a work is relevant, we wouldn't be able to catch it.
+
+	
+mnode on July 26, 2024 | root | parent | next [–]
+
+Thanks for clarifying. I didn't appreciate that it only searches abstracts. That might explain some of the missing references. Anyway, great work, will look forward to using it more.
+
+	
+jramette on July 26, 2024 | root | parent | next [–]
+
+Yep, will add in full texts as we can in the future. Let me know if the percent of papers found as an indication of an exhaustiveness measure was clear? Reach out to us at support@undermind.ai if you'd be willing to provide more feedback on your experience.
+
+	
+robwwilliams on July 25, 2024 | prev | next [–]
+
+Awesome! I just took you up on your offer and compared roughly similar questions using Claude 3.5 Sonnet and Undermind.
+Claude 3.5 is reluctant to provide references—-although it will if coaxed by prompting.
+
+Undermind solves this particular problem. A great complement for my research question —- the evidence that brain volume is reduced as a function of age in healthy cognitively normal humans. In mice we see a steady slow increase that averages out to a gain of 5% between the human equivalents of 20 to 65 years of age. This increase is almost linear as a function of log of age.
+
+Here is the question that was refined with Undermind’s help:
+
+>I want to find studies on adult humans (ages 20-100+) that have used true longitudinal repeated measures designs to study variations in brain volume over several years, focusing on individuals who are relatively healthy and cognitively functional.
+
+I received 100 ranked and lightly annotated set of 100 citations in this format:
+
+>[1] Characterization of Brain Volume Changes in Aging Individuals With Normal Cognition Using Serial Magnetic Resonance Imaging S. Fujita, ..., and O. Abe JAMA Network Open 2023 - 21 citations - Show abstract - Cite - PDF 99.6% topic match Provides longitudinal data on brain volume changes in aging individuals with normal cognition. Analyzes annual MRI data from 653 adults over 10 years to observe brain volume trajectories. Excludes populations with neurodegenerative diseases; employs true longitudinal design with robust MRI techniques.
+
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+It's worth highlighting that first result is exactly what you asked for, given all 4 of your criteria:
+1. It's on adults.
+
+2. It's longitudinal over multiple years.
+
+3. It studies variations in brain volume.
+
+4. It focuses on healthy individuals.
+
+You can see the full results for that search text here: https://undermind.ai/query_app/display_one_search/e1a3805d35...
+
+
+	
+robwwilliams on July 25, 2024 | root | parent | next [–]
+
+And that first hit in JAMA Open is a fabulous paper. Ten or mire yearly MRI scans for 650 subjects.
+
+	
+A_D_E_P_T on July 26, 2024 | prev | next [–]
+
+I've just tried it and it looks good. Will probably sign up.
+If you can get this to work for patent searches across multiple languages, you'd really have a killer product. Patent searches, via an attorney, cost thousands of dollars each and are nevertheless frequently imperfect. (I had a patent denied because somewhere, in a throwaway paragraph buried in the 100-page description of an entirely different invention, something similar was briefly mentioned and never referred to again.)
+
+I'd gladly pay $100/month for "Deep Patent Search," and more than that if it's really good.
+
+
+	
+passwordoops on July 26, 2024 | prev | next [–]
+
+"manually dig through papers on Google Scholar for hours."
+Is exactly how you gain expertise in a field and/or find those subtle gaps in knowledge that are the seeds of real breakthrough
+
+
+	
+tom_hartke on July 26, 2024 | parent | next [–]
+
+I think we associate learning/discovery with those moments because they happen together, not because they're causally related.
+I think this is somewhat equivalent to how we used to have to learn 100 different integrals and derivatives in calculus. That's somewhat helpful. I learned to see patterns in math like that, the same way I learned a decent bit by browsing irrelevant abstracts and follow citation trails. But physically memorizing 100s of integrals is mostly a waste, and so are the irrelevant abstracts. You'll be much better at math (and hopefully science) if you can learn ~10 key integrals or read ~10 abstracts, and then spend the rest of your time understanding the high level patterns and implications by talking with an expert. Just like I can now ask GPT-4 to explain why some integral formula is true, which ones are related, and so on.
+
+And that's the last point - these literature search tools aren't developing in isolation. We will get to have a local "expert" to discuss what we find with. That changes the cost-benefit analysis too.
+
+
+	
+jpmattia on July 26, 2024 | parent | prev | next [–]
+
+> "manually dig through papers on Google Scholar for hours."
+The old dinosaurs on HN are snickering about the word "manual" here, having blown days pawing through the library stacks.
+
+
+	
+fullstackchris on July 26, 2024 | parent | prev | next [–]
+
+but the actual manually digging is not - reading the paper is, and the faster you can get some 10-20 papers, the better off you are
+
+	
+DonsDiscountGas on July 26, 2024 | root | parent | next [–]
+
+Reading papers that turn out to be irrelevant to the specific problem at hand is probably the biggest time sink; it's also probably an important source of general education. But good academics presumably know the importance of keeping an open mind and general learning.
+
+	
+passwordoops on July 26, 2024 | root | parent | prev | next [–]
+
+If someone is at the level where they need 10-20 papers to understand a topic, they are not at the level where they are even capable of asking a specific enough question. In their case, doing the hard work and sifting though 100s of papers is the best way to train themselves to think critically and thoroughly evaluate whether a paper is relevant to them.
+There is also the real fact that the greatest discoveries usually come from obscure corners and reading as much as you can is the only way to explore those corners. Otherwise, you're just refining what was done before you
+
+
+	
+llm_trw on July 26, 2024 | root | parent | next [–]
+
+I have no idea how old you are, but being in my 40s and needing to get results quickly I don't really care to learn the minutia for whatever type of stamp collecting is important for the project I'm working on now.
+
+	
+phren0logy on July 25, 2024 | prev | next [–]
+
+I have only tried one search, but so far it's impressive. I have been using elicit.com, but they seem to be taking a different approach that is less AI-heavy. I would definitely give this a shot for a few months.
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+We're trying to bias the system toward more autonomous execution, rather than a "copilot"-like experience where you iterate back and forth with the system. That lets us run more useful subroutines in parallel in the backend, as long as you specified your complex goal clearly.
+
+	
+richardreeze on July 26, 2024 | prev | next [–]
+
+Great product!
+One thing I'd improve is how it asks followup questions.
+
+For example, I asked "What are the best types of videogames that improve cognition?"
+
+The followup response was
+
+```
+
+Are you specifically looking for studies that focus on cognitive improvements as measured by standardized tests, or are you more interested in everyday functional improvements observed in real-world settings?
+
+Could you be more precise about which cognitive domains you're interested in? For example, are you focusing on memory, problem-solving, attention, or something else? Additionally, are you looking for papers that compare different genres of videogames (e.g., action, puzzle, strategy) or studies targeting specific age groups or populations (e.g., children, older adults)?
+
+Lastly, are you interested in experimental studies where the cognitive benefits were directly measured pre- and post-intervention, or are observational studies that report correlations between videogame use and cognitive performance also of interest to you? Understanding this will help determine the type of articles we should prioritize in the search.
+
+```
+
+It would be great if it turned those into multiple choice. For example:
+
+```
+
+Could you be more precise about which cognitive domains you're interested in?
+
+[] memory
+
+[] problem-solving
+
+[] attention
+
+[] something else (please specify)
+
+```
+
+Would save a ton of time having to reply/ reread everything.
+
+
+	
+viraj_shah on July 25, 2024 | prev | next [–]
+
+Here is an open source tool for summarizing Arxiv papers: https://summarizepaper.com/
+
+	
+viraj_shah on July 25, 2024 | parent | next [–]
+
+Also very curious to see how this compares to: https://www.semanticscholar.org/
+
+	
+ukuina on July 26, 2024 | root | parent | next [–]
+
+Obligatory EmergentMind reference: https://www.emergentmind.com
+
+	
+tom_hartke on July 26, 2024 | root | parent | next [–]
+
+Hadn't seen that. Very complementary. We don't address staying up to date or pull in community value metrics (other than total citations). It's a somewhat different goal to broadly gather emerging ideas and stay informed.
+
+	
+sirlunchalot on July 25, 2024 | prev | next [–]
+
+Very happy subscriber here, thank you for the tool. I do a lot of searching with it, however due to some changes in my life in the near future I will not need it as much so I wont be willing to spend $20 a month on it. So my question is, would you consider adding an option where one could pay per query rather than just per monthly subscription? I would love to use it for the occasional spark of curiosity when I want to know more about a certain topic without having to familiarise myself with the academic field surrounding it. Having a way for using undermind for situations like that would be truly amazing! Would gladly pay 1-2 or maybe even 3 dollars per extended query.
+
+	
+jramette on July 25, 2024 | parent | next [–]
+
+We've thought quite a bit about usage-based pricing, but found that doesn't work psychologically for most people. Generally, people seem happier by paying up front for access, then feel good about having the system available whenever they need it, rather then having to think through cost tradeoffs every time they want to do a search or use up credits. Please do reach out at support@undermind.ai though, we'd love to talk about a solution for you and get your feedback.
+
+	
+Jarwain on July 25, 2024 | root | parent | next [–]
+
+Have you considered the middle ground where there's a $10 tier ratelimited to X requests per timeperiod?
+
+	
+tom_hartke on July 25, 2024 | root | parent | next [–]
+
+Not a bad idea. Want to avoid too much complexity in pricing, though. Decision fatigue.
+
+	
+zwaps on July 26, 2024 | prev | next [–]
+
+I really, really wish you would use a different citation format.
+Arbitrary numbers are really the least information. At least use last names and years, so I can have some idea which paper you are talking about without scrolling back and forth.
+
+
+	
+tom_hartke on July 26, 2024 | parent | next [–]
+
+Thanks! That's helpful to hear. Honestly just did numbers because the LLM has no trouble remembering which is which, and it's easier to programmatically parse out the citations to build hyperlinks (compared to names/years, where little variations creep in).
+
+	
+IanCal on July 26, 2024 | root | parent | next [–]
+
+It could be a rendering thing rather than llm output. Output a number, pull the name/year when creating the page.
+
+	
+xbmcuser on July 26, 2024 | prev | next [–]
+
+Something like this was the first thing that came to my mind when chat gpt and their ilk started showing up. The amount of knowledge in so many fields is so vast that it is impossible for any one or even a group people to access and utilise properly. Serendipity is still needed for many things LLM will make it occur more regularly
+
+	
+tom_hartke on July 26, 2024 | parent | next [–]
+
+If it's easy/fast to check the literature, hopefully people's instinct changes. If we had time, we should be doing that for any small idea.
+
+	
+physicsguy on July 26, 2024 | prev | next [–]
+
+My first impression is that it’s quite cool, but it should weight things by importance to some degree.
+I tried a search on my previous research area (https://www.undermind.ai/query_app/display_one_search/5408b4...) and it missed some key theoretical papers. At the same time, it picked up the three or four papers I’d expected it to find plus a PhD thesis I expected it to find. The results at the top of the list though are very recent and one of them is on something totally different to what I asked it for (“Skyrmion bubbles” != “Skyrmions”). The 7th result is an absolutely core paper, would be the one I’d give to a new PhD student going into this area and the one I’d have expected it to push up to the top of the list.
+
+
+	
+jramette on July 26, 2024 | parent | next [–]
+
+Appreciate the comments. One thing to note: how much compute it takes to "get everything" varies from search to search, and researchers don't always care about that and usually care most about getting a few specifically relevant results, so we start each search with a first pass with a fixed amount of compute. I know there's a lot to absorb on each search page, but if look near the bottom of the summary, Undermind is predicting is has only found about 80% of the papers with the compute dedicated to this search so far. Logged in users on Pro accounts can "extend" the search until it's gotten 90% or more to ensure exhaustiveness. One other thing I'd be curious about is your notion of "importance" here, can you help us define that here? Any ideas for how would say a very smart human assistant who's not intimately familiar with your community's interests be able to pick out paper 7 from the list according to what you mean by importance? Maybe we need a way to communicate to the system that you're interested in pedagogical or seminal works in the field?
+
+	
+Mkengine on July 26, 2024 | root | parent | next [–]
+
+Not OP and I don't know if that would be feasible for you, but a Pro feature could be something like https://asreview.nl to determine importance/relevance?
+
+	
+i-use-nixos-btw on July 26, 2024 | prev | next [–]
+
+Ok, tried searching something incredibly niche, and it came up with results that no search I'd tried through conventional methods could.
+There's a 50/50 false positive rate, but I can deal with that. It means looking at 10 papers to find 5 useful ones instead of looking at 1000 papers to also find 5 useful ones.
+
+I'm impressed.
+
+
+	
+jspann on July 26, 2024 | prev | next [–]
+
+I love the concept and loved the results I got. I tried it out and found a lot of papers both from my lab group and ones related that I had missed. I'd happily pay for it but as a grad student the price is a little steep - would it be possible to make a student tier?
+
+	
+sebastiennight on July 27, 2024 | prev | next [–]
+
+This is brillant and I found papers I could not locate previously through manual searches.
+One thing that I would like to suggest (other than saving to PDF, as discussed elsewhere in the thread) is to give the possibility, not just to "expand" the search, but also to "refine" the search.
+
+If it was possible for me, after reading through the result page, to go back to your conversational UI and say, "OK this was my original intent, and here's what's wrong with the results I've got" for your system to provide a "refined" version of my query, that would be next-level.
+
+Keep up the good work. Congrats on a successful launch!
+
+
+	
+sebastiennight on July 27, 2024 | parent | next [–]
+
+I have a marketing suggestion as well.
+When sharing a link to a search results page, the "og:title" has content="Undermind Search: I want to find..." (so all the titles of all the pages will be identical)
+
+and the "og:description" has content="Summary of Results: - " which will always be the same as well.
+
+We've gone through this with OneTake AI as well because we want our users to share their creations, which them gets them clicks, which result in traffic for us in the end.
+
+Shares will get more clicks if the title and description are more explicit.
+
+You could have the title be: "Undermind:" + a 3-4 word gist of the search. In my case: "Undermind: Video presentation impact on learning"
+
+And the description would be the actual summary content (which you do have on the page already), packed into a single line, and without the word "Summary:" (which is the only thing that's currently making it into the decription).
+
+Voilà! It's a small change but it's pretty easy and will likely increase clickthrough slightly (so more traffic for you)
+
+
+	
+BOOSTERHIDROGEN on July 26, 2024 | prev | next [–]
+
+It would be impressive if the pricing were based on the country's income level.
+
+	
+mrweiden on July 25, 2024 | prev | next [–]
+
+Ref to prior art: https://en.wikipedia.org/wiki/Meta_(academic_company)
+One anecdote that I heard from the team developing it: turned out that researchers more readily sourced material from their social networks, notably twitter at the time. Meta's search functionality didn't receive enough traffic and eventually was shut down.
+
+Perhaps LLMs will make the search capability more compelling. I guess we'll see.
+
+
+	
+winddude on July 25, 2024 | prev | next [–]
+
+Curious as to what it's doing under the hood, the query to return the results takes an excruciatingly long time... are you searching remote sources vs a local index?
+this was the search <https://www.undermind.ai/query_app/display_one_search/cba773...> if you need a reference too it, ie bugs or performance monitoring...
+
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+The few minute time delay is primarily because of the sequential LLM processing steps by high quality LLMs, not database access times. The system reads and generates paragraphs about papers, then compares them, and we have to use the highest quality LLMs, so token generation times are perceptible. We repeat many times for accuracy. We find it's impossible to be accurate without GPT-4 level models and the delay.
+
+	
+adi2907 on July 26, 2024 | prev | next [–]
+
+Very impressed. I am not a scientist but am building a product for intent-based discounting in Shopify. Typically Google scholar gives me very generic results using LSTM etc however this search gave me some interesting results with focus on real world implementation. The clarifying questions are also quite impressive as it gives the impression that it is understanding the query really well. Good stuff. I think it might be useful for end-users and not just company/research folks as well
+
+	
+iamacyborg on July 25, 2024 | prev | next [–]
+
+I’m a marketer rather than a scientist but this proved very useful in helping me find research that’s applicable to my field of work (crm marketing). Nothing particularly new was surfaced but I suppose I wasn’t expecting it to either http://www.undermind.ai/query_app/display_one_search/7140cc6...
+
+	
+jackmphy10 on July 26, 2024 | prev | next [–]
+
+This looks really cool! I'm sure I'll be adding this to my toolkit. And I swear by SciSpace Copilot https://typeset.io/ which I've been using for more than a year. It saves my reading time and summarizes the paper extremely well, helps me decode complex topics, automates the literature review, and extracts key findings of the paper within minutes.
+
+	
+admissionsguy on July 26, 2024 | prev | next [–]
+
+This works well. Well done. There was a similar product on HN a few weeks ago and it mostly failed on my favourite topics. Undermind returned all the papers I would expect. The ordering of the results could be improved since in the case I tested, it does not reflect well the relative importance of the papers. I think it may give too much weight to direct similarity to the search query, which could sometimes be an advantage.
+
+	
+gradschool on July 26, 2024 | prev | next [–]
+
+I did a search on an obscure topic I like and got impressively well informed results, so hats off to you. If this isn't an awkward question, how does one avoid running afoul of Google's rules against crawling when implementing a service like this? If someone were to post a link to a report obtained through your service on a blog or something, would that be a good thing in your view or more like piracy?
+
+	
+jramette on July 26, 2024 | parent | next [–]
+
+That's awesome! We're just putting publicly available information (abstracts aggregated by the nonprofit Semantic Scholar) through a smarter and better search process, so there's no issues with Google. And we absolutely encourage sharing, people post our search reports and send them to colleagues all the time, so please go ahead on that front.
+
+	
+ziofill on July 26, 2024 | prev | next [–]
+
+> We’re both physicists, and one of our biggest frustrations during grad school was finding research
+You should have seen what it used to be like a few decades ago :)
+
+
+	
+jramette on July 26, 2024 | parent | next [–]
+
+Agreed, it used to be even harder. But on the other hand, there were also way less papers back then to have to sift through :)
+
+	
+timdellinger on July 25, 2024 | prev | next [–]
+
+I'll write the obligatory comment about doing literature searches in the 90s, which involved trudging to the physics library, the chemistry library, and the engineering library in search of dead tree copies of the journal articles you're after. Also: skimming each paper quickly after you photocopy it, to see if it references any other papers you should grab while you're at the library.
+
+	
+cbracketdash on July 26, 2024 | prev | next [–]
+
+Been using Undermind for several months now and it's honestly been a lifesaver in getting a comprehensive understanding of a research topic.
+
+	
+benzguo on July 25, 2024 | prev | next [–]
+
+This is really cool! Both of my parents are cell biologists, and I've done some time in labs as well, so a lot of paper exploring and reading in the family. "Review" articles are a good index but something more on-demand makes a lot of sense, I can definitely see this being extremely useful.
+
+	
+jpmattia on July 26, 2024 | prev | next [–]
+
+I was looking for a way to save the result page locally (ie offline). Maybe I need more coffee, but it did not look possible. So I'd add the ability to save the result (or at least make the button prominent).
+But the fact I wanted to save a result is a good sign. Nice work!
+
+
+	
+tom_hartke on July 26, 2024 | parent | next [–]
+
+Just save the report url! It will persist.
+Also, on the usual system if you're logged in (instead of the HN free link), all your searches automatically get saved on a "history" page.
+
+
+	
+jpmattia on July 26, 2024 | root | parent | next [–]
+
+I did see that, and maybe I should expand my comment. From the perspective of someone doing long-term research: Undermind is a startup and is subject to the vagaries of VC funding. Currently, AI is in fashion among VCs, but my guess is that the fashion will be shorter lasting than the usefulness of the search results. So having tried out the product and finding a nice literature list in a relatively new area for me, my first instinct was to store it among my org files because the probability that your company will disappear (or severely degraded upon acquisition) is high.
+Anyway, I do not mean to detract from the accomplishment -- and I liked the product! So I hope you take the above feedback/nitpicking in the spirit it is intended.
+
+
+	
+tom_hartke on July 26, 2024 | root | parent | next [–]
+
+That makes sense. You should be able to right click - save as PDF and it will preserve the links, etc.
+
+	
+sebastiennight on July 27, 2024 | root | parent | prev | next [–]
+
+Hi Tom, I will agree that printing your current UI to PDF on the user's browser side is not ideal. (and not ideal for you either as it breaks the site's branding and links in my case)
+For our use case as well, I wanted to forward the offline-readable version of your result page and had to save the webpage with a browser extension.
+
+I think allowing users (or maybe just the paid users) to "Save as PDF" the search page result will be a very easy feature to monetize.
+
+I understand that "share the link" is a much more appealing call to action for your startup, but you're probably not going to change the mindset of the entire industry away from PDFs overnight, and you do stand to gain by making this a (possibly paywalled) feature.
+
+Congrats for the great work!
+
+
+	
+qxfys on July 26, 2024 | prev | next [–]
+
+Tried it. It would save me a lot of time, I would say!
+One suggestion: The back-and-forth chat in the beginning could be improved with a more extensive interaction. So, the final prompt could be more fine-grained into a specific area/context/anything one would aim for.
+
+
+	
+tom_hartke on July 26, 2024 | parent | next [–]
+
+Can you be more specific? Like break it out into AND and OR statements? Or just more iteration back and forth? We find people more familiar with the system learn better strategies than the LLM can suggest.
+
+	
+sitkack on July 25, 2024 | prev | next [–]
+
+How is this different than the work that semantic scholar is doing around AI?
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+Semantic Scholar seems more focused on 1. being the data provider/aggregator for the research community, and 2. long term, I think they plan to develop software at the reading interface that learns as a researcher uses it to browse papers (a rich PDF reader, with hyperlinks, TLDRs, citation contexts, and a way to track your interactions over time, and remind you of what you've seen or not).
+Their core feature now is a fast keyword search engine, but they also have a few advanced search features through their API (https://api.semanticscholar.org/api-docs/) like recommendations from positive/negative examples, but neither KW search nor these other systems are currently high enough quality to be very useful for us.
+
+FYI our core dataset for now is provided by Semantic Scholar, so hugely thankful for their data aggregation pipeline and open access/API.
+
+
+	
+sitkack on July 25, 2024 | root | parent | next [–]
+
+Do you plan on adding an API? I already have an inhouse knowledge discovery, annotation and search system that could be augmented by your service. Not super critical at this point, but a would be nice.
+And yes, Semantic Scholar is a wonderful part of the academic commons. Fingers crossed they don't go down the jstor/oclc path.
+
+
+	
+shashkingregory on July 25, 2024 | root | parent | prev | next [–]
+
+I've used undermind for literature search and it was very precise! Thanks for the product! I wonder how you plan to extend the search to full paper content (will Semantic Scholar api allow this) - and do you plan to connect more datasets (which ones)? (many of them are paid...)
+
+	
+jramette on July 25, 2024 | root | parent | next [–]
+
+We'll certainly be able to include open access full texts, which is already a substantial fraction of the published papers, and a growing fraction too, as the publishing industry is rapidly moving toward open access. Paywalled full text search would require working with the publishers, which is more involved.
+
+	
+shashkingregory on July 26, 2024 | root | parent | next [–]
+
+Great! I can definitely ask undermind for an overview paper of the scientific information landscape, unless you have a favourite in quick access to share?
+
+	
+tims33 on July 25, 2024 | prev | next [–]
+
+Just in case you needed a theme song for your future ads: https://www.youtube.com/watch?v=XTnMvULdcB4
+
+	
+jramette on July 26, 2024 | parent | next [–]
+
+Love it.
+
+	
+iandanforth on July 26, 2024 | prev | next [–]
+
+"Please use a valid institutional or company email address."
+This is obnoxious. Please remove this unnecessary roadblock.
+
+
+	
+tom_hartke on July 26, 2024 | parent | next [–]
+
+We removed the signup requirement for HN today - try this link: https://www.undermind.ai/query_app/promotion/
+
+	
+19h on July 27, 2024 | prev | next [–]
+
+Absolutely phenomenal quality. Subscribed to the pro plan! Please add an option to use Claude as I absolutely prefer it to GPT4 and it's probably cheaper too.
+
+	
+KrisGaudel on July 25, 2024 | prev | next [–]
+
+This is really cool, excited to see where this goes!
+
+	
+gillesjacobs on July 25, 2024 | prev | next [–]
+
+Pretty good, it found some useful references I missed in Google Scholar and Arxiv. Looks promising, will use it more.
+
+	
+rjchint on July 25, 2024 | prev | next [–]
+
+How would you compare your product to elicit.ai?
+In my opinion elicit has better looking UI and much more features and further along
+
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+I think the biggest difference is our focus on search quality, and being willing to spend a lot on compute to do it, while they focus on systematic extraction of data from existing sources and on being fast. It's a bit of an oversimplification (they of course have search, and we also have extraction).
+Feature-wise, we definitely have a lot of work to do :) What crucial pieces do you think we're missing?
+
+
+	
+lyjackal on July 26, 2024 | root | parent | next [–]
+
+From what I understand, that’s not the case. They are working on both. I’d be concerned about how you can differentiate and compete with them. They have a big head start
+
+	
+6gvONxR4sf7o on July 26, 2024 | parent | prev | next [–]
+
+In my experience, elicit’s big weakness is accuracy.
+
+	
+glitchc on July 25, 2024 | prev | next [–]
+
+This is a nice search rngine. I found it to be more effective than crawling with google scholar. Good work guys!
+
+	
+sam1234apter on July 25, 2024 | prev | next [–]
+
+How is this different from Scite, Elicit, Consensus, and Scopus AI for Generating Literature Reviews
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+Ours is slow, but accurate, even for complex topics. The rest are fast, but generally can't handle complex topics. (There's more nuanced explanations in other comments)
+
+	
+skyde on July 26, 2024 | prev | next [–]
+
+Could not try it. Saying valid institutional or company email address.
+It doesn’t recognize my university.
+
+
+	
+Tsarp on July 26, 2024 | prev | next [–]
+
+quite impressive! This is really more like what I was hoping Elicit would be.
+Are you breakdown the question into subtopics, doing a broad search and then doing some sort of dim reduction -> topical clustering to get it in the format?
+
+
+	
+pointlessone on July 25, 2024 | prev | next [–]
+
+OK, I'm both impressed and disappointed.
+I did 2 searches.
+
+First I asked about a very specific niche thing. I gave me results but none I wanted. It looked like I missed a crucial piece of information.
+
+So I did the second search. I started with the final request it written for the previous search and added the information I though I missed. It gave me virtually the same results with a little sprinkle of what I was actually after.
+
+A few observations:
+
+1. I'm not sure but it seems like it relies too much on citation count. Or maybe citations in papers make it think that the paper is absolutely a must read. I specifically said I'm not interested in what's in that paper and I still got those results.
+
+2. I don't see much dissertations/theses in the result. I know for sure that there a good results for my request in a few dissertations. None of them are in the results.
+
+That said, while I didn't get exactly what I want I've found a few interesting papers even if they're tangential to the actual request.
+
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+A few possibilities: - We only use abstracts for now. Have to make sure you ask for something present there. - Did you ask for a scientific topic? (Sometimes people ask for papers by a specific author, journal, etc. The system isn't engineered to efficiently find that).
+Regarding citations: we use them, but only for figuring out which papers to look at next in the iterative discovery process, not for choosing what to rank higher or lower at the end (unless you explicitly ask for citations). It's ranking based on topic match.
+
+If you're comfortable, posting the report URLs here can let us debug.
+
+
+	
+smcsdp on July 25, 2024 | prev | next [–]
+
+Any idea how i can use your tool for a vs code extension
+
+	
+mangoparrot on July 25, 2024 | prev | next [–]
+
+would this be able to find the latest articles on a given topic?
+let’s say i am interested in coffee and i’d like to get new research papers on it. would this work?
+
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+In short, yes, though it's geared toward topic search.
+From a strategy perspective, we designed it for topic search because it makes more sense to find everything on a topic first, then filter for the most recent, if recent is what you want. That's because there is a lot of useful information in older articles (citation connections, what people discuss, and how), and gathering all that helps uncover the most relevant results. Conversely if you only ever filtered on articles in the last year, you might discover a few things, but you wouldn't have as much information to adapt to help the search work better.
+
+So, you can ask for articles on coffee (though ideally it should be something a bit more specific, or there will be thousands of results). Our system will carefully find all articles, then you can filter for 2024 articles or look at the timeline.
+
+
+	
+Geee on July 25, 2024 | prev | next [–]
+
+I've been using https://exa.ai for this. It doesn't do any advanced agent stuff like here, but it's way better than Google, especially if you're not quite sure what you're looking for.
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+Agreed, exa is great - particularly, it's the best thing I've found for fast web retrieval of slightly more complex topics than Perplexity, Google, etc can handle.
+
+	
+minznerjosh on July 25, 2024 | prev | next [–]
+
+Are you planning to offer a search API at some point?
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+Potentially. Given the latency and the cost/compute we put into each result, it doesn't fit the usual API mechanics.
+What use case are you thinking of?
+
+
+	
+thor-rodrigues on July 26, 2024 | prev | next [–]
+
+Hi Josh and Tom, thank you for the post.
+Are there any plans on releasing any sort of API integration? I work in Technology Transfer consultancy for research institutes in Europe, and often we have to do manual evaluation of publications for novelty check and similar developments. Since most of the projects we work on were developed by leading researchers in academic institutions, it is important for us to quickly assess if a certain topic has been studied already.
+
+Currently, one of my company's internal projects is a LLM-powered software to automate much of the manual search, together with other features related to the industry.
+
+I think it be very beneficial for us to implement academic papers search function, but for that an API system would be required.
+
+Great work nonetheless, good luck on the journey
+
+
+	
+tom_hartke on July 26, 2024 | parent | next [–]
+
+We'd love to talk and see if we can provide this. Seems like it would be really helpful. Can you email us (support@undermind.ai)?
+
+	
+SubiculumCode on July 26, 2024 | prev | next [–]
+
+Impressive result. I will visit again
+
+	
+brainwipe on July 25, 2024 | prev | next [–]
+
+Independent researcher without academic address; can't get in. Best of luck.
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+You should be able to try it here without loggin in: https://www.undermind.ai/query_app/promotion/ (set up for HN today). If not message support@undermind.ai and I'll set you up.
+
+	
+toisanji on July 25, 2024 | root | parent | next [–]
+
+can you fix it so anyone can get it, that sounds like a waste of time to block people.
+
+	
+bravura on July 25, 2024 | parent | prev | next [–]
+
+Same. This is me: https://scholar.google.com/citations?user=eQ1uJ6UAAAAJ&hl=es
+And post.harvard.edu has been sunsetted for alums, so I don't have that email either.
+
+
+	
+bobobob420 on July 26, 2024 | prev | next [–]
+
+Ycombinator has really fallen off
+
+	
+Razvin_Ilia on July 26, 2024 | parent | next [–]
+
+why?
+
+	
+redeux on July 25, 2024 | prev | next [–]
+
+I’ve been using a similar platform that I really like called Answer This[1]. I’ll have to check out yours as well and see how it compares.
+1. https://answerthis.io/
+
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+I ran these two example searches we have on our homepage on AnswerThis: (3D ion shuttling) https://undermind.ai/query_app/display_one_search/b3767fb7b6... (laser cooling to BEC) https://undermind.ai/query_app/display_one_search/c5f77f862a...
+The results from their website aren't sharable, but their lists of references do not seem relevant (ie. they miss the fact that shuttling needs to be in 3D, and the list of experiments for laser cooling to BEC is missing all of the relevant papers).
+
+I think, like other research tools, they're more focused on the summarization/extraction of information, rather than the discovery process (though they are similar to us in the way they say they do multi-stage retrieval and it takes some time).
+
+
+	
+ayush4921 on July 26, 2024 | parent | prev | next [–]
+
+AnswerThis founder here. Hang on tight, our next few updates will be instrumental in conversational feedback-based paper searches.
+I love all the work that's being done in the field.
+
+Can't wait for science to be faster.
+
+
+	
+havkom on July 26, 2024 | prev | next [–]
+
+This looks cool!
+
+	
+hgarg on July 26, 2024 | prev | next [–]
+
+Is this magic?
+
+	
+alexp2021 on July 27, 2024 | prev | next [–]
+
+Hi, Looks good on first try. You mentioned the tool currently searches abstracts only. Searching full papers appears impossible as they are mostly behind paywalls, right?
+
+	
+tom_hartke on July 27, 2024 | parent | next [–]
+
+A decent fraction of research is open access these days (it's highly dependent on the field, though). That fraction is also growing. We're building systems to access full texts whenever possible.
+
+	
+adalacelove on July 26, 2024 | prev | next [–]
+
+Congratulations for an LLM that doesn't give me BS. I'm sending links to colleagues and most probably subscribe myself
+
+	
+danpalmer on July 26, 2024 | prev | next [–]
+
+So does this undermine academics? the research industry? the academic publishing industry? Who exactly is being "undermined" by this AI product?
+With the current attitudes to AI, the name feels a little tone deaf being so easily mistaken for AI undermining people.
+
+
+	
+tom_hartke on July 26, 2024 | parent | next [–]
+
+Emphasis is meant to be on "mind", like supporting better reasoning, but point taken.
+
+	
+danpalmer on July 26, 2024 | root | parent | next [–]
+
+Yeah I get it, but if someone said "check out undermind", I could easily hear it as "check out undermined", as they are pronounced identically for most English language speakers.
+
+	
+SubiculumCode on July 26, 2024 | parent | prev | next [–]
+
+undermind
+
+	
+danpalmer on July 26, 2024 | root | parent | next [–]
+
+"being so easily mistaken"
+
+	
+smcsdp on July 25, 2024 | prev | next [–]
+
+what are your biggest drawbacks?
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+Latency, compute required, and lack of full texts (paywalled publisher content).
+
+	
+8thcross on July 26, 2024 | prev | next [–]
+
+is there a way to configure sources used for research? what about ability to search through paywalled journals?
+
+	
+tom_hartke on July 26, 2024 | parent | next [–]
+
+Not at the moment -- we're currently searching the abstracts of most major journals (which are public even for paywalled papers) which have been compiled in the Semantic Scholar database (https://www.semanticscholar.org/about/publishers).
+
+	
+setgree on July 25, 2024 | prev | next [–]
+
+Very cool, and very relevant to my life -- I am currently writing a meta-analysis and finishing my literature search.
+I gave it a version of my question, it asked me reasonable follow-ups, and we refined the search to:
+
+> I want to find randomized controlled trials published by December 2023, investigating interventions to reduce consumption of meat and animal products with control groups receiving no treatment, measuring direct consumption (self-reported outcomes are acceptable), with at least 25 subjects in treatment and control groups (or at least 10 clusters for cluster-assigned studies), and with outcomes measured at least one day after treatment begins.
+
+I just got the results back: https://www.undermind.ai/query_app/display_one_search/e5d964....
+
+It certainly didn't find everything in my dataset, but:
+
+* the first result is in the dataset.
+
+* The second one is a study I excluded for something buried deep in the text.
+
+* The third is in our dataset.
+
+* The fourth is excluded for something the machine should have caught (32 subjects in total), but perhaps I needed to clarify 25 subjects in treatment and control each.
+
+* The fifth result is a protocol for the study in result 3, so a more sophisticated search would have identified that these were related.
+
+* The sixth study was entirely new to me, and though it didn't qualify because of the way the control group received some aspect of treatment, it's still something that my existing search processes missed, so right away I see real value.
+
+So, overall, I am impressed, and I can easily imagine my lab paying for this. It would have to advance substantially before it was my only search method for a meta-analysis -- it seems to have missed a lot of the gray literature, particularly those studies published on animal advocacy websites -- but that's a much higher bar than I need for it to be part of my research toolkit.
+
+
+	
+tom_hartke on July 25, 2024 | parent | next [–]
+
+For a meta-analysis, you might want to try the "extend" feature. It sends the agent to gather more papers (we only analyze 100 carefully initially), so if your report might say "only 55% discovered", could be useful.
+(Also, if you want, you can share your report URL here, others will be able to take a look.)
+
+
+	
+setgree on July 25, 2024 | root | parent | next [–]
+
+Thanks, I added my URL
+
+	
+physicsguy on July 26, 2024 | parent | prev | next [–]
+
+For a systematic review/meta analysis you’d be expected to document your search strategy, exclusion criteria, etc anyway wouldn’t you? That’d preclude using a tool like this other than as a sense check to see if you needed to add more keywords/expand your search criteria anyway.
+My wife does that for her day job (in the U.K. national healthcare system) and the systematic reviews have to be super well documented and even pre-registered on a system called PROSPERO. The published papers always have the full search strategy at the end.
+
+
+	
+setgree on July 26, 2024 | root | parent | next [–]
+
+I was planning to say "I used an AI search tool" and cite undermind.ai in my methods section. I think that won't raise any eyebrows in the review process but we'll see.
+
+	
+physicsguy on July 27, 2024 | root | parent | next [–]
+
+Have a look at the PRISMA reporting guidelines
+
+	
+Mkengine on July 26, 2024 | parent | prev | next [–]
+
+I only have some experience writing normal papers, so just out of interest, could you elaborate what your usual search routine for a meta-analysis is?
+
+	
+setgree on July 26, 2024 | root | parent | next [–]
+
+There's a whole established process for this, see here for a textbook chapter https://training.cochrane.org/handbook/current/chapter-04
+However, because I'm writing a methods-focused review -- we only look at RCTs meeting certain (pretty minimal) criteria relating to statistical power and measurement validity -- what I'm doing is closer to a combination of review of previous reviews (there have been dozens in my field) and a snowball search (searching bibliographies of papers that are relevant). I also consulted with experts in the field. however, finding bachelor's theses has been challenging, but many are actually relevant, so undermind was helpful there.
+
+
+
+
+
+
+Consider applying for YC's Winter 2027 batch! Applications are open till November 2.
+
+Guidelines | FAQ | Lists | API | Security | Legal | Apply to YC | Contact
+
+Search: 
+	Hacker Newsnew | past | comments | ask | show | jobs | submit	login
+Robin: A multi-agent system for automating scientific discovery (arxiv.org)
+151 points by nopinsight on May 20, 2025 | hide | past | favorite | 20 comments
+
+	
+greenflag on May 20, 2025 | next [–]
+
+Someone has pointed out on X/Twitter that the "novel discovery" made by the AI system already has an entire review article written about the subject [0]
+[0] https://x.com/wildtypehuman/status/1924858077326528991
+
+
+	
+woolion on May 21, 2025 | parent | next [–]
+
+This is the real problem with AI: it generates plausible-sounding slop in absurd quantity, for which verification is very expensive.
+Beyond that, it would interesting to check how wrong the AI version is compared to the ground truth (the published papers).
+
+Current technology cannot do logic, but biology is even more perverse. For instance, suppose you ask to remove starch. If you degrade it, starch is actually removed. However, it's most likely that the point was actually to remove sugar, but degrading it actually made the sugar more readily bio-available. The relationships are complex, and there's a lot of implicit knowledge that is not communicated again at every sentence.
+
+It would be good if the effort towards hype ideas like that was redirected in making a great tool to find and analyze the papers in a fairly reliable way (which would have prevented this blunder).
+
+
+	
+IanCal on May 22, 2025 | parent | prev | next [–]
+
+That overview I can find it talking about wet AMD, the claim for this is specifically dry AMD.
+edit - and from the paper
+
+> Notably, while ROCK inhibitors have been previously suggested for treatment of wet AMD and other retinal diseases of neovascularization, Robin is the first to propose their application in dry AMD for their effect on phagocytosis
+
+
+	
+hirenj on May 20, 2025 | prev | next [–]
+
+Not my subject area, but at least one other group looked at ABCA1, and judging from this abstract, it has been linked via GWAS already, and furthermore concludes it doesn’t play a role (I haven’t looked at the data though).
+I don’t know, but if we were to reframe this as some software to take a hit from a GWAS, look up the small molecule inhibitor/activator for it, and then do some RNA-seq on it, I doubt it would gain any interest.
+
+https://iovs.arvojournals.org/article.aspx?articleid=2788418
+
+
+	
+starlust2 on May 20, 2025 | parent | next [–]
+
+Wouldn't the fact that another group researched ABCA1 validate that the assistant did find a reasonable topic to research?
+Ultimately we want effective treatments but the goal of the assistant isn't to perfectly predict solutions. Rather it's to reduce the overall cost and time to a solution through automation.
+
+
+	
+ClaraForm on May 20, 2025 | root | parent | next [–]
+
+Not if (a) it misses a line of research has been refuted 1-2 years ago, (b) the experiments at recommends (RNA-Seq) are a limited resource that requires a whole lab to be setup to efficiently act based upon it, and (c) the result of the work is genetic upregulation of a gene, which could mean just about anything.
+Genetic regulation can at best let us know _involvement_ of a gene, but nothing about why. Some examples of why a gene might be involved: it's a compensation mechanism (good!), it modulates the timing of the actual critical processes (discovery worthy but treatment path neutral), it is causative of a disease (treatment potential found) etc...
+
+We don't need pipelines for faster scientific thinking ... especially if the result is experts will have to re-validate each finding. Most experts are anyway truly limited by access to models or access to materials. I certainly don't have a shortage of "good" ideas, and no machine will convince me they're wrong without doing the actual experiments. ;)
+
+
+	
+ijk on May 20, 2025 | root | parent | next [–]
+
+This is, I think, what I've been struggling to get across to people: while some domains have problems that you can test entirely in code, there are a lot more where the bottleneck is too resource-conatrained in the physical world to have an experiment-free researcher have any value.
+There's practically negative utility for detecting archeological sites in South America, for example: we already know about far more than we could hope to excavate. The ideas aren't the bottleneck.
+
+There's always been an element of this in AI: RL is amazing if you have some way to get ground truth for your problem, and a giant headache if you don't. And so on. But I seem to have trouble convincing people that sometimes the digital is insufficient.
+
+
+	
+cflyingdutchman on May 20, 2025 | root | parent | prev | next [–]
+
+This is a great framing - would you please expound on it a bit. Software is almost exclusively gated by the "thinking" step, except for very large language models, so it would be helpful to understand the gates ("access to models or access to materials") in more detail.
+
+	
+photochemsyn on May 20, 2025 | prev | next [–]
+
+This approach is very interesting, and one attention-catching datum is that their proposed compound, ripasudil, is now largely out-of-patent with some caveats, via Google Patents and ChatGPT 03:
+> 1999 - D. Western Therapeutics Institute (DWTI) finishes the discovery screen that produced K-115 = ripasudil and files the first PCT on 4-F-isoquinoline diazepane sulfonamides. (Earliest composition-of-matter priority. A 20-year term from a 1999 JP priority date takes you to 2019 (before any extensions).
+
+> 2005 - Kowa (the licensee) files a follow-up patent covering the use of ripasudil for lowering intra-ocular pressure. U.S. counterpart US 8 193 193 issued 2012; nominal expiry 11 July 2026. (A method-of-use patent – can block generics in the U.S. even after the base substance expires).
+
+Scanning the vast library of out-of-patent pharmaceuticals for novel uses has great potential for curing disease and reducing human suffering, but the for-profit pipeline in academic/corporate partnerships is notoriously uninterested in such research because they want exclusive patents that justify profits well beyond a simple %-of-manufacturing cost margin. Indeed they'd probably try to make random patentable derivatives of the compound in the hope that the activity of the public domain substance was preserved and market that instead (see the Prontosil/sulfanilimide story of the 1930s, well-related in Thomas Hager's 2006 book "The Demon Under The Microscope).
+
+I suppose the user of these tools could restrict them to in-patent compounds, but that's ludicrously anti-scientific in outlook. In general it seems the more constraints are applied, the worse the performance.
+
+Another issue is this is a heavily studied area and the result is more incremental than novel. I'd like to see it tackle a question with much less background data - propose a novel, cheap, easily manufactured industrial catalyst for the conversion of CO2 to methanol.
+
+
+	
+ankit219 on May 20, 2025 | prev | next [–]
+
+This is very cool.
+One question I have in these orchestration based multi agent systems is the out of domain generalization. Biotech and Pharma is one domain where not all the latest research is out there in public domain (hence big labs havent trained models on it). Then, there are many failed approaches (internal to each lab + tribal knowledge) which would not be known to the world outside. In both these cases, any model or system would struggle to get accuracy (because the model is guessing on things it has no knowledge of). In context learning can work but it's a hit and miss with larger contexts. And it's a workflow + output where errors are not immediately obvious like coding agents. I am curious as to what extent do you see this helping a scientist? Put another way, do you see this as a co-researcher where a person can brainstorm with (which they currently do with chatgpt) or do you expect a higher involvement in their day to day workflow? Sorry if this question is too direct.
+
+
+	
+lamename on May 20, 2025 | prev | next [–]
+
+Also on HN today "I got fooled by AI-for-science hype—here's what it taught me" https://news.ycombinator.com/item?id=44037941
+
+	
+peterclary on May 20, 2025 | prev [–]
+
+Will we have AIs doing an increasing amount of the research, theory and even publication, with human scientists increasingly relegated to doing experiments under their direction?
+
+	
+lgas on May 20, 2025 | parent [–]
+
+If so, it won't last long. At some point AI will be able to use robots to do the experiments itself.
+
+	
+dekhn on May 20, 2025 | root | parent | next [–]
+
+In practice this turns out to be extremely challenging. I've been through many labs with a ton of automated stuff that is... constantly being worked on by a range of 3rd party techs, rather than actually running in response to models.
+
+	
+postalrat on May 20, 2025 | root | parent | prev | next [–]
+
+It makes me wonder if there is some easily automated or configurable experiment is capable of revealing "new science".
+
+	
+TechDebtDevin on May 20, 2025 | root | parent | prev [–]
+
+lmfao
+
+	
+florbnit on May 20, 2025 | root | parent [–]
+
+Closed loop optimization is already a thing, and you don’t even need AI for it, just good old bayesian optimization is enough.
+
+	
+photon_mz on May 21, 2025 | root | parent | next [–]
+
+Bayesian doesn't have 'world model' intuition for next experiments to run. Think, human scientists are very 'sample-efficient' at deciding which experiment (i.e. sample) to run, in ways good-ol opt isn't but LLMs could be.
+thoughts?
+
+
+	
+florbnit on May 25, 2025 | root | parent | next [–]
+
+I feel like you missed the context of my comment. Someone suggested AI would do experiments, someone responded with “lmfao” as a dismissal. I answered that we already have computers running experimental series even without AI. I’m not dismissing AI I’m saying that we are already in a post computer run experimentation world. People not in an industry using that would obviously not know.
+
+	
+TechDebtDevin on May 21, 2025 | root | parent | prev [–]
+
+AI is just good old bayesian :|
+
+
+
+
+
+Consider applying for YC's Winter 2027 batch! Applications are open till November 2.
+
+Guidelines | FAQ | Lists | API | Security | Legal | Apply to YC | Contact
+
+Search: 
+Skip to main content
+archive
+Search
+Submit
+Donate
+Log in
+Computer Science > Artificial Intelligence
+[Submitted on 19 May 2025]
+Robin: A multi-agent system for automating scientific discovery
+Ali Essam Ghareeb, Benjamin Chang, Ludovico Mitchener, Angela Yiu, Caralyn J. Szostkiewicz, Jon M. Laurent, Muhammed T. Razzak, Andrew D. White, Michaela M. Hinks, Samuel G. Rodriques
+Scientific discovery is driven by the iterative process of background research, hypothesis generation, experimentation, and data analysis. Despite recent advancements in applying artificial intelligence to scientific discovery, no system has yet automated all of these stages in a single workflow. Here, we introduce Robin, the first multi-agent system capable of fully automating the key intellectual steps of the scientific process. By integrating literature search agents with data analysis agents, Robin can generate hypotheses, propose experiments, interpret experimental results, and generate updated hypotheses, achieving a semi-autonomous approach to scientific discovery. By applying this system, we were able to identify a novel treatment for dry age-related macular degeneration (dAMD), the major cause of blindness in the developed world. Robin proposed enhancing retinal pigment epithelium phagocytosis as a therapeutic strategy, and identified and validated a promising therapeutic candidate, ripasudil. Ripasudil is a clinically-used rho kinase (ROCK) inhibitor that has never previously been proposed for treating dAMD. To elucidate the mechanism of ripasudil-induced upregulation of phagocytosis, Robin then proposed and analyzed a follow-up RNA-seq experiment, which revealed upregulation of ABCA1, a critical lipid efflux pump and possible novel target. All hypotheses, experimental plans, data analyses, and data figures in the main text of this report were produced by Robin. As the first AI system to autonomously discover and validate a novel therapeutic candidate within an iterative lab-in-the-loop framework, Robin establishes a new paradigm for AI-driven scientific discovery.
+Subjects:	Artificial Intelligence (cs.AI); Multiagent Systems (cs.MA); Quantitative Methods (q-bio.QM)
+Cite as:	arXiv:2505.13400 [cs.AI]
+ 	(or arXiv:2505.13400v1 [cs.AI] for this version)
+ 
+https://doi.org/10.48550/arXiv.2505.13400
+Focus to learn more
+Submission history
+From: Andrew White [view email]
+[v1] Mon, 19 May 2025 17:36:17 UTC (12,841 KB)
+Access Paper:
+View PDF
+HTML (experimental)
+TeX Source
+license icon
+view license
+Current browse context:
+cs.AI
+< prev   |   next >
+new | recent | 2025-05
+Change to browse by:
+cs
+cs.MA
+q-bio
+q-bio.QM
+References & Citations
+NASA ADS
+Google Scholar
+Semantic Scholar
+export BibTeX citation
+Bookmark
+BibSonomy Reddit
+
+Bibliographic Tools
+Bibliographic and Citation Tools
+Bibliographic Explorer Toggle
+Bibliographic Explorer (What is the Explorer?)
+Connected Papers Toggle
+Connected Papers (What is Connected Papers?)
+Litmaps Toggle
+Litmaps (What is Litmaps?)
+scite.ai Toggle
+scite Smart Citations (What are Smart Citations?)
+
+Code, Data, Media
+
+Demos
+
+Related Papers
+
+About arXivLabs
+Which authors of this paper are endorsers? | Disable MathJax (What is MathJax?)
+We gratefully acknowledge support from our major funders, member institutions, and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status(opens in new tab)
+Major funding support from
+Simons Foundation
+Simons Foundation International
+Schmidt SciencesSkip to main content
+archive
+Search
+Submit
+Donate
+Log in
+Computer Science > Computation and Language
+[Submitted on 12 Mar 2025]
+Agentic AI for Scientific Discovery: A Survey of Progress, Challenges, and Future Directions
+Mourad Gridach, Jay Nanavati, Khaldoun Zine El Abidine, Lenon Mendes, Christina Mack
+The integration of Agentic AI into scientific discovery marks a new frontier in research automation. These AI systems, capable of reasoning, planning, and autonomous decision-making, are transforming how scientists perform literature review, generate hypotheses, conduct experiments, and analyze results. This survey provides a comprehensive overview of Agentic AI for scientific discovery, categorizing existing systems and tools, and highlighting recent progress across fields such as chemistry, biology, and materials science. We discuss key evaluation metrics, implementation frameworks, and commonly used datasets to offer a detailed understanding of the current state of the field. Finally, we address critical challenges, such as literature review automation, system reliability, and ethical concerns, while outlining future research directions that emphasize human-AI collaboration and enhanced system calibration.
+Subjects:	Computation and Language (cs.CL)
+Cite as:	arXiv:2503.08979 [cs.CL]
+ 	(or arXiv:2503.08979v1 [cs.CL] for this version)
+ 
+https://doi.org/10.48550/arXiv.2503.08979
+Focus to learn more
+Submission history
+From: Mourad Gridach [view email]
+[v1] Wed, 12 Mar 2025 01:00:05 UTC (1,800 KB)
+Access Paper:
+View PDF
+HTML (experimental)
+TeX Source
+view license
+Current browse context:
+cs.CL
+< prev   |   next >
+new | recent | 2025-03
+Change to browse by:
+cs
+References & Citations
+NASA ADS
+Google Scholar
+Semantic Scholar
+export BibTeX citation
+Bookmark
+BibSonomy Reddit
+
+Bibliographic Tools
+Bibliographic and Citation Tools
+Bibliographic Explorer Toggle
+Bibliographic Explorer (What is the Explorer?)
+Connected Papers Toggle
+Connected Papers (What is Connected Papers?)
+Litmaps Toggle
+Litmaps (What is Litmaps?)
+scite.ai Toggle
+scite Smart Citations (What are Smart Citations?)
+
+Code, Data, Media
+
+Demos
+
+Related Papers
+
+About arXivLabs
+Which authors of this paper are endorsers? | Disable MathJax (What is MathJax?)
+We gratefully acknowledge support from our major funders, member institutions, and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status(opens in new tab)
+Major funding support from
+Simons Foundation
+Simons Foundation International
+Schmidt SciencesUndermind
+Undermind
+Connect your agents
+Pricing
+Enterprise
+Login
+Sign up free
+Your AI
+co-researcher
+Undermind finds the papers others miss, helping you start broad, go deep, and build real command of your field over time.
+
+
+Sign up free
+Also works inside Claude, ChatGPT, and more
+Trusted by scientists from thousands of research institutions
+
+MITHarvardCaltechPrincetonBerkeleyCambridge
+GSK
+1000+ GSK scientists use Undermind
+This tool Undermind has the greatest impact compared across all GenAI solutions in our scientific space.
+
+— GSK R&D Leader
+
+Undermind accelerates the pace of our discovery of new medicines and positions our scientists to identify the most promising research directions.
+
+— Kim Branson, SVP and Global Head of AI/ML, GSK
+
+Kim Branson
+Kim Branson
+
+SVP and Global Head of AI/ML
+
+GSK
+
+Josh Ramette
+Josh Ramette
+
+CEO and Co-Founder
+
+Undermind
+
+Read the Case Study
+How Undermind works
+Describe your research. Undermind does the rest.
+1 — Describe
+Explain what you're working on
+Search
+Undermind asks follow-up questions to understand exactly what you need.
+
+2 — Explore
+Undermind searches the literature
+It reads and evaluates hundreds of papers, follows citation trails until it's found everything.
+
+3 — Build
+Go deeper together
+Search
+Iterate on reports, dive into full texts, extract details, and refine your understanding.
+
+4 — Keep up
+Stay in the loop
+Alerts
+Undermind keeps tabs on your areas of interest and notifies you with important updates.
+
+Undermind's v1 search engine delivered 10x better results than Google Scholar, and we've been improving ever since. Our v2 engine outperforms frontier agents with web search by a wide margin.
+
+See the benchmark
+Features
+Dive deeper into the literature
+Brainstorm research directions
+Brainstorm with an AI expert that has read the relevant literature. Generate custom tables to support your research.
+
+Report Chat
+Citation
+Verify responses
+Trace any statement by following in-line citations back to the source paper
+
+Gauge relevance
+Quickly grasp if a paper is relevant to your unique question. Sort and filter however you like.
+
+Relevance
+Stay up to date
+Get notified whenever relevant papers are published.
+
+Alerts
+Benchmark
+
+More accuracy, less time
+State-of-the-art literature search algorithms for complex research.
+
+
+Key paper discovery
+How fast each retrieval system finds the 20 most relevant papers.
+
+Recall and precision
+
+Method
+0
+2
+4
+6
+8
+10
+Search time (minutes)
+0%
+20%
+40%
+60%
+80%
+Key papers found
+Undermind deep search
+GPT-5.6 Sol (medium)
+Claude Opus 5 (medium)
+GPT-5.6 Luna (high)
+
+
+
+
+
+
+
+Testimonials
+What researchers say
+Industry
+
+Gabriel
+Gabriel Villafuerte
+
+MD/PhD and Chief Medical Officer, Actipulse Neuroscience
+
+"I've had our whole R&D team at Actipulse subscribed to Pro and we are thrilled with it! It's amazing how it can dig up obscure papers that would take days or weeks to try to find otherwise."
+Will
+"Undermind is easily the best lit search tool out there. It has had a huge impact on our work. My team and I are long-term subscribers."
+
+Will Olsen
+
+Co-founder and CEO at Engage Bio
+
+Dan
+"Undermind's unique algorithms give me exactly the information I need. Anyone searching the technical literature should be using this incredible tool."
+
+Dan Recht
+
+Applied Physics PhD, hard-tech entrepreneur, and startup advisor
+
+Academic
+
+Joelle
+Joelle Straehla
+
+Koch Institute for Integrative Cancer Research, Clinical Investigator
+
+"I have used this for extensive literature review into very nuanced drug delivery topics and have been very impressed. From chemistry to clinical trial data, this has been a very helpful tool."
+Andre
+"I am always impressed with Undermind's capabilities. It's often surfaced critical information I would have otherwise missed. Our whole research group is paying for Pro."
+
+Andre Fonseca
+
+Graduate Researcher, MIT
+
+Marco
+"Very happy subscriber. I use Undermind all the time and it has been a game-changer for me, condensing days of work down to a few minutes."
+
+Marco Colangelo
+
+MIT PhD and Professor of Electrical Engineering, Northeastern University
+
+Pricing
+Industry
+Academic
+Monthly
+
+Annual
+Free
+
+For exploratory research
+
+$0
+
+Try for Free
+Get started with Undermind
+
+ 
+
+Strong AI models for chat, deep searches, reports
+
+Collaborate on shared workspaces
+
+Connect your agents (Claude, ChatGPT, and more)
+
+Standard rate limits on chats and searches
+
+POPULAR
+Pro
+
+For serious, ongoing research
+
+$16
+
+per month, billed annually
+
+Try for Free
+You save 20% with annual
+
+Everything in Free plus:
+
+The latest, most powerful AI models
+
+Deepest analysis of full texts
+
+10x higher usage limits
+
+Unlimited workspaces, files, and paper libraries
+
+Team
+
+ 
+
+$15
+
+per person per month, billed annually
+
+
+5 seats at $15
+Sign Up to Purchase
+ 
+
+All features in Pro, plus:
+
+Easily manage team members
+
+Priority customer support
+
+Centralized billing
+
+Enterprise
+
+ 
+
+Contact Us
+ 
+
+All features in Team, plus:
+
+Increased compute
+
+Sitewide organizational login
+
+Onboarding seminars
+
+Admin dashboard
+
+Custom terms/SLA/security review
+
+Custom pricing
+
+Dedicated support
+
+For enterprises: the security and scale you expect
+Our enterprise agreements are tailored to your organization's needs, and your IP and research data stay under your control. We never compromise on privacy.
+
+Secure Cloud
+Encryption in transit and at rest, with strict access controls. Trusted by dozens of leading research companies and verified by independent penetration testing.
+
+No Training
+Your company's proprietary R&D data stays isolated, is never used to train AI models, and our model providers never retain or train on it.
+
+Own Your IP
+You own your inputs and outputs, we provide the software. Request complete removal of your organization's data at any time.
+
+Contact Sales
+View Security Overview
+Questions? Our team can walk you through our security practices and documentation.
+
+Joshua Ramette
+Joshua Ramette
+CEO
+
+Tom Hartke
+Tom Hartke
+CTO
+
+Built by researchers
+Started by two quantum physics PhDs from MIT, with decades of experience in deep research.
+
+Backed by
+Y
+Combinator
+FAQ
+Frequently asked questions
+Can't find what you're looking for? Get in touch.
+
+
+What scientific databases do you search?
+
+Why does a search take a few minutes to complete?
+
+Do you search full texts, or just abstracts?
+
+What makes Undermind different?
+
+Can I connect my own agents to Undermind?
+
+It didn't find my paper. Why?
+
+Why the name Undermind?
+Undermind
+Undermind
+Connect your agents
+Terms of use
+Privacy policy
+Refund & cancellation
+© 2026 Undermind
+LinkedIn
+Contact us
+support@undermind.aiSkip to main content
+archive
+Search
+Submit
+Donate
+Log in
+Computer Science > Computation and Language
+[Submitted on 30 Aug 2026 (v1), last revised 2 Sep 2026 (this version, v2)]
+Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents
+Timothy Kassis, Vinayak Agarwal, Yuhuan He, Darshil Patel, Aubrey M. Brueckner
+A language-model agent asked to analyse an experiment will usually return working code. Whether the analysis is defensible is a different question. A defensible analysis depends on procedural choices: which test the field accepts, which identifier namespace is authoritative, and which caveats must accompany a result. We present Scientific Agent Skills, an open library of 163 such procedures in 16 areas of practice, including genomics, cheminformatics, medical imaging, study design and scientific communication. Each skill is a directory built around a versioned, human-readable instruction file. An agent loads the file only when a task calls for it; the directory often also contains reference material and runnable scripts. We report no task-level evaluation and no host selection rate. We measure two properties of the documentation corpus: the always-resident descriptions of all 163 skills cost 7.1% of a 200,000-token window, and the median documented workflow fits within 23.9% of it, although 29 of 46 would overflow if every reference file were loaded. Openly licensed and available at this https URL.
+Comments:	31 pages, 16 figures, 2 tables, 1 listing. v2: adds a figure of how the documented workflows compose skills, quotes the skill clauses behind the introduction's examples, replaces the appendix listing with a procedural skill, names supported hosts and the pinned install path, and reports the two corpus findings in the abstract
+Subjects:	Computation and Language (cs.CL); Artificial Intelligence (cs.AI)
+Cite as:	arXiv:2609.00065 [cs.CL]
+ 	(or arXiv:2609.00065v2 [cs.CL] for this version)
+ 
+https://doi.org/10.48550/arXiv.2609.00065
+Focus to learn more
+Submission history
+From: Timothy Kassis [view email]
+[v1] Sun, 30 Aug 2026 15:40:35 UTC (2,386 KB)
+[v2] Wed, 2 Sep 2026 21:50:40 UTC (2,995 KB)
+Access Paper:
+View PDF
+HTML (experimental)
+TeX Source
+license icon
+view license
+Current browse context:
+cs.CL
+< prev   |   next >
+new | recent | 2026-09
+Change to browse by:
+cs
+cs.AI
+References & Citations
+NASA ADS
+Google Scholar
+Semantic Scholar
+export BibTeX citation
+Bookmark
+BibSonomy Reddit
+
+Bibliographic Tools
+Bibliographic and Citation Tools
+Bibliographic Explorer Toggle
+Bibliographic Explorer (What is the Explorer?)
+Connected Papers Toggle
+Connected Papers (What is Connected Papers?)
+Litmaps Toggle
+Litmaps (What is Litmaps?)
+scite.ai Toggle
+scite Smart Citations (What are Smart Citations?)
+
+Code, Data, Media
+
+Demos
+
+Related Papers
+
+About arXivLabs
+Which authors of this paper are endorsers? | Disable MathJax (What is MathJax?)
+We gratefully acknowledge support from our major funders, member institutions, and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status(opens in new tab)
+Major funding support from
+Simons Foundation
+Simons Foundation International
+Schmidt SciencesLoading [MathJax]/jax/output/HTML-CSS/config.js
+Skip to main content
+Nature
+View all journals
+Saved research
+Search
+Log in
+Explore content
+About the journal
+Publish with us
+Sign up for alerts
+RSS feed
+nature  articles  article
+Article
+Open access
+Published: 19 May 2026
+A multi-agent system for automating scientific discovery
+Ali E. Ghareeb, Benjamin Chang, Ludovico Mitchener, Angela Yiu, Caralyn J. Szostkiewicz, Dmytro Shved, Gavin J. Gyimesi, Jon M. Laurent, Samantha M. Wright, Muhammed T. Razzak, Andrew D. White, Silvia C. Finnemann, Michaela M. Hinks & Samuel G. Rodriques 
+Nature volume 655, pages497–505 (2026) Cite this article
+
+Save article
+267k Accesses
+
+116 Citations
+
+539 Altmetric
+
+Metricsdetails
+
+Abstract
+Scientific discovery is driven by the iterative process of observation, hypothesis generation, experimentation and data analysis. Despite recent advancements in applying artificial intelligence (AI) to biology, no system has yet automated all these stages1,2,3. Here we introduce Robin, a multi-agent system capable of fully automating both hypothesis generation and data analysis for experimental biology. By integrating literature search agents with data analysis agents, Robin can generate hypotheses, propose experiments, interpret experimental results and generate updated hypotheses, achieving a semi-autonomous approach to scientific discovery. By applying this system, we were able to identify promising therapeutic candidates for dry age-related macular degeneration, the major cause of blindness in the developed world4,5. Robin proposed enhancing retinal pigment epithelium phagocytosis as a therapeutic strategy, and identified and confirmed in vitro efficacy for ripasudil and KL001. Ripasudil is a clinically used Rho kinase inhibitor that, to our knowledge, has never previously been proposed for the treatment of dry age-related macular degeneration. To elucidate the mechanism of ripasudil-induced upregulation of phagocytosis, Robin then proposed and analysed a follow-up RNA sequencing experiment, which revealed upregulation of ABCA1, which encodes a lipid efflux pump and represents a possible novel target. All hypotheses, experimental directions, data analyses and data figures in the main text of this report were produced by Robin. As one of the first AI systems to autonomously discover and validate novel therapeutic candidates within an iterative lab-in-the-loop framework, Robin establishes a new paradigm for AI-driven scientific discovery.
+
+Similar content being viewed by others
+
+Discovery of a selective alpha-kinase 1 inhibitor for the rare genetic disease ROSAH syndrome
+Article Open access
+09 September 2025
+
+Integrating machine learning and structure-based approaches for repurposing potent tyrosine protein kinase Src inhibitors to treat inflammatory disorders
+Article Open access
+13 January 2025
+
+Effect of a fixed combination of ripasudil and brimonidine on aqueous humor dynamics in mice
+Article Open access
+03 April 2024
+Explore related subjects
+Discover the latest articles and news in related subjects.
+Computational platforms and environments
+Target identification
+Human-Robot Interaction in Assistive Technologies
+Main
+Advances in our ability to measure, perturb and model biological systems have resulted in rapid growth of our collective scientific knowledge6. Yet complementary technologies to interpret, synthesize and generate hypotheses from this knowledge have lagged behind7. AI systems based on large language models (LLMs) show promise for automating this knowledge synthesis process and accelerating scientific discovery. As a primary goal of biomedical research is the development of new treatments for disease, our ability to produce new therapeutics may be the ultimate beneficiary of these approaches. Drug development heavily relies on a confluence of biological, clinical and pharmaceutical expertise, and is limited by the rate at which these experts can synthesize the scientific literature8.
+
+The repurposing of existing drugs for new indications presents a promising application space for LLM systems. The history of drug repurposing often shows a pattern: although insights often existed in scientific literature, only after a substantial lag did that knowledge crystallize into a new treatment. For example, dabrafenib, an inhibitor of BRAF kinase that is used in various cancers with mitogenic mutations in BRAF, is being repurposed to prevent hearing loss9,10. Although its molecular action was well characterized by 2010 (refs. 11,12,13), the otoprotective effects of dabrafenib were only discovered 10 years later via unbiased high-throughput screening. This delayed discovery occurred despite the otoprotective effects of dabrafenib being a direct result of its known inhibition of BRAF9,10,14, suggesting that more repurposing opportunities could be identified through logical connection of existing biological insights in the literature. Further cases across medicine from ketamine (22-year lag)15,16 to leucovorin (5-year lag)17,18 to KarXT (13-year lag)19,20 underscore how repurposing efforts are frequently realized years after core insights are documented. Such delays in connecting existing insights to new therapeutic applications highlight the challenge of synthesizing disparate scientific knowledge. Trained on data across many fields, LLMs can store and recall information on a wide variety of scientific topics and thus transcend the limitations of individual human knowledge. Previous work has shown that fine-tuned LLMs and specialized retrieval-augmented generation systems can exceed human performance on retrieving and summarizing information from the scientific literature. These advances raise the possibility that LLM systems could be used for novel hypothesis generation21,22,23,24,25.
+
+Several LLM systems have recently been developed to automate hypothesis generation1,2,3,26,27,28,29. Specialized systems have also been developed to automate specific tasks in drug discovery, such as prediction of pharmacological properties and safety profiles3,27. These systems have demonstrated that they can generate reasonable hypotheses by utilizing multi-agent architectures that decompose scientific reasoning into discrete manageable sub-tasks3, domain-specific fine-tuning2,30, integration of external tools2,3 and incorporation of human feedback3. However, none of these systems have automated all of the key intellectual steps of the scientific process, including generating hypotheses and experimental strategies, analysing results from laboratory experiments and refining hypotheses in light of new data.
+
+Here we introduce Robin, a multi-agent system for discovery in biology that integrates novel hypothesis generation with experimental data analysis in one continuous workflow (Fig. 1a,b). Robin utilizes specialized language agents for literature search (Crow and Falcon) and data analysis (Finch) to enable semi-autonomous scientific discovery25,31 (Fig. 1c). Although this system could be applicable to scientific discovery across disciplines, in this article, we focus on its potential in therapeutics. After giving Robin a disease of interest, Robin automatically identified relevant in vitro assays that model key disease mechanisms and proposed specific drug candidates to evaluate in these experimental models. We then conducted the experiments and provided the resulting data to Robin for autonomous analysis. Robin then interpreted the results of this analysis to generate a new round of therapeutic candidates. Through this process, Robin drove an iterative therapeutics development cycle during which hypotheses were generated, tested, analysed and refined on the basis of experimental results. The key intellectual steps of the scientific method were thus automated while coordinating with scientists throughout the experimental loop. Robin represents one of the first systems to connect literature-based hypothesis generation with autonomous analysis of biological laboratory data in a continuous feedback system.
+
+Fig. 1: Architecture and workflow of the Robin system.
+Fig. 1: Architecture and workflow of the Robin system.
+Full size image
+a, When given the name of a target disease, Robin generates hypotheses and selects the top therapeutic candidates to test experimentally. Robin can autonomously analyse raw data from these experiments to synthesize scientific insights and generate updated therapeutic hypotheses. b, Robin interacts with language agents to generate hypotheses and analyse the experimental data. c, Crow and Falcon are used to conduct concise and deep literature searches, respectively, to gather information to guide hypothesis generation. Finch performs analyses of experimental data, which Robin uses to derive insights to inform the next round of hypothesis generation.
+
+To demonstrate the ability of Robin to generate and refine novel therapeutic hypotheses, we attempted to identify potential new treatments for dry age-related macular degeneration (dAMD). dAMD is the leading cause of irreversible sight loss in developed countries, yet limited treatment options are available. In the USA alone, 1.5 million people have vision-threatening dAMD, and 600,000 are legally blind due to AMD, a figure projected to almost triple by 2050 due to an ageing population4,5. By applying Robin to discover novel therapeutic candidates for dAMD, this work represents a step towards AI-generated discovery in scientific research.
+
+Robin: a multi-agent system for scientific discovery
+Robin integrates multiple language agents in a structured workflow to generate therapeutic candidates for a given disease (Fig. 1a,b). Crow and Falcon are literature search agents based on PaperQA2 that conduct concise and deep literature summaries, respectively25. PaperQA2 achieves expert-level performance in information retrieval and summarization, with access to scientific literature, clinical trial reports and the Open Targets Platform32. Finch is a scientific data analysis agent that performs analyses of experimental data from assays, such as RNA sequencing (RNA-seq) and flow cytometry31 (Fig. 1c). By coordinating these agents to identify novel and readily laboratory-testable therapeutic strategies, we used Robin to enable an experimentally guided system that drives the process of scientific discovery. An example of the Robin hypothesis generation workflow is shown in Supplementary Fig. 1. In the workflow described in this paper, Robin analysed 551 papers in 30 min compared with an estimated time of 294 h for a human. Using estimates derived from published surveys, we estimate a 200-fold reduction in time spent completing the entire scientific workflow manually (Table 1).
+
+Table 1 Estimated time-on-task comparison: human versus Robin-assisted discovery
+Full size table
+Therapeutic hypothesis generation
+When provided with the disease of interest (dAMD), Robin formulated a series of general questions about the disease pathology and queried Crow to answer each question. Using the reports from Crow as context, Robin then identified ten potential causal disease mechanisms. For each mechanism, Robin deployed Crow to prepare a detailed report describing an in vitro model of the disease mechanism that could be used to test drug efficacy. Robin then used an LLM judge to make pairwise comparisons between reports, which were used to calculate their relative rankings (see Methods). The top-ranked in vitro model was used by Robin to define the experimental strategy for therapeutic candidate hypothesis generation.
+
+Once an in vitro model was selected, Robin conducted a similar sequence of general literature review and hypothesis generation steps to propose 30 therapeutic candidates for experimental testing. Robin then queried Falcon to generate a detailed report to evaluate each candidate. These reports contained both justification for why each drug is suitable for mitigating the disease mechanism represented in the in vitro model and potential limitations that the drug may pose. The drug candidates were ranked by an LLM-judged tournament according to the strength of the scientific rationale, pharmacological profile and methodology of the supporting literature. This ranked list was then reviewed by human scientists, and the top drug candidates were tested in the laboratory by executing a human-generated experimental protocol based on the assay suggested by Robin.
+
+Experimental data analysis
+Once the experiments were complete, we uploaded raw or semi-processed data (in this case, .FCS files from flow cytometry or gene counts for RNA-seq) and prompted Robin with a desired analysis approach, for example, ‘flow cytometry’ or ‘differential expression analysis’. Robin then deployed Finch to carry out the desired analysis. This analysis step presents unique challenges due to the inherently ambiguous nature of biological data interpretation. For example, the gating choices in flow cytometry analysis or the filters used in RNA-seq analyses will vary between human scientists and may affect the final conclusions. Similarly, the analysis results from Finch can vary between runs, even when given identical prompts and data, due to the stochasticity of the language agent. To leverage this diversity, we configured Robin to launch eight Finch analysis trajectories, each of which independently analysed the experimental data. In each trajectory, Finch executed analysis code in a Jupyter notebook and provided an interpretable and reproducible summary of its findings. After all trajectories were completed, a meta-analysis was conducted to synthesize all outputs into a consensus-driven conclusion. In this way, Finch explored diverse analytical trajectories while delivering highly consistent end results based on consensus (see Methods)33.
+
+Finally, Robin distilled actionable scientific insights from these processed experimental results. Robin also has the ability to propose targeted follow-up assays to explore or confirm importantor unexpected findings. These experimental insights were used to inform the next cycle of therapeutic hypothesis generation. The cycle continues until a human has a satisfactory drug candidate.
+
+Robin expedites hypothesis generation
+We applied Robin to generate therapeutic candidates for dAMD as an initial proof of concept (Fig. 2a and Supplementary Figs. 1–11). Robin began the therapeutic hypothesis generation workflow by identifying and reviewing 151 papers to propose 10 biologically relevant dAMD mechanisms to assay. After ranking the disease mechanisms and corresponding experimental strategies, Robin proposed treating dAMD by increasing retinal pigment epithelium (RPE) cell phagocytosis, and suggested testing how well drugs increase the phagocytic capacity of either patient-derived or stem cell-derived RPE cells in a flow cytometry assay.
+
+Fig. 2: Robin generates therapeutic candidate hypotheses for dAMD and analyses experimental data from in vitro experiments.
+Fig. 2: Robin generates therapeutic candidate hypotheses for dAMD and analyses experimental data from in vitro experiments.
+Full size image
+a, Robin proposes several experimental assays and ultimately decides to use an RPE phagocytosis enhancement assay. Robin synthesizes this strategy into an overall goal and then generates several novel therapeutic candidates to enhance RPE phagocytosis. TEER, transepithelial electrical resistance. Text in panel a generated by Robin. b, Schematic representation of the phagocytosis assay. RPE cells are incubated with the drug for 1 h before pHrodo-labelled beads or ROSs are added. The cells are incubated with the beads or ROSs for 3 h and phagocytic activity is measured via flow cytometry. Schematic created in BioRender; Ghareeb, A. https://biorender.com/yf9q8b1 (2026). c–f, Example plots from a Finch flow cytometry analysis trajectory, formatted for readability in publication by a human. c, Finch performs gating to discard debris using a forward-scatter area (FSC-A) versus side-scatter area (SSC-A) plot. d, Finch gates singlet cells from the forward-scatter height (FSC-H) versus FSC-A plot. Red outlined area (c,d) indicates cell population. e, Finch identifies the 4′,6-diamidino-2-phenylindole (DAPI) signal and excludes dead cells. f, Finch performs statistical tests to compare candidate drugs to the DMSO control and plots the results. This bar plot shows the fold change in mean fluorescence intensity (FC MFI) relative to the DMSO control (n = 3 wells; error bars are s.e.m.; significance was determined using Dunnett’s test: *P < 0.05).
+
+Robin then called Crow (Supplementary Fig. 4) to conduct a literature review of about 400 papers relating to RPE phagocytosis and the therapeutic landscape of dAMD and synthesized the results to propose 30 existing drug candidates for experimental testing in the phagocytosis assay. Robin called Falcon to produce comprehensive evaluation reports on each of these molecules (Supplementary Fig. 9), which were ranked in an LLM-judged tournament.
+
+We calculated the cost of a Robin workflow under the same configuration that was run in the paper: num_queries = 5, num_assays = 10 and num_candidates = 30. This configuration would lead to 45 Crow calls and 30 Falcon calls, at a cost, on average, of US$4.33 and US$6.43, respectively, or US$10.76 for a total run.
+
+Our time-on-task analysis (Table 1) demonstrates that the Robin framework reduces the total cognitive labour of a discovery cycle from an estimated 359–424 human hours to less than 2 h. Of note, the system synthesized approximately 551 references in roughly 30 min, a task that would require approximately 294 h of manual processing, on the basis of established literature benchmarks for scholarly reading.
+
+ROCK inhibitor enhances phagocytosis
+We then selected the top five candidates from this ranking for experimental testing: exendin-4, fingolimod, MFGE8, Y-27632 and the combination of 5-aminoimidazole-4-carboxamide ribonucleotide (AICAR) and tauroursodeoxycholic acid (TUDCA). MFGE8 is known to increase phagocytosis in cultured RPE cells34, so we included it to serve as a positive control. Although Robin suggested using fluorescently labelled photoreceptor outer segments as a substrate for RPE phagocytosis, we initially decided to use pHrodo beads due to availability. In addition, Robin suggested using primary or stem cell-derived RPE, but we used ARPE-19 cells for the initial drug screen to expedite our evaluation of the hypotheses by Robin. pHrodo beads are fluorescently activated in the low pH environment of the lysosome, allowing detection of phagocytosis in single cells using flow cytometry (Fig. 2b; see Supplementary Fig. 12 for microscopy validation). After testing these therapeutic candidates in the RPE phagocytosis assay, the raw flow cytometry data, associated metadata and an analysis prompt were uploaded to Robin. Robin called the data analysis agent Finch, which developed a Jupyter notebook to quantify the effect of each compound on RPE phagocytosis by gating the flow cytometry data and performing statistical tests. Plots from a representative individual Finch trajectory are shown in Fig. 2c–e. These results were confirmed by a human analysis of the same data (Supplementary Table 3 and Supplementary Fig. 13). Preclinical models have demonstrated that Y-27632 can restore phagocytic efficiency in RPE cells35, confirming the literature-based rationale by Robin for suggesting this candidate.
+
+Automated RNA-seq analysis
+After analysing the initial flow cytometry results, Robin recommended RNA-seq of Y-27632-treated RPE cells to investigate the transcriptional effects of ROCK inhibition (Fig. 3a). We conducted a second RPE phagocytosis experiment with Y-27632 and profiled the samples using bulk RNA-seq. Finch conducted differential gene expression (DGE) analysis and summarized results in a volcano plot (Fig. 3b). Although previous studies have shown that Y-27632 enhances phagocytic cup formation through post-translational regulation of F-actin dynamics35,36,37, the DGE analysis by Finch revealed that Y-27632 treatment also induced rapid transcriptional changes in RPE cells during phagocytosis. The consensus analysis by Finch demonstrated that Finch identified the same genes as significantly differentially expressed in over 50% of trajectories (Fig. 3c). Finch next performed Gene Ontology enrichment analysis and found that Y-27632 significantly altered the expression of genes involved in actin filament organization, small GTPase-mediated signal-transduction and autophagy pathways after phagocytosis (Fig. 3d). These results suggest that Y-27632 could enhance the initial uptake phase of phagocytosis through cytoskeletal rearrangement and promote clearance of internalized material through transcriptional regulation of autophagy; however, further work is necessary to validate any effects on autophagy. The human version of this analysis is like that of Finch and is shown in Supplementary Fig. 14.
+
+Fig. 3: RNA-seq analysis of ARPE-19 cells treated with the ROCK inhibitor Y-27632.
+Fig. 3: RNA-seq analysis of ARPE-19 cells treated with the ROCK inhibitor Y-27632.
+Full size image
+a, Robin interprets results from the first experiment and proposes follow-up assays. Text in panel a generated by Robin. b–d, Example plots from a Finch RNA-seq analysis, formatted for readability in publication by a human. b, A Finch-made volcano plot showing differentially expressed genes between Y-27632-treated and wild-type (WT) cells after phagocytosis. c, Finch-made consensus findings from eight RNA-seq analysis trajectories, showing the percentage of analyses that identified the same genes as consistently upregulated or downregulated. d, Finch-made Gene Ontology term enrichment of differentially expressed genes; n = 3 wells.
+
+The DGE analysis identified a threefold upregulation (adjusted P = 2.13 × 10−83) of ABCA1, which encodes a critical lipid efflux pump, in Y-27632-treated cells. Differential expression of ABCA1 after ROCK inhibitor-induced phagocytosis has potential implications for dAMD, as ABCA1 is essential for healthy RPE function. ABCA1 facilitates the active transport of cholesterol and phospholipids from the plasma membrane to acceptor proteins before their ejection from the cell. Further connecting these findings to dAMD pathology, apolipoprotein E, a lipid acceptor for ABCA1, has been identified in multiple studies as a genetic susceptibility allele for macular degeneration38,39,40.
+
+These mechanistic insights, derived from experiments proposed by Robin and analysed by Finch, demonstrate how AI-driven scientific discovery can not only expedite the generation of in vitro data for candidate therapeutic compounds but also reveal novel molecular targets within disease pathways that might have otherwise remained unexplored.
+
+A repurposed drug for dAMD
+In addition to suggesting RNA-seq analysis on Y-27632, Robin also conducted a subsequent iteration of candidate drug hypotheses (Fig. 4a). We tested ten of these drugs experimentally and provided the data to Finch for analysis. Analysis by Finch showed that ripasudil, a ROCK inhibitor approved for treatment of glaucoma in Japan, outperformed Y-27632 and increased RPE cell phagocytosis 1.89-fold compared with dimethyl sulfoxide (DMSO) controls (Fig. 4b; human analysis showed a 1.75-fold increase; see Supplementary Table 4 and Supplementary Fig. 15). A dose–response experiment in ARPE-19 cells confirmed the greater potency of ripasudil than Y-27632 (Fig. 4c). In addition, as an approved drug, ripasudil has a known safety profile, providing an advantage over Y-27632 (a research compound) in clinical translation.
+
+Fig. 4: Ripasudil and KL001 enhance RPE phagocytosis.
+Fig. 4: Ripasudil and KL001 enhance RPE phagocytosis.
+Full size image
+a, Excerpt of the proposal by Robin for ripasudil. Drawing from the insights from the first round of experimental analysis, Robin proposes ripasudil as a therapeutic candidate for treating dAMD. For result interpretation, a JSON-structured output is generated from the Finch results by an LLM (see experimental insights app ENDAGE in prompts.py in the Robin GitHub repository; see Code availability). NECA, 5′-N-ethylcarboxamidoadenosine. Text in panel a generated by Robin. b, Analysed flow cytometry data from the second round of experiments in ARPE-19 cells show that ripasudil significantly enhances phagocytosis (n = 3 wells). c, Dose–response curves for ripasudil and Y-27632 in ARPE-19 cells. Ripasudil is more potent than Y-27632 at stimulating phagocytosis in ARPE-19 cells (n = 3 wells). Dashed horizontal lines indicate half-maximal effective concentration (EC50) for ripasudil (purple) and Y-27632 (blue). d, Validation of ripasudil in geriatric primary human RPE cells (RPE-SCs) recapitulates the phagocytosis-enhancing effect of Y-27632 and ripasudil (n = 4 wells). e, Ripasudil is more potent than Y-27632 in RPE-SCs (n = 4 wells). Dashed horizontal line with grey shading indicates the MFI of the DMSO control. Error bars show the s.e.m. on all plots. Significance was determined by Dunnett’s test: *P < 0.05.
+
+Validation in primary human RPE cells
+RPE stem cells (RPE-SCs) are a subpopulation of the human RPE cells that retains limited mitotic potential, allowing cultivation in vitro. When expanded into a confluent monolayer and allowed to mature in vitro, RPE-SCs are known to express canonical RPE genes, retain polarized barrier function and morphologically resemble native human RPE cells41. In addition, ROCK inhibitors are not required in the culture of RPE-SCs, unlike induced pluripotent stem cell-derived RPE cells42. We obtained RPE-SCs isolated from a patient older than 60 years of age from the Eye-Bank for Sight Restoration (New York) and expanded them into a confluent monolayer. We validated their RPE phenotype through immunocytochemistry of canonical RPE markers and phagocytosis machinery43 (Extended Data Figs. 1 and 2).
+
+We re-screened all drugs suggested by Robin, this time using RPE-SCs in place of ARPE-19 cells, and fluorescently labelled bovine rod outer segments (ROSs) in place of beads. Once again, ripasudil and Y-27632 were identified as hits, with ripasudil again showing higher potency (Fig. 4d; see also the human analysis in Supplementary Table 5 and Supplementary Fig. 16). There is a dose-dependent increase in phagocytosis with both ROCK inhibitors, with ripasudil being more potent than Y-27632 (Fig. 4e). Supernatants from this dose–response experiment were assayed for cytotoxicity. There was no relationship between Y-27632 dose and lactate dehydrogenase (LDH) release from RPE-SCs. Ripasudil showed a negative relationship with LDH release, with higher drug concentrations reducing LDH release (Extended Data Fig. 3).
+
+KL001, a circadian clock modulator that works by preventing the ubiquitin-dependent degradation of CRY proteins, was also identified as a hit in RPE-SCs. Robin suggested this drug on the basis of the circadian control of RPE phagocytosis43 and, to our knowledge, no one has previously proposed KL001 as an enhancer of phagocytosis.
+
+To further validate the ABCA1 finding, we performed RNA-seq on RPE-SCs treated with ripasudil or vehicle control (with or without ROSs). ABCA1 was also upregulated in RPE-SCs in response to ripasudil exposure, with or without ROSs (Supplementary Fig. 17).
+
+Although in vivo validation of both drugs would be necessary for definitive comparison, the initial superior performance of ripasudil over Y-27632 in this in vitro assay demonstrates the ability of Robin to progressively refine therapeutic hypotheses through iterative experimentation and feedback.
+
+Validation of the Robin architecture
+We started by ablating the literature search agents Crow and Falcon, replacing them with calls to OpenAI’s o4-mini. We then assessed the performance of Robin (wild type) versus its ablated version by asking both to generate 50 drug candidate proposals for dAMD and then assessing the quality of a sampled subset of these proposals.
+
+We manually assessed their quality by performing a human reference check. As expected, this showed that ablation of Falcon, or of both Crow and Falcon, but not of Crow alone, led to a dramatic increase in hallucinated references (Extended Data Fig. 4a and Supplementary Tables 6–8, respectively). (Crow is responsible for producing the literature searches that guide Falcon in producing the final drug candidate report, and so any references hallucinated during the Crow literature search phase could be corrected by Falcon in producing its final report.) To confirm that Falcon was indeed masking the hallucinated LLM-generated references in the Crow-only ablation, we generated 15 assay proposals from wild-type and Crow-ablated Robin (Crow, not Falcon, produces final assay reports; see Supplementary Fig. 1). We then performed a human reference check and, as expected, Crow produced no hallucinated references, whereas 44.5 ± 6.37% (mean ± s.e.m., n = 15 assay proposals) of the references from o4-mini were hallucinated (Extended Data Fig. 4b and Supplementary Table 9).
+
+To probe whether Crow and Falcon literature searches produced higher-quality proposals over those produced by o4-mini, we compared the 50 wild-type and 50 ablated proposals in a head-to-head tournament adjudicated by an LLM judge (Claude Sonnet 3.7; see judge prompts in Supplementary Fig. 11). Ablation of Crow, Falcon or Crow, and Falcon always led to a reduction in the quality of the final drug proposals (Extended Data Fig. 4c).
+
+Next, we assessed the performance of Finch on the flow cytometry and RNA-seq tasks performed in round two of the dAMD drug screen. Finch was given the task-specific prompts and data from round two and performance was measured by assessing the adherence of Finch to expert-generated rubrics (Supplementary Figs. 18 and 19). Finch demonstrated consistent performance on RNA-seq (86 ± 0% (mean ± s.e.m.); n = 3 runs) and flow cytometry (100 ± 0% (mean ± s.e.m.); n = 3 runs; Extended Data Fig. 5a).
+
+To probe the failure mode of Finch on a range of more difficult data analysis tasks without the task-specific multistep prompting given in the Robin workflow, we curated an expert-generated panel of 170 question–answer pairs from BixBench that span bioinformatics and statistics tasks relevant to drug discovery31 (Extended Data Fig. 5b and Supplementary Table 10). The overall performance of Finch was 22.8 ± 1.7% compared with 1.6 ± 1.2% (mean ± s.e.m.) for Sonnet 3.7 alone without the agent harness (n = 3; Extended Data Fig. 5c,d). Finch performed better on the statistics subset (47.9 ± 1.5%) than the bioinformatics subset (15.3 ± 2.0%). Typically, the bioinformatics subset required executing multi-step pipelines, which are sensitive to parameterization, whereas the biostatistics questions required only single-step computations on clean, tabular data. These results demonstrate a clear utility for agent harnesses such as Finch, which augment LLMs with the tools necessary to engage with data sources, but also point out room for substantial performance improvement on multi-step problems.
+
+To confirm that the identification of ROCK inhibitors in the phagocytosis assay by Robin could not be trivially recapitulated by a general purpose LLM-based agent, we gave the same candidate generation prompt (Supplementary Fig. 8) to Deep Research by OpenAI, an agent designed to conduct multi-step research on complex tasks. Like Robin, Deep Research was asked to generate 19 novel drug candidates (equal to the total number of Robin drug candidates in round one and round two), which we screened in RPE-SCs. Deep Research generated 17 unique candidates (duplicating 2 drug candidates). None of the suggested drugs by Deep Research were hits in this assay, and notably, Deep Research did not suggest ROCK inhibition as a means of enhancing RPE phagocytosis (Extended Data Fig. 6).
+
+Discussion
+In this report, we present Robin, a multi-agent system integrating automated hypothesis generation and experimental data analysis for scientific discovery. When tasked with identifying novel therapeutics for dAMD, Robin proposed phagocytosis enhancement as a therapeutic strategy for dAMD and identified ripasudil and KL001 as enhancers of RPE phagocytosis among tested compounds through an iterative lab-in-the-loop discovery cycle. The established safety profile of ripasudil and its clinical approval for ocular use present a promising drug repurposing opportunity, whereas KL001 represents, to our knowledge, a novel approach to phagocytosis enhancement in RPE cells.
+
+Of note, although ROCK inhibitors have been previously suggested for treatment of wet AMD and other retinal diseases of neovascularization, Robin is one of the first to propose their therapeutic application in dAMD via a mechanism of phagocytosis enhancement44. This approach is supported by several lines of evidence. RPE phagocytic dysfunction is observed not only with normal ageing but is also pronounced in patients with AMD45,46,47. In addition, the ability of ROCK inhibition to enhance phagocytosis in RPE cells is already known35,36,37. This hypothesis would of course require validation in a suitable disease model and ultimately in a randomized, placebo-controlled trial to confirm clinical validity.
+
+Together, these results demonstrate the ability of Robin to effectively generate novel, testable hypotheses by synthesizing insights already present in the scientific literature. By focusing on ‘combinatorial synthesis’ (identifying non-obvious connections between disparate fields), Robin effectively targets ‘low-hanging fruit’ that human experts may overlook due to the compartmentalization of scientific knowledge. This paradigm of reliable, literature-grounded synthesis is applicable beyond drug repurposing and could be readily extended to fields such as materials science48.
+
+Beyond the specific application of dAMD, Robin addresses a broader challenge in therapeutic development. With US Food and Drug Administration approvals stagnating at approximately 50 novel drugs annually over the past decade49, new approaches to scale therapeutic discovery are urgently needed. As one of the first systems to automate both literature-grounded hypothesis generation and experimental biology data analysis, Robin is poised to accelerate the pace of drug discovery compared with traditional approaches.
+
+In light of the potential for automated discovery systems to identify potent biological agents, we have implemented guardrails within the Robin framework. First, the system prioritizes candidates with established safety profiles and searches for known toxicities or off-target interactions. Second, as a lab-in-the-loop system, the outputs of Robin are treated as therapeutic hypotheses that must undergo standard pre-clinical validation, ensuring that any unintended toxicity is identified through traditional in vitro and in vivo safety filters before clinical translation. Regarding dual-use concerns, Robin utilizes 'off-the-shelf' LLMs that have undergone extensive safety alignment (via red-teaming and reinforcement learning from human feedback) to prevent the generation of malicious biological protocols. In addition, all queries to our platform are run through an LLM classifier that checks against unsafe topics.
+
+In its current implementation, Robin has several opportunities for continued development. For example, although Robin generates experimental outlines, it does not yet produce precise, executable protocols; future iterations aim to provide detailed methodologies that require minimal human translation for laboratory execution. The Finch data analysis agent is also reliant on prompt engineering by domain experts to produce reliable analytical results. Adapting Finch to independently generate or adapt prompts to specific data modalities would enable a more autonomous discovery pipeline. Finally, although the results in this article rely on frontier LLMs available in early 2025, the model-agnostic architecture of Robin ensures that its capabilities will scale alongside advances in underlying foundation models. Although the rapidly advancing baseline capabilities of general-purpose coding agents may achieve parity with specialized harnesses such as Finch on standard computational tasks, domain-specific architectures remain crucial for strictly enforcing experimental constraints and reliably orchestrating specialized bioinformatics toolchains.
+
+By automating hypothesis generation, experimental planning and data analysis in an integrated system, Robin represents a powerful new paradigm for AI-driven scientific discovery. This approach can be used to not only reshape therapeutic development but also fundamentally accelerate the scientific process to drive a greater understanding of the natural world.
+
+Methods
+Robin implementation
+Robin was implemented as a Jupyter notebook using the Aviary framework to instantiate and call agents33. Robin utilizes the OpenAI o4-mini model to synthesize literature and generate hypotheses, and the Anthropic Claude 3.7 Sonnet model as the judge for pairwise comparisons to rank hypotheses. Prompts used for agents and LLMs called in Robin are shown in Supplementary Figs. 2–11.
+
+Of note, although the experiments in this paper were conducted using an agentic implementation of Robin, we observed that Robin almost always called tools in the same order, leading to a deterministic workflow. Therefore, we translated Robin into a streamlined Jupyter notebook to improve stability and ease of use.
+
+The ranking of hypotheses was calculated via a series of pairwise comparisons adjudicated by the LLM judge. When ranking 25 or fewer hypotheses, all possible pairs were compared in a round robin tournament. When considering more than 25 hypotheses, 300 pairwise comparisons were randomly selected to achieve a comprehensive assessment within reasonable computational and time constraints. The outcomes from these comparisons were used to estimate strength parameters via the Bradley–Terry–Luce (BTL) model, which subsequently informed the relative ranking of each hypothesis54. Although there is no clear consensus on the optimal strategy for LLM-judge-based rankings, we opted for pairwise comparisons rather than pointwise. Some literature55,56 has shown pairwise comparisons to be more robust than pointwise grading, as pointwise grading may be unable to distinguish nuanced differences between similar pairs. Position bias in the pairwise comparisons is addressed by utilizing a highly distributed tournament paired with the BTL model, rather than relying on simple win–loss tallies, which are highly susceptible to positional bias. To generate the prompt for this LLM judge, domain experts were asked to conduct pairwise comparisons of the therapeutic candidate hypotheses in Robin. The results of these expert evaluations were given to Google’s Gemini 2.5 Pro Preview model to generate a prompt for the LLM judge in Robin. This approach was designed to elicit decision-making from the LLM judge consistent with expert preferences and criteria.
+
+When comparing the preferences of the LLM judge with the preferences of the experts, the LLM judge demonstrated high concordance with expert preferences, with an average of 7.25 of its top 10 hypotheses matching those in the experts’ top 10 (Supplementary Fig. 20a). This concordance is more than double that expected from random selection. Furthermore, the LLM judge exhibited higher intra-rater consistency than human experts (Supplementary Fig. 20b). When presented with identical pairwise comparisons, the LLM judge selected the same hypothesis in 88% of comparisons, as compared with human experts who selected the same hypothesis 61% of the time.
+
+Finch implementation
+Finch is an autonomous, Jupyter-native data analysis agent designed using the Aviary framework33. Finch systematically processes bioinformatics workflows, such as RNA-seq differential expression analysis or flow cytometry, based on a provided dataset and research question.

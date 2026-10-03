@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nothariharan/forge/schemas/event.schema.json",
+  "title": "FORGE Ledger Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "seq", "ts", "run_id", "agent", "type", "payload", "ai_generated", "prev_hash", "hash"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "1.0"},
+    "seq": {"type": "integer", "minimum": 1},
+    "ts": {"type": "string", "format": "date-time"},
+    "run_id": {"type": "string", "minLength": 1},
+    "agent": {"type": "string", "minLength": 1},
+    "type": {"type": "string", "enum": ["RUN_CREATED", "EVIDENCE_ADDED", "HYPOTHESIS_PROPOSED", "NOVELTY_VERDICT", "PREDICTION_COMMITTED", "EXPERIMENT_SELECTED", "RUN_STARTED", "RUN_FINISHED", "FINDING", "CONSENSUS", "SURPRISE", "REPLAN", "POLICY_DENIED", "GATE_OPENED", "GATE_RESOLVED", "RUN_COMPLETED", "ERROR"]},
+    "payload": {"type": "object"},
+    "ai_generated": {"type": "boolean"},
+    "prev_hash": {"type": "string", "pattern": "^(GENESIS|[a-f0-9]{64})$"},
+    "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  }
+}

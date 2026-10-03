@@ -1,0 +1,155 @@
+7th Global AI Hackathon
+In collaboration with MIT Club of Northern California and MIT Club of Germany
+C H A L L E N G E
+03····················
+1 0 × F A S T E R S C I E N T I F I C D I S C O V E R Y
+Agentic Scientific Discovery
+Build an AI lab for the next Nobel Prize caliber breakthrough
+P O W E R E D B Y
+Build with Omnigent
+Required for every challenge submission · 24 hour scientific discovery challenge
+AGENTIC SCIENTIFIC DISCOVERY · Databricks × Hack-Nation · Challenge Brief
+Hack-Nation × Databricks Omnigent · 7th Global AI Hackathon · Page 2
+Goals and Motivation
+Build an agentic AI lab for scientific breakthroughs
+REQUIRED PLATFORM Omnigent (managed on Databricks or open source)
+AI has already helped unlock Nobel Prize-winning science. By 2024, AlphaFold2 had enabled predictions for almost 200 million
+protein structures; its creators shared the Nobel Prize in Chemistry. That scale of discovery is the inspiration for this challenge.
+THE MOONSHOT Build the Omnigent AI lab behind the next Nobel Prize-caliber breakthrough and help make
+scientific discovery 10× faster.
+In the next 24 hours, build a working scientific lab around one problem you care deeply about. Show how coordinated agents
+generate insight, formulate hypotheses, design experiments, run computational tests or analyses, interpret results and decide
+what to investigate next.
+Scientific inspiration: Royal Swedish Academy of Sciences, 2024 Nobel Prize in Chemistry
+Choose Any Science Domain You Are Passionate About
+Your project can address any area of science: biology, medicine, materials, energy, climate, agriculture, chemistry, physics, AI
+research, neuroscience, astronomy or something entirely different. Choose one specific scientific question your prototype can
+meaningfully investigate within 24 hours.
+Choose a question that can be tested with existing scientific datasets, published literature, APIs, simulations, models,
+computational experiments, benchmark tasks or data you generate yourself. If you can generate new data during the
+hackathon, you are warmly invited to do so - but it is not required.
+A physical or wet-lab experiment may be the ultimate next step, but teams are not expected to complete wet-lab validation
+during the hackathon.
+EXAMPLES Discover a promising therapeutic mechanism, identify a new material, explore an energy system,
+test an AI research idea, investigate a climate or agriculture question, or bring a scientific frontier of
+your own.
+FOCUS Focus on a question where your prototype can produce evidence, learn from it and make a better
+next scientific decision.
+Orchestrate Your Scientific Lab with Omnigent
+Mandatory for every submission: build with Omnigent
+Omnigent must orchestrate the live discovery workflow. Demonstrate multiple specialist agents exchanging outputs, using tools
+and adapting their plan after an experimental result.
+AI builders — how to get started with Omnigent
+CHOOSE YOUR SETUP Use managed Databricks or open-source Omnigent from GitHub. A Databricks account is only
+required for the managed Databricks route.
+LAUNCH OMNIGENT Databricks: sign in → open <workspace-url>/omnigent → New session → Sandbox. GitHub:
+install Omnigent → run omnigent → select your model or agent harness.
+BUILD + DEMO THE
+DISCOVERY LOOP
+Connect your data and tools, define specialist-agent handoffs, run an experiment, and show
+how the result changes what the agents investigate next.
+GET STARTED Databricks login · Managed quickstart · Open-source GitHub
+AGENTIC SCIENTIFIC DISCOVERY · Databricks × Hack-Nation · Challenge Brief
+Hack-Nation × Databricks Omnigent · 7th Global AI Hackathon · Page 3
+Safety agent flags risks and routes decisions for human approval. Cyan arrows: discovery loop. Gray connections: Omnigent coordination. Adapt
+these suggested agent roles to your field.
+Design the handoffs that accelerate discovery
+For each agent, specify the scientific decision it owns, the tools it can use, its inputs and its output. Pass structured evidence,
+candidate IDs, experiment specifications and results between agents. Keep a shared research record so every decision can be
+reconstructed.
+Run independent searches or experiments in parallel. Let surprising results reopen an earlier assumption. Give the planner a
+budget and make it choose between competing tests. Build the workflow your science needs, and add or combine roles where
+that improves the experiment.
+HUMAN APPROVAL Scientists set the objective and approve consequential actions. A safety agent can flag risks and
+request approval; enforce the boundary through tool permissions and Omnigent policies.
+Run an Experiment That Changes the Next Decision
+Start with a clear question and a measurable scientific outcome. Use literature, structured data, simulations, models or
+generated data to develop a hypothesis. Design at least two possible tests and choose one using expected learning, feasibility
+and cost. Run the test, interpret the result and use what you learned to determine the next step.
+What counts as an experiment in this challenge
+Your experiment can be a simulation, computational screening experiment, benchmark evaluation, model comparison, analysis
+of an existing experimental dataset, sensitivity or counterfactual analysis, experiment on data you generate yourself, or another
+reproducible computational test. The important requirement is that it produces evidence that changes the next scientific
+decision.
+A physical or wet-lab experiment may be proposed as the next step, but it is not required. Adapt this experimental logic to the scientific frontier
+you choose.
+Connect the sources your science needs
+ACROSS DISCIPLINES OpenAlex helps agents connect publications, citations and research communities.
+DRUG DISCOVERY AND
+BIOLOGY
+Europe PMC supplies biomedical literature; PubChem supplies compound identities, properties
+and assay records.
+MATERIALS AND ENERGY Materials Project and NIST JARVIS provide structures and computed properties to support
+candidate selection and simulation.
+AI RESEARCH arXiv provides research papers; OpenML provides datasets and benchmark tasks for
+reproducible experiments.
+These are starting points, not restrictions. Use the scientific infrastructure your problem requires. If you can generate useful data
+through simulation, synthetic experimentation, model outputs or real measurements during the hackathon, you are encouraged
+to do so. Check access keys, licenses and compute needs early.
+AGENTIC SCIENTIFIC DISCOVERY · Databricks × Hack-Nation · Challenge Brief
+Hack-Nation × Databricks Omnigent · 7th Global AI Hackathon · Page 4
+Show Progress Toward 10× Faster Discovery
+The long-term moonshot is to make scientific discovery 10× faster. You do not need to prove a 10× improvement within 24
+hours. Instead, identify one bottleneck in scientific discovery and demonstrate how your agentic lab helps compress, automate
+or improve it.
+Define what faster discovery means for your problem
+Examples include screening more candidates within the same time or compute budget; reducing downstream tests; shortening
+the path from literature to a testable hypothesis; evaluating more hypotheses in parallel; reducing human effort; or improving
+how quickly new evidence changes the next decision.
+Report the improvement you actually observe. It may be 1.5×, 3×, 5× or 10×. The strength of your evidence matters more
+than claiming the largest multiplier.
+ONE COMPLETE
+DISCOVERY LOOP
+Question → Evidence → Hypothesis → Experiment → Result → Updated decision
+Explain what bottleneck you attacked, what the agents learned, what should happen next and
+what would need to happen for the workflow to approach 10× acceleration at scale.
+Build toward one convincing demonstration
+First 4 hours
+Choose the scientific domain, research
+question, measurable outcome, data and
+tools, and the discovery bottleneck you
+want to improve. Make sure you can
+access the data, run a meaningful test in
+24 hours, measure the result and use it
+to change the next decision.
+Next 14 hours
+Build the Omnigent workflow, generate
+hypotheses or candidates and select
+experiments. Get one complete
+discovery loop running, including a result
+that changes the next decision.
+Final 6 hours
+Strengthen the experiment, analyze the
+result and prepare a two minute demo.
+Show the question, agent handoffs,
+experiment, result, what the lab learned
+and what it would investigate next.
+What Success Looks Like
+REQUIRED: BUILD WITH
+OMNIGENT
+Show purposeful collaboration between specialist agents.
+SCIENTIFIC PROGRESS An ambitious question and a meaningful, reproducible result.
+DISCOVERY ACCELERATION
+AND LEARNING
+Identify a meaningful bottleneck, demonstrate measurable progress and justify the next
+experiment from what the lab learned.
+Require citations for factual claims. Attach source evidence or run records, label agent-generated hypotheses, preserve
+uncertainty, document controls and human approval gates, and state the validation still needed before real-world use.
+Evaluation and Submission
+30%
+Omnigent orchestration
+25%
+breakthrough potential
+20%
+discovery acceleration
+and learning
+15%
+scientific rigor
+10%
+creativity and
+responsibility
+SUBMIT The repository, agent specifications and policies, a two minute demo, cited evidence, experiment code
+and results, your measured improvement and your next experiment.
+Our world needs breakthroughs. In the next 24 hours, build the scientific lab that could help make the next one possible. Pick
+the science you care about. Build the agents. Run the experiment. Learn from the result. Show us the path to 10× faster
+discovery.

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nothariharan/forge/schemas/experiment.schema.json",
+  "title": "FORGE Preregistered Experiment Specification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "eid", "hid", "question", "dataset", "metric", "prediction", "falsifier", "seed", "budget", "code_version"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "1.0"},
+    "eid": {"type": "string", "minLength": 1},
+    "hid": {"type": "string", "minLength": 1},
+    "question": {"type": "string", "minLength": 1},
+    "dataset": {"type": "object", "required": ["provider", "task_id", "version"], "properties": {"provider": {"type": "string"}, "task_id": {"type": ["string", "integer"]}, "version": {"type": "string"}}, "additionalProperties": true},
+    "metric": {"type": "object", "required": ["name", "direction"], "properties": {"name": {"type": "string"}, "direction": {"enum": ["maximize", "minimize"]}, "practical_threshold": {"type": ["number", "null"]}}, "additionalProperties": false},
+    "prediction": {"type": "object", "description": "Pre-run predictive distribution and outcome encoding", "minProperties": 1},
+    "falsifier": {"type": "string", "minLength": 1},
+    "seed": {"type": "integer"},
+    "budget": {"type": "object", "required": ["max_seconds"], "properties": {"max_seconds": {"type": "number", "exclusiveMinimum": 0}, "max_cost_usd": {"type": ["number", "null"], "minimum": 0}, "max_trials": {"type": ["integer", "null"], "minimum": 1}}, "additionalProperties": false},
+    "code_version": {"type": "string", "minLength": 1}
+  }
+}

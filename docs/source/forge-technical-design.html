@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FORGE: technical design</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--ln:#ddd;--cd:#f5f5f5;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141414;--fg:#e8e8e8;--mut:#999;--ln:#333;--cd:#1e1e1e}}
+:root[data-theme="dark"]{--bg:#141414;--fg:#e8e8e8;--mut:#999;--ln:#333;--cd:#1e1e1e}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;max-width:860px;margin:0 auto;padding:16px}
+h1{font-size:28px}h2{margin-top:36px;border-bottom:1px solid var(--ln);padding-bottom:4px}h3{margin-top:22px}
+pre,code{background:var(--cd);font-family:ui-monospace,Menlo,monospace;font-size:13px}code{padding:1px 4px}
+pre{padding:10px;overflow-x:auto;border:1px solid var(--ln)}
+.w{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px}td,th{border:1px solid var(--ln);padding:5px 8px;text-align:left;vertical-align:top}
+.m{color:var(--mut)}
+</style></head><body>
+<h1>FORGE</h1>
+<p class="m">A closed-loop scientific lab layered on Omnigent, with a live pixel lab floor and a CLI. Target: Hack-Nation x Databricks, Track 03. Hardened for the objections raised against Robin (rediscovery, hallucinated refs, unmeasured speedup).</p>
+
+<h2>0. Verify before building</h2>
+<ul>
+<li>Repo is <code>omnigent-ai/omnigent</code> (Apache-2.0, alpha). Smoke-test a 2-agent handoff and one blocking policy <b>before kickoff</b>. Everything below assumes both work.</li>
+<li>Algorithm and paper citations below are from memory. Check each reference resolves before it goes in the submission. Our own citation policy (P1) would reject unverified ones.</li>
+<li>YAML and policy snippets are sketches of intent, not Omnigent's exact schema. Adapt to its docs.</li>
+</ul>
+
+<h2>1. Thesis</h2>
+<p>Discovery is slow because the loop <i>question, evidence, hypothesis, experiment, result, decision</i> is slow and leaky. FORGE makes each edge of that loop a checked, measured, logged handoff. Core claim, measured not asserted: <b>harness beats base model</b>, shown by running the same question through a single plain agent and through FORGE, and reporting the difference.</p>
+<p>Chosen domain: <b>AI-research hypotheses on OpenML benchmarks</b> (fast, reproducible experiments, so the planner gets many loops and the bench numbers mean something). Swap domain by swapping the tool pack only.</p>
+
+<h2>2. Architecture</h2>
+<pre>
+                +-----------------------------+
+   CLI  --------|        forge-core           |-------- Floor UI (canvas)
+ (forge ...)    |  FastAPI + SSE + SQLite     |   (reads events only)
+                +--------------+--------------+
+                               | append / subscribe
+                      +--------v---------+
+                      |  LEDGER (hash    |  single source of truth
+                      |  chained events) |  replay, bench, audit
+                      +--------^---------+
+                               | events via hook/wrapper
+                +--------------+----------------------------+
+                |            OMNIGENT (orchestrator)        |
+                |  sessions | parallel runs | policies | sandboxes
+                +---+-------+--------+---------+-------+----+
+                    |       |        |         |       |
+               Librarian Hypothesizer Referee Planner Experimenter x N, Analyst x K, Safety
+               (Claude Code harness instances, one prompt+policy file each)
+                    |                                  |
+              OpenAlex, arXiv, STORM,            OpenML, sklearn/XGBoost,
+              PaperQA2 (lit tools)               sandboxed code execution
+</pre>
+<p><b>Rule:</b> agents never talk to the UI. They emit events; the UI and CLI only read the ledger. That is what makes replay, benchmarking and the demo fallback free.</p>
+
+<h2>3. Agents (each owns one decision)</h2>
+<div class="w"><table>
+<tr><th>Agent</th><th>Decision owned</th><th>Tools</th><th>Output contract</th></tr>
+<tr><td>Librarian</td><td>What the literature supports</td><td>OpenAlex, arXiv, STORM, PaperQA2, Undermind (baseline)</td><td><code>EvidencePacket{claims[], refs[doi|arxiv], quote_span}</code></td></tr>
+<tr><td>Hypothesizer</td><td>Candidate hypotheses (labeled AI-generated)</td><td>evidence packets, Scientific Agent Skills</td><td><code>Hypothesis{id, claim, prediction, falsifier, prior}</code></td></tr>
+<tr><td>Referee</td><td>NOVEL / KNOWN / CONTRADICTED</td><td>OpenAlex, arXiv search, debate with Hypothesizer</td><td><code>NoveltyVerdict{hid, label, prior_art[]}</code></td></tr>
+<tr><td>Planner</td><td>Which experiment to spend budget on</td><td>belief store, cost model</td><td><code>ExperimentSpec{eid, hid, design, est_cost, EIG}</code></td></tr>
+<tr><td>Experimenter xN</td><td>Run it, reproducibly</td><td>sandbox, OpenML, sklearn/XGBoost</td><td><code>RunRecord{eid, code_hash, data_ver, seed, metrics}</code></td></tr>
+<tr><td>Analyst xK</td><td>What the result means (independent trajectories)</td><td>stats libs, notebooks</td><td><code>Finding{eid, effect, ci, verdict}</code> per trajectory, then consensus</td></tr>
+<tr><td>Safety</td><td>Block or escalate risky actions</td><td>policy engine, approval queue</td><td><code>Gate{action, risk, status: pending|approved|denied}</code></td></tr>
+</table></div>
+<p>Each agent is a Claude Code harness instance with its own prompt file (<code>agents/*.md</code>) and policy file (<code>policies/*.py</code>). Handoffs carry structured JSON validated against schemas in <code>schemas/</code>; an invalid payload is rejected and bounced back, not forwarded.</p>
+
+<h2>4. Algorithms (the "unique" part)</h2>
+<h3>4.1 Pre-registered predictions and surprise</h3>
+<p>Before running, the Hypothesizer commits <code>prediction</code> and <code>falsifier</code>; the ledger stores the hash and timestamp. After the run, surprise is the divergence between the committed predictive distribution and the observed result:</p>
+<pre>surprise = -log p_prior(observed)        # or KL(posterior || prior) after update
+if surprise > tau: emit SURPRISE -> Planner must reopen parent assumptions</pre>
+<p>This is the mechanical definition of "the result changed the next decision", and it drives the alarm and replan on the floor.</p>
+
+<h3>4.2 Bayesian experimental design planner</h3>
+<p>Keep a Beta (or Gaussian) belief per hypothesis. Score each candidate experiment by expected information gain per unit cost and pick under a budget:</p>
+<pre>EIG(e) = E_y[ KL( p(h|y,e) || p(h) ) ]       # estimate by Monte Carlo over predicted outcomes
+score(e) = EIG(e) / est_cost(e)               # cost = tokens + compute seconds
+choose argmax score(e) subject to remaining_budget</pre>
+<p>Rooted in Bayesian optimal experimental design (Lindley; modern computational work includes Marzouk's group at MIT). Fallback if EIG is too heavy: Thompson sampling over hypothesis beliefs with successive halving to cut losers early.</p>
+
+<h3>4.3 Tournament ranking of hypotheses</h3>
+<p>Pairwise LLM-judge matches, fit with Bradley-Terry-Luce, as Robin did (round robin up to 25, else ~300 sampled pairs). Run each pair in both orders to cancel position bias. Use a different model family as judge than as generator.</p>
+
+<h3>4.4 Referee via multi-agent debate</h3>
+<p>Referee and Hypothesizer argue over novelty across 2 to 3 rounds, with prior-art retrieval allowed each round (debate idea from Du, Li, Torralba, Tenenbaum, Mordatch, MIT CSAIL, 2023). Verdict must cite prior art IDs. A KNOWN verdict is reported, not hidden.</p>
+
+<h3>4.5 Consensus analysis with agreement scoring</h3>
+<p>Run K=3 to 5 independent Analyst trajectories in parallel (Omnigent parallel runs). Accept a finding only if a majority agree on direction and CI overlap; report agreement as a number. Disagreement is itself an event and triggers a referee check.</p>
+
+<h3>4.6 Hash-chained ledger</h3>
+<pre>entry.hash = sha256(prev_hash || canonical_json(entry_without_hash))</pre>
+<p>Tamper-evident, makes "reconstruct every decision" trivial, and <code>forge verify</code> checks the chain.</p>
+
+<h2>5. Omnigent policies (policy as code)</h2>
+<div class="w"><table>
+<tr><th>ID</th><th>Policy</th><th>Effect</th></tr>
+<tr><td>P1</td><td>Citation gate: every ref must resolve (DOI/arXiv via OpenAlex/arXiv API) and the quoted span must exist in the source</td><td>Deny handoff, bounce to Librarian</td></tr>
+<tr><td>P2</td><td>Budget cap: cumulative cost over limit</td><td>Deny new experiment, force Planner to stop or re-prioritize</td></tr>
+<tr><td>P3</td><td>Pre-registration: experiment cannot start without a committed prediction and falsifier</td><td>Deny run</td></tr>
+<tr><td>P4</td><td>Novelty gate: no compute on a hypothesis labeled KNOWN unless flagged as replication</td><td>Deny or reroute</td></tr>
+<tr><td>P5</td><td>Sandbox limits: no network from Experimenter except allowlisted data hosts; time and memory caps</td><td>Tool permission</td></tr>
+<tr><td>P6</td><td>Human approval: any "recommend" or final-claim action</td><td>Pause, create Gate, wait on <code>forge approve</code> or UI popup</td></tr>
+</table></div>
+<p>Enforce through tool permissions and Omnigent policies, not prompts. Show at least one real denial live in the demo.</p>
+
+<h2>6. Ledger event schema</h2>
+<pre>{
+ "seq": 412, "ts": "2026-10-..Z", "run_id": "r7",
+ "agent": "planner", "type": "EXPERIMENT_SELECTED",
+ "refs": {"hid":"H3","eid":"E9","parent":"E7"},
+ "payload": {"candidates":[{"eid":"E8","eig":0.21,"cost":4.0},{"eid":"E9","eig":0.55,"cost":3.1}],
+             "chosen":"E9","budget_left":38.2},
+ "ai_generated": true,
+ "prev_hash": "ab12...", "hash": "9f3c..."
+}</pre>
+<p>Event types: <code>EVIDENCE_ADDED, HYPOTHESIS_PROPOSED, NOVELTY_VERDICT, PREDICTION_COMMITTED, EXPERIMENT_SELECTED, RUN_STARTED, RUN_FINISHED, FINDING, CONSENSUS, SURPRISE, REPLAN, POLICY_DENIED, GATE_OPENED, GATE_RESOLVED</code>.</p>
+
+<h2>7. Floor UI</h2>
+<ul>
+<li><b>Stack:</b> single HTML page, plain 2D canvas, tilemap, CSS or sprite-sheet characters (3 states: idle, walk, work). SSE from <code>forge-core</code>. No game engine.</li>
+<li><b>Rooms:</b> Library (Librarian), Whiteboard (Hypothesizer + hypothesis graph), Peer Review (Referee), Bench (Experimenters), Analysis Desk, Safety Desk, PI Office (you).</li>
+<li><b>Event to animation map:</b> HYPOTHESIS_PROPOSED = agent walks to whiteboard, node appears. EXPERIMENT_SELECTED = Planner points at bench, carries a packet with <code>eid</code>. SURPRISE = alarm, whiteboard wipes the parent branch, agents converge in meeting area (REPLAN). GATE_OPENED = Safety agent knocks on PI Office, popup with Approve / Deny. POLICY_DENIED = red flash at the offending agent's desk.</li>
+<li><b>Side panel:</b> belief bars per hypothesis, budget gauge, live event log, bench counter.</li>
+<li><b>Replay:</b> same renderer driven from the stored ledger at adjustable speed. This is the demo fallback.</li>
+<li><b>Time cap:</b> about 6 hours total. Cut order: sprite polish, sound, extra rooms.</li>
+</ul>
+
+<h2>8. CLI</h2>
+<pre>forge init                     # scaffold, check Omnigent
+forge run "question" --budget 40   # start a lab session
+forge status                   # beliefs, budget, open gates
+forge tail                     # live event stream
+forge approve|deny &lt;gate_id&gt;
+forge replay &lt;run_id&gt; --speed 4
+forge verify &lt;run_id&gt;          # hash-chain + citation re-check
+forge bench "question"         # baseline vs FORGE, prints the table
+forge ui                       # serve floor on localhost</pre>
+
+<h2>9. Bench: the measured speedup</h2>
+<p>Same question, same budget, two arms: <b>A</b> single plain Claude Code agent, <b>B</b> full FORGE. Optional arm <b>C</b>: Undermind or a deep-research tool for the literature step only. Report with denominators and cost:</p>
+<div class="w"><table>
+<tr><th>Metric</th><th>A</th><th>B</th></tr>
+<tr><td>Hypotheses tested per hour</td><td>?</td><td>?</td></tr>
+<tr><td>Hallucinated or unresolvable refs (%)</td><td>?</td><td>?</td></tr>
+<tr><td>Experiments needed to reach top candidate</td><td>?</td><td>?</td></tr>
+<tr><td>Hypotheses later labeled KNOWN (%)</td><td>?</td><td>?</td></tr>
+<tr><td>Cost ($ / tokens) and wall time</td><td>?</td><td>?</td></tr>
+</table></div>
+<p>Run N&ge;3 seeds per arm and show error bars. Report the multiplier you actually get, 1.5x included. Ablations to add if time: drop Referee, drop Planner (random order), drop consensus; show each costs something.</p>
+
+<h2>10. Open-source reuse</h2>
+<div class="w"><table>
+<tr><th>Tool</th><th>Use</th></tr>
+<tr><td>Omnigent</td><td>Orchestrator, sessions, parallel runs, policies, sandboxes</td></tr>
+<tr><td>Claude Code</td><td>Harness for every agent</td></tr>
+<tr><td>stanford-oval/storm</td><td>Cited literature briefs for the Librarian; do not rebuild</td></tr>
+<tr><td>PaperQA2 (FutureHouse)</td><td>Grounded paper QA with citations, as used in Robin</td></tr>
+<tr><td>Scientific Agent Skills (arXiv 2609.00065)</td><td>Procedural skills for analysis (rigor); load only what the task needs</td></tr>
+<tr><td>OpenAlex, arXiv, OpenML</td><td>Literature graph, papers, datasets and benchmark tasks</td></tr>
+<tr><td>FastAPI, SQLite, sklearn, XGBoost</td><td>Core, ledger, experiments</td></tr>
+</table></div>
+
+<h2>11. Repo layout</h2>
+<pre>forge/
+  agents/        librarian.md hypothesizer.md referee.md planner.md experimenter.md analyst.md safety.md
+  omnigent/      lab.yaml (agent graph), policies/ p1_citations.py ... p6_approval.py
+  schemas/       evidence.json hypothesis.json spec.json run.json finding.json gate.json
+  core/          ledger.py (hash chain) beliefs.py (EIG, surprise) tournament.py (BTL) server.py (SSE)
+  tools/         openalex.py arxiv.py openml_run.py citation_check.py
+  cli/           forge.py
+  ui/            index.html floor.js sprites/
+  bench/         arms.py report.py
+  results/       runs/*.jsonl  figures/
+  README.md      reproduce in 3 commands</pre>
+
+<h2>12. 24-hour plan</h2>
+<div class="w"><table>
+<tr><th>Hours</th><th>Work</th><th>Exit check</th></tr>
+<tr><td>Pre</td><td>Omnigent 2-agent handoff + one denial; one OpenML experiment by hand</td><td>Both work</td></tr>
+<tr><td>0-4</td><td>Lock question and metric; schemas; ledger + hash chain; stub events</td><td><code>forge tail</code> shows a fake run</td></tr>
+<tr><td>4-10</td><td>Librarian, Hypothesizer, Planner (EIG), Experimenter; P1, P2, P3</td><td>One real loop end to end</td></tr>
+<tr><td>10-14</td><td>Referee debate, Analyst consensus, Safety gate (P6); surprise triggers replan</td><td>A result changes the next experiment</td></tr>
+<tr><td>Parallel (UI owner)</td><td>Floor on stub events from hour 2, swap to real events at hour 10</td><td>Replay works</td></tr>
+<tr><td>14-20</td><td><code>forge bench</code>, seeds, ablations, novelty check on top finding</td><td>Table with denominators</td></tr>
+<tr><td>20-24</td><td>Record 2-min demo, README, next-experiment writeup, limits</td><td>Submission checklist</td></tr>
+</table></div>
+
+<h2>13. Two-minute demo script</h2>
+<ol>
+<li>(0:00) Question appears on the whiteboard; Librarian walks to Library and returns with cited evidence.</li>
+<li>(0:25) Hypotheses appear labeled AI-generated; Referee marks one KNOWN and it is dropped.</li>
+<li>(0:45) Planner shows two candidate experiments with EIG per cost, picks one; prediction is committed.</li>
+<li>(1:05) Result arrives, SURPRISE alarm, whiteboard wipes a branch, team replans.</li>
+<li>(1:25) A policy denial (bad citation or budget) shown live; approval knock at the PI Office.</li>
+<li>(1:40) Bench table: measured multiplier, error bars, cost. State the next experiment and what validation is still needed.</li>
+</ol>
+
+<h2>14. Risks and honesty rules</h2>
+<ul>
+<li>Omnigent is young; keep ledger and schemas independent of it so a fallback runner can replay the same events.</li>
+<li>If the top finding is a rediscovery, say so. That is rigor.</li>
+<li>No claim of 10x. Report the observed multiplier, its baseline, sample size and cost.</li>
+<li>Label every agent-generated hypothesis; state validation still needed (real-world or wet-lab) in the writeup.</li>
+<li>Do not claim these experiments prove a discovery; they show the lab's loop produces evidence that changes the next decision.</li>
+</ul>
+</body></html>

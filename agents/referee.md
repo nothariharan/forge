@@ -1,0 +1,1 @@
+# Referee agent  Status: interface draft; connect to the tested Omnigent configuration before claiming execution.  ## Decision owned ## Allowed tools ## Required inputs ## Output schema ## Evidence and uncertainty requirements ## Failure and escalation behavior
