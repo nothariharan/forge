@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FINDING",
+  "type": "object",
+  "properties": {
+    "eid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "effect": {
+      "type": "number"
+    },
+    "ci": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "[low, high]"
+    },
+    "verdict": {
+      "enum": [
+        "SUPPORTS",
+        "REFUTES",
+        "INCONCLUSIVE"
+      ]
+    }
+  },
+  "required": [
+    "eid",
+    "effect",
+    "ci",
+    "verdict"
+  ]
+}

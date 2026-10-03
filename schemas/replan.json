@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "REPLAN",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reopened": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "hypothesis or experiment ids"
+    },
+    "trigger_eid": {
+      "type": "string",
+      "minLength": 1,
+      "description": "experiment whose result caused the replan; bench/report.py only counts replans that have it"
+    }
+  },
+  "required": [
+    "reason",
+    "reopened"
+  ]
+}

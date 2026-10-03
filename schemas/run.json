@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RUN_STARTED / RUN_FINISHED",
+  "type": "object",
+  "properties": {
+    "eid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "code_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "data_ver": {
+      "type": "string",
+      "minLength": 1
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "hid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate": {
+      "type": [
+        "string",
+        "object"
+      ],
+      "description": "optional: name or configuration of the candidate being tested"
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1,
+      "description": "RUN_FINISHED only: \"ok\" or a failure value"
+    }
+  },
+  "required": [
+    "eid",
+    "hid",
+    "code_hash",
+    "data_ver",
+    "seed"
+  ],
+  "description": "RUN_FINISHED also requires status and metrics (checked in core/schemas.py)."
+}

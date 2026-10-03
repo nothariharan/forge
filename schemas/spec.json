@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EXPERIMENT_SELECTED",
+  "type": "object",
+  "properties": {
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "eid": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hid": {
+            "type": "string",
+            "minLength": 1
+          },
+          "design": {
+            "type": "string",
+            "minLength": 1
+          },
+          "est_cost": {
+            "type": "number",
+            "minimum": 0
+          },
+          "eig": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "eid",
+          "hid",
+          "design",
+          "est_cost",
+          "eig"
+        ]
+      }
+    },
+    "chosen": {
+      "type": "string",
+      "minLength": 1,
+      "description": "must equal one candidates[].eid (checked in core/schemas.py)"
+    },
+    "budget_left": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "candidates",
+    "chosen",
+    "budget_left"
+  ]
+}
