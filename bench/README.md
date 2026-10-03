@@ -4,6 +4,7 @@ No benchmark results are present yet.
 
 - **Protocol:** [`PROTOCOL.md`](PROTOCOL.md) defines the arms, metrics with denominators, budget, seeds, analysis, failure handling and artifact layout. It is a draft until the science contract is locked.
 - **Report:** `python3 bench/report.py results/bench/<bench_id>` computes every metric from the episode artifacts and writes `metrics.json` per episode plus `report.md` / `report.json`. Uses the standard library only.
+- **Oracle:** `python3 bench/oracle.py <spec.json> --out results/bench/<bench_id>` runs every candidate on every seed (resumable) and writes `oracle.json`, the ground truth for correctness scoring.
 - **Citations:** `python3 tools/citation_check.py <refs.json | report.md> -o citations.json` (needs `requests` and internet access).
 - **Tests:** `python3 -m pytest -q tests/`
 

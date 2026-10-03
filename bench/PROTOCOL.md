@@ -98,6 +98,7 @@ Correctness is scored against a **deterministic oracle**, never LLM self-grading
 - The oracle is an exhaustive (or large fixed) sweep of the candidate space on the locked task and seeds, run once by the benchmark harness outside both arms.
 - It defines the oracle-best candidate and the set of candidates within the practical threshold.
 - **TBD (science):** candidate space, practical threshold, metric direction.
+- Tool: `python3 bench/oracle.py <spec.json> --out results/bench/<bench_id>`. Every (candidate, seed) result is appended to `sweep_runs.jsonl`, including failures. A candidate with any failed seed is listed but cannot be the best. The top set is the complete candidates whose mean is within the practical threshold of the best mean.
 
 If the question has no sweepable candidate space, the primary metric falls back to a pre-specified rubric scored **blind to arm** by a human, with the rubric committed here before runs.
 

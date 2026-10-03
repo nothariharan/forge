@@ -28,6 +28,10 @@
 
 Also used: `RUN_CREATED` and `RUN_COMPLETED` timestamps mark the timed window.
 
+### Experiment runner (for Hari)
+
+`bench/oracle.py` calls the runner as `run(task_id, params: dict, seed: int) -> {"metrics": {name: value}, ...}`, configured as `"runner": "tools.openml_run:run"` in the sweep spec. If `tools/openml_run.py` ends up with a different signature, tell me and I'll adapt `oracle.py`, or we add a thin wrapper.
+
 ### Science contract (for Hari)
 
 The open questions are listed in `bench/PROTOCOL.md` section 13: task ID, metric and threshold, candidate space for the oracle sweep, primary metric choice, budget values, and seed handling in `tools/openml_run.py`.
@@ -42,7 +46,7 @@ Arm A must run with the same model, tools and sandbox limits as FORGE, and emit 
 
 ## Next actions
 
-1. Lock the protocol TBDs with Hari once the science contract is filled in.
+1. Lock the protocol TBDs with Hari once the science contract is filled in, then write the sweep spec and run the oracle.
 2. Arm A runner (`bench/arms.py`) and the baseline prompt, after the Omnigent smoke test.
-3. Oracle sweep script for the locked task.
+3. ~~Oracle sweep script~~ done: `bench/oracle.py`.
 4. Novelty check on the top finding, then README limits and the submission write-up.
