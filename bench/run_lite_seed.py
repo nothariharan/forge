@@ -28,6 +28,7 @@ import platform
 import re
 import shlex
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -65,23 +66,55 @@ def framing(spec: dict) -> str:
     return FRAMING if str(spec.get("data_ver", "")).startswith("nasa-toi@") else FIXTURE_FRAMING
 
 
+# Where hidden files went, so a run killed hard (kill -9, closed laptop) can be recovered by the next run.
+HIDDEN_MARKER = os.path.join(REPO_ROOT, "results", ".hidden_during_episodes.json")
+
+
+def restore_stranded(marker: str = HIDDEN_MARKER) -> list[str]:
+    """Put back ground-truth files left in a temporary folder by an interrupted run."""
+    if not os.path.exists(marker):
+        return []
+    with open(marker, encoding="utf-8") as f:
+        moved = json.load(f)
+    restored = []
+    for dest, path in moved:
+        if os.path.exists(dest) and not os.path.exists(path):
+            shutil.move(dest, path)
+            restored.append(path)
+    os.remove(marker)
+    return restored
+
+
 @contextmanager
-def hidden(paths=None):
-    """Move ground-truth files out of the repository while the episodes run, then restore them."""
+def hidden(paths=None, marker: str = HIDDEN_MARKER):
+    """Move ground-truth files out of the repository while the episodes run, then restore them.
+    SIGTERM also restores them; after a hard kill the next run restores them (restore_stranded)."""
     paths = HIDDEN_DURING_EPISODES if paths is None else paths
+    restore_stranded(marker)
     stash = tempfile.mkdtemp(prefix="forge-hidden-")
     moved = []
+
+    def on_term(signum, frame):
+        raise SystemExit(128 + signum)  # unwinds into the finally below
+
+    old_term = signal.signal(signal.SIGTERM, on_term)
     try:
         for i, path in enumerate(paths):
             if os.path.exists(path):
                 dest = os.path.join(stash, str(i))
-                shutil.move(path, dest)
                 moved.append((dest, path))
+                with open(marker, "w", encoding="utf-8") as f:
+                    json.dump(moved, f)
+                shutil.move(path, dest)
         yield [p for _, p in moved]
     finally:
         for dest, path in moved:
-            shutil.move(dest, path)
+            if os.path.exists(dest):
+                shutil.move(dest, path)
+        if os.path.exists(marker):
+            os.remove(marker)
         shutil.rmtree(stash, ignore_errors=True)
+        signal.signal(signal.SIGTERM, old_term)
 
 
 def leak_check(episode_dir: str) -> list[str]:

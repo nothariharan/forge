@@ -193,4 +193,6 @@ the same `--run-id` appends a second copy to the same run.
 .venv/bin/python -m cli.verify demo
 ```
 
+To check a committed run record without its database, pass the exported file instead: `python -m cli.verify <run_id> --jsonl <episode>/events.jsonl`.
+
 Prints `run 'demo': chain OK, 31 events` and exits 0, or `CHAIN BROKEN at seq N` and exits 1.

@@ -197,6 +197,22 @@ def test_verify_cli_exit_codes(ledger, capsys):
     assert verify_cli.main(["missing", *db]) == 1
 
 
+def test_verify_cli_checks_an_exported_jsonl(ledger, tmp_path, capsys):
+    emit_fake_run(ledger, "demo")
+    out = tmp_path / "events.jsonl"
+    ledger.export_jsonl("demo", out)
+    assert verify_cli.main(["demo", "--jsonl", str(out)]) == 0
+    assert "chain OK, 31 events" in capsys.readouterr().out
+    lines = out.read_text().splitlines()
+    tampered = json.loads(lines[4])
+    tampered["agent"] = "system"
+    lines[4] = json.dumps(tampered)
+    out.write_text("\n".join(lines) + "\n")
+    assert verify_cli.main(["demo", "--jsonl", str(out)]) == 1
+    assert "BROKEN at seq 5" in capsys.readouterr().out
+    assert verify_cli.main(["missing", "--jsonl", str(out)]) == 1
+
+
 def test_python_event_types_match_shared_envelope_schema():
     envelope = json.loads((schemas.SCHEMA_DIR / "event.schema.json").read_text())
     assert tuple(envelope["properties"]["type"]["enum"]) == schemas.EVENT_TYPES

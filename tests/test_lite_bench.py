@@ -191,6 +191,25 @@ def test_ground_truth_is_hidden_while_agents_run(lite, tmp_path, monkeypatch):
     assert seen == [False] and (truth / "oracle.json").exists()  # hidden during the episode, restored after
 
 
+def test_hidden_files_survive_sigterm_and_hard_kill(tmp_path):
+    import signal
+    truth, marker = tmp_path / "truth", str(tmp_path / "marker.json")
+    truth.mkdir()
+    (truth / "oracle.json").write_text("{}")
+    with pytest.raises(SystemExit):  # SIGTERM mid-episode: restored on the way out
+        with run_lite_seed.hidden((str(truth),), marker=marker):
+            assert not truth.exists()
+            os.kill(os.getpid(), signal.SIGTERM)
+    assert (truth / "oracle.json").exists() and not os.path.exists(marker)
+
+    stash = tmp_path / "stash"  # hard kill: files left in the stash, marker still on disk
+    shutil.move(str(truth), str(stash))
+    with open(marker, "w") as f:
+        json.dump([[str(stash), str(truth)]], f)
+    assert run_lite_seed.restore_stranded(marker) == [str(truth)]
+    assert (truth / "oracle.json").exists() and not os.path.exists(marker)
+
+
 def test_oracle_mentions_are_flagged(tmp_path):
     (tmp_path / "agent_stdout.log").write_text("ran python tools/tess_bias_run.py --oracle out.json")
     assert run_lite_seed.leak_check(str(tmp_path)) == ["agent_stdout.log: --oracle"]
