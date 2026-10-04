@@ -160,6 +160,9 @@ function placeMascots(s, current) {
     const i = (used[room] = (used[room] ?? -1) + 1);
     const [x, y] = slotPos(room, i);
     const el = ensureMascot(n);
+    if (el.style.left !== `${x}%` || el.style.top !== `${y}%`) {
+      el.classList.add("walking"); clearTimeout(el._walk); el._walk = setTimeout(() => el.classList.remove("walking"), 1100);
+    }
     el.style.left = `${x}%`; el.style.top = `${y}%`;
     const actor = current && (current.type === "GATE_RESOLVED" ? "human" : current.agent);
     el.classList.toggle("active", actor === n);
@@ -217,7 +220,7 @@ function renderRun(s) {
     <dl class="kv">
       <dt>Experiment</dt><dd>${r ? `${esc(r.eid)} ${badge(r.state === "running" ? "TESTING" : r.state === "done" ? "done" : r.state)}` : "none"}</dd>
       <dt>Dataset</dt><dd>${esc(p.dataset || s.dataVer || "n/a")}</dd>
-      <dt>Budget</dt><dd>${s.budgetLeft != null ? `${s.budgetLeft} left of ${s.budget}` : s.budget ?? "n/a"}</dd>
+      <dt>Budget</dt><dd>${s.budgetLeft != null ? `${s.budgetLeft} left of ${s.budget}<div class="bar"><i style="width:${Math.max(0, Math.min(100, 100 * (1 - s.budgetLeft / s.budget)))}%"></i></div>` : s.budget ?? "n/a"}</dd>
       <dt>Approvals</dt><dd>${Object.values(s.gates).map((g) => `${esc(g.gate_id)} ${badge(g.status)}`).join(" ") || "none"}</dd>
       ${p.cohorts ? `<dt>Cohorts</dt><dd>resolved: ${esc(p.cohorts.resolved.join(" + "))}<br>unresolved: ${esc(p.cohorts.unresolved.join(", "))}<br>excluded: ${esc((p.cohorts.excluded || []).join(", "))}</dd>` : ""}
     </dl>
@@ -335,17 +338,63 @@ function buildFurniture() {
   });
 }
 
+
+// ---------- handoffs: a document travels between rooms along the corridor ----------
+const HANDOFF = {
+  EVIDENCE_ADDED: ["library", "whiteboard", (p) => "evidence"],
+  HYPOTHESIS_PROPOSED: ["whiteboard", "library", (p) => `${p.hid} for review`],
+  NOVELTY_VERDICT: ["library", "whiteboard", (p) => `${p.hid} ${p.label}`],
+  EXPERIMENT_SELECTED: ["whiteboard", "compute", (p) => `${p.chosen} spec`],
+  GATE_OPENED: ["safety", "pi", (p) => `${p.gate_id} approval`],
+  GATE_RESOLVED: ["pi", "compute", (p) => `${p.gate_id} ${p.status}`],
+  RUN_FINISHED: ["compute", "meeting", (p) => `${p.eid} results`],
+  FINDING: ["meeting", "whiteboard", (p) => `${p.eid} ${p.verdict}`],
+  REPLAN: ["meeting", "whiteboard", (p) => "replan"],
+  POLICY_DENIED: ["safety", "library", (p) => `${p.policy_id} denied`],
+};
+const roomCenter = (room) => { const [col, row] = ROOMS[room]; return [col * 33.333 + 16.7, row === 0 ? 30 : 80]; };
+function sendPacket(e) {
+  const h = HANDOFF[e.type];
+  if (!h || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const [from, to, label] = h;
+  const [x0, y0] = roomCenter(from); const [x1, y1] = roomCenter(to);
+  const el = document.createElement("div");
+  el.className = "packet";
+  el.style.setProperty("--c", agentOf(e.agent).color);
+  el.innerHTML = `<svg viewBox="0 0 16 18"><path d="M2 1h8l4 4v12H2z" fill="#fff" stroke="#8a8378"/><path d="M5 8h6M5 11h6M5 14h4" stroke="var(--c)" stroke-width="1.4"/></svg><span>${esc(label(e.payload || {}))}</span>`;
+  $("#packets").appendChild(el);
+  const dur = 2000 / Number($("#speed").value || 1);
+  el.animate([
+    { left: `${x0}%`, top: `${y0}%`, opacity: 0 },
+    { left: `${x0}%`, top: "46.5%", opacity: 1, offset: .25 },
+    { left: `${x1}%`, top: "46.5%", opacity: 1, offset: .75 },
+    { left: `${x1}%`, top: `${y1}%`, opacity: 0 },
+  ], { duration: dur, easing: "ease-in-out" }).onfinish = () => el.remove();
+  setTimeout(() => el.remove(), dur + 500);  // hidden tabs pause animations; never let packets pile up
+}
+function renderHud(s, list) {
+  const handoffs = list.filter((e) => e.agent !== "system" && e.agent !== "director" && e.type !== "ERROR").length;
+  const rejected = s.errors.filter((e) => String(e.payload.message || "").startsWith("handoff rejected")).length;
+  const pending = Object.values(s.gates).filter((g) => g.status === "pending").length;
+  $("#hud").innerHTML = `<b>Omnigent</b>
+    <span title="specialist results recorded in the ledger">handoffs <em>${handoffs}</em></span>
+    <span class="${rejected ? "bad" : ""}" title="handoffs rejected by the schema gate">rejected <em>${rejected}</em></span>
+    <span class="${s.denials.length ? "bad" : ""}" title="policy denials (P1-P6)">denials <em>${s.denials.length}</em></span>
+    <span class="${pending ? "warn" : ""}" title="human approvals waiting (P6)">approvals pending <em>${pending}</em></span>
+    <span class="agents-n">${s.seen.length} agents summoned</span>`;
+}
+
 // ---------- render + replay ----------
 function render() {
   const s = fold(events.slice(0, pos));
   const current = events[pos - 1];
-  renderTop(s); placeMascots(s, current); renderAlerts(s, current); renderRun(s);
+  renderTop(s); renderHud(s, events.slice(0, pos)); placeMascots(s, current); renderAlerts(s, current); renderRun(s);
   renderAgents(s); renderRecent(); renderLog(); renderMinimap(s); renderPages(s);
   $("#scrub").max = events.length; $("#scrub").value = pos; $("#pos").textContent = `${pos} / ${events.length}`;
 }
 function step() {
   if (pos >= events.length) { stop(); return; }
-  pos += 1; render();
+  pos += 1; render(); sendPacket(events[pos - 1]);
 }
 function play() {
   if (pos >= events.length) pos = 0;
@@ -366,8 +415,7 @@ function connectSSE(url) {
     const e = JSON.parse(m.data);
     if (events.some((x) => x.run_id === e.run_id && x.seq === e.seq)) return;
     events.push(e); events.sort((a, b) => a.seq - b.seq);
-    if (pos === events.length - 1) pos = events.length;
-    render();
+    if (pos === events.length - 1) { pos = events.length; render(); sendPacket(e); } else render();
   };
 }
 

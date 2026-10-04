@@ -95,7 +95,7 @@ h3 { margin: 0 0 10px; font-size: 15px; font-weight: 700; }
   position: absolute; left: 6px; right: 6px; top: calc(41% + 10px); height: calc(18% - 8px); border-radius: 10px;
   background: repeating-linear-gradient(90deg, #f3ece1 0 22px, #efe7da 22px 44px);
 }
-.corridor::after { content: ""; position: absolute; left: 4%; right: 4%; top: 50%; border-top: 2px dashed #d9ccb7; }
+.corridor::after { content: ""; position: absolute; left: 4%; right: 4%; top: 32%; border-top: 2px dashed #d9ccb7; }
 .room-label { position: absolute; top: 14px; left: 14px; z-index: 2; background: rgba(255, 255, 255, .92); padding: 8px 14px; border-radius: 10px; box-shadow: var(--shadow); }
 .room-label b { display: block; font-size: 15px; }
 .room-label span { color: var(--muted); font-size: 12px; }
@@ -216,3 +216,39 @@ a.ref:hover { text-decoration: underline; }
 .mascot.small { width: 44px; height: 44px; }
 .mascot.small .tag { top: 44px; font-size: 9px; }
 .mascot.active { z-index: 6; }
+
+/* ---- depth: back wall, doors to the corridor ---- */
+.room {
+  background:
+    linear-gradient(#f6eee3 0 15%, #e6d8c4 15% 16.5%, transparent 16.5%),
+    repeating-linear-gradient(90deg, transparent 0 46px, rgba(150, 120, 80, .08) 46px 47px),
+    repeating-linear-gradient(0deg, transparent 0 46px, rgba(150, 120, 80, .08) 46px 47px),
+    linear-gradient(180deg, #f1e8db, var(--floor));
+}
+.room::after { content: ""; position: absolute; left: calc(50% - 28px); width: 56px; height: 8px; background: #f3ece1; z-index: 1; }
+.room[style*="--y:0"]::after { bottom: 0; }
+.room[style*="--y:1"]::after { top: 0; }
+.floor::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 0%, rgba(255, 250, 235, .55), transparent 60%); pointer-events: none; z-index: 2; }
+
+/* ---- handoff packets ---- */
+#packets { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+.packet { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 5px; background: #fff; border: 2px solid var(--c); border-radius: 9px; padding: 3px 8px 3px 5px; font-size: 11.5px; font-weight: 700; white-space: nowrap; box-shadow: 0 6px 14px rgba(60, 40, 20, .18); }
+.packet svg { width: 13px; height: 15px; }
+
+/* ---- Omnigent HUD in the corridor ---- */
+.hud { position: absolute; left: 50%; top: 54.5%; transform: translate(-50%, -50%); z-index: 4; display: flex; gap: 12px; align-items: center; background: rgba(35, 32, 28, .86); color: #f3ece1; padding: 4px 14px; border-radius: 999px; font-size: 12px; white-space: nowrap; box-shadow: var(--shadow); }
+.hud b { color: #f5b82e; letter-spacing: .3px; }
+.hud em { font-style: normal; font-weight: 800; color: #fff; margin-left: 3px; }
+.hud .bad em { color: #ff8a80; } .hud .warn em { color: #ffd166; }
+.hud .agents-n { color: #b9b0a3; }
+
+/* ---- walking ---- */
+.mascot.walking svg { animation: waddle .28s ease-in-out infinite alternate; }
+@keyframes waddle { from { transform: rotate(-7deg) translateY(-2px); } to { transform: rotate(7deg) translateY(0); } }
+
+/* ---- side polish ---- */
+.bar { height: 6px; border-radius: 3px; background: #efe9df; margin-top: 4px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--ok); border-radius: 3px; }
+.timeline::before { content: ""; position: absolute; left: 8px; top: 6px; bottom: 6px; width: 2px; background: var(--line); }
+.timeline .ev i { position: relative; z-index: 1; box-shadow: 0 0 0 3px #fff; }
+@media (prefers-reduced-motion: reduce) { .mascot.walking svg { animation: none; } }
