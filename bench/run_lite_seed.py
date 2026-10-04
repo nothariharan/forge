@@ -59,6 +59,11 @@ def _git(*args: str) -> Optional[str]:
         return None
 
 
+def package_versions() -> dict:
+    import tess_bias_run as tb
+    return tb.package_versions()
+
+
 def check_snapshot(spec: dict) -> str:
     """The pinned hash from the spec, after checking the cached file matches it."""
     import tess_bias_run as tb
@@ -87,7 +92,7 @@ def run_seed(seed: int, spec: dict, out_root: str = DEFAULT_OUT, oracle_path: st
     command = {
         "command": " ".join(shlex.quote(a) for a in (argv or sys.argv)),
         "git_commit": _git("rev-parse", "HEAD"), "git_dirty": bool(_git("status", "--porcelain")),
-        "python": platform.python_version(), "platform": platform.platform(), "host": socket.gethostname(),
+        "python": platform.python_version(), "packages": package_versions(), "platform": platform.platform(), "host": socket.gethostname(),
         "started_at": _now(), "seed": seed, "model": model, "snapshot_sha256": sha,
         "agent_cmds": {"A": arm_a_cmd, "B": arm_b_cmd},
         "env": {k: v for k, v in os.environ.items() if k.startswith("FORGE_")},

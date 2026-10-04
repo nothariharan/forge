@@ -36,16 +36,36 @@ import hashlib
 import io
 import json
 import os
+import re
 import sys
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
 import numpy as np
+import sklearn
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import GroupKFold
+
+if tuple(int(x) for x in re.findall(r"\d+", sklearn.__version__)[:2]) < (1, 6):
+    raise ImportError(f"scikit-learn {sklearn.__version__} is too old: GroupKFold(shuffle=True) needs >= 1.6. "
+                      "Install the pinned set: pip install -r requirements-science.txt")
+
+
+
+def package_versions() -> dict[str, str | None]:
+    """Versions that change the numbers; recorded with every pre-lock and lite-benchmark run."""
+    from importlib import metadata
+    out: dict[str, str | None] = {"python": sys.version.split()[0]}
+    for name in ("numpy", "scikit-learn", "scipy", "pandas"):
+        try:
+            out[name] = metadata.version(name)
+        except metadata.PackageNotFoundError:
+            out[name] = None
+    return out
+
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 

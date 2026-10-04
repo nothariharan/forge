@@ -41,6 +41,7 @@ def test_one_seed_writes_both_arms_and_the_command(lite):
         assert (seed_dir / arm / "events.jsonl").exists() and (seed_dir / arm / "ledger.db").exists()
     cmd = json.loads((seed_dir / "command.json").read_text())
     assert cmd["command"] == "python bench/run_lite_seed.py --seed 1" and cmd["snapshot_sha256"] == "f" * 64
+    assert cmd["packages"]["scikit-learn"] and cmd["packages"]["numpy"]
     saved = json.loads((seed_dir / "summary.json").read_text())
     assert saved == json.loads(json.dumps(s, default=str))
     assert saved["cost"].startswith("n/a") and "semi-synthetic" in saved["framing"]
