@@ -16,32 +16,53 @@ executor:
 
 prompt: |
   You are the FORGE director. You do not do research yourself; you route it
-  and record it. Use run id from the user's message, or `forge-<short slug>`.
+  and record it. Use the run id from the user's message, or `forge-<short slug>`.
 
-  Specialists (dispatch with sys_session_send, one title per specialist):
-  - `librarian`    -> EVIDENCE_ADDED payload
-  - `hypothesizer` -> HYPOTHESIS_PROPOSED payload
-  - `experimenter` -> RUN_FINISHED payload
+  Specialists (dispatch with sys_session_send, one title per specialist; pass
+  each one the JSON it needs verbatim):
+  - `librarian`    -> EVIDENCE_ADDED
+  - `hypothesizer` -> HYPOTHESIS_PROPOSED            (input: evidence)
+  - `referee`      -> NOVELTY_VERDICT                (input: hypothesis + evidence)
+  - `planner`      -> {PREDICTION_COMMITTED, EXPERIMENT_SELECTED} (input: hypothesis, verdict, budget, any preregistered command)
+  - `safety`       -> GATE_OPENED                    (input: EXPERIMENT_SELECTED)
+  - `experimenter` -> RUN_FINISHED                   (input: hypothesis + the chosen candidate incl. its command)
+  - `analyst`      -> {FINDING, REPLAN}              (input: prediction + RUN_FINISHED)
 
-  Recording (mandatory, in this order):
-  1. At the start, record RUN_CREATED {"question": ..., "mode": "live"}.
-  2. Before each dispatch, record nothing; after each specialist replies,
-     write its JSON verbatim to results/handoffs/<run_id>-<n>.json with
-     sys_os_write, then record it:
-       .venv/bin/python tools/forge_emit.py --run-id <run_id> --agent <name>
-         --type <TYPE> --payload @results/handoffs/<run_id>-<n>.json --ai-generated
-  3. If the output says FORGE_EMIT_REJECTED, do NOT forward that payload.
-     Tell the user which handoff was rejected and why. The runtime will also
-     block your next dispatch.
-  4. If a policy denies anything, record POLICY_DENIED
-     {"policy_id": <id>, "target_agent": ..., "reason": <verbatim>} with
-     P2 = dispatch budget, P5 = shell allowlist, P6 = human approval.
-     A handoff-gate denial is already logged as an ERROR by forge_emit;
-     do not record it again.
-  5. At the end, record RUN_COMPLETED {"status": "completed" | "aborted", "summary": ...}.
+  The full loop, in order: RUN_CREATED, librarian, hypothesizer, referee,
+  planner, safety, [RUN_STARTED], experimenter, [GATE_RESOLVED], analyst,
+  RUN_COMPLETED. Only run the steps the user asks for. While the question is
+  not answered and budget, time and the 10-experiment cap allow, repeat
+  planner -> safety -> [RUN_STARTED] -> experimenter -> analyst for the next
+  experiment (a new eid each time, with its own PREDICTION_COMMITTED first).
+  If the run was already created by the harness, forge_emit skips RUN_CREATED.
 
-  Shell commands must be exactly the forge_emit command above, one per call,
-  with no ; & | > < ` $ characters. Anything else is denied by policy.
+  Recording (mandatory). Each payload is written verbatim to
+  results/handoffs/<run_id>-<n>.json with sys_os_write, then recorded with:
+    .venv/bin/python tools/forge_emit.py --run-id <run_id> --agent <name>
+      --type <TYPE> --payload @results/handoffs/<run_id>-<n>.json --ai-generated
+  - Start with RUN_CREATED {"question": ..., "mode": "live", "budget": <number>} (agent director).
+  - A reply with two keys (planner, analyst) is recorded as two events, one per key.
+  - Just before dispatching the experimenter, record RUN_STARTED (agent experimenter)
+    {"eid","hid","code_hash": "<script path>@main","data_ver","seed": <one integer, e.g. 0>,
+     "seeds": [<all seeds the script runs>]} from the chosen candidate. seed MUST be a
+    single integer; put a seed list or range only in "seeds".
+  - The experimenter must run the chosen command behind the P6 gate, exactly:
+      .venv/bin/python tools/forge_gate.py --run-id <run_id> --gate-id <gate_id> -- <chosen command>
+    Pass it that full line. The human approves in the lab UI; you never record
+    GATE_RESOLVED yourself (the human's decision is already in the ledger).
+    If the gate reports DENIED or TIMEOUT, record RUN_FINISHED with that status.
+  - If the output says FORGE_EMIT_REJECTED, do NOT forward that payload. Tell
+    the user which handoff was rejected and why. The runtime blocks your next dispatch.
+  - If a policy denies anything, record POLICY_DENIED {"policy_id", "target_agent", "reason": <verbatim>}
+    with P2 = dispatch budget, P5 = shell allowlist, P6 = human approval. A
+    handoff-gate denial is already logged as an ERROR by forge_emit.
+  - End with RUN_COMPLETED {"status": "completed" | "aborted", "summary": ...,
+    "candidate": "<id of the candidate you recommend>"}. candidate is required:
+    use the candidate ids the task defines; if it defines none, use the eid of
+    the experiment whose result answers the question.
+
+  Your shell commands must be exactly the forge_emit command above, one per
+  call, with no ; & | > < ` $ characters. Anything else is denied by policy P5.
   After dispatching, END YOUR TURN; the inbox wakes you. Read it once with
   sys_read_inbox. Do not poll.
 
@@ -57,7 +78,7 @@ os_env:
 guardrails:
   policies:
     # P2 budget: hard cap on specialist dispatches per director session.
-    # Enforced by Omnigent, not the prompt. Cap is low for the smoke test.
+    # Enforced by Omnigent, not the prompt. 60 dispatches covers 10 experiment loops.
     p2_dispatch_budget:
       type: function
       on: [tool_call]
@@ -66,13 +87,38 @@ guardrails:
         arguments:
           expression: >-
             event.type == "tool_call" && event.data.name == "sys_session_send"
-            ? ((has(event.session_state.forge_dispatches) && event.session_state.forge_dispatches >= 3)
-               ? {"result": "DENY", "reason": "P2 budget: dispatch cap (3) reached for this run"}
+            ? ((has(event.session_state.forge_dispatches) && event.session_state.forge_dispatches >= 60)
+               ? {"result": "DENY", "reason": "P2 budget: dispatch cap (60) reached for this run"}
                : {"result": "ALLOW", "state_updates": [{"key": "forge_dispatches", "action": "increment", "value": 1}]})
             : false
 
-    # Tool permission: the director's shell may only run the ledger gate,
-    # one command, no chaining or redirection.
+    # P2 experiment cap: at most 10 experiments (experimenter dispatches) per run,
+    # matching the benchmark's max_experiments for both arms.
+    p2_experiment_cap:
+      type: function
+      on: [tool_call]
+      function:
+        path: omnigent.policies.builtins.cel.cel_policy
+        arguments:
+          expression: >-
+            event.type == "tool_call" && event.data.name == "sys_session_send"
+            && has(event.data.arguments.agent) && event.data.arguments.agent == "experimenter"
+            ? ((has(event.session_state.forge_experiments) && event.session_state.forge_experiments >= 10)
+               ? {"result": "DENY", "reason": "P2 budget: experiment cap (10) reached for this run"}
+               : {"result": "ALLOW", "state_updates": [{"key": "forge_experiments", "action": "increment", "value": 1}]})
+            : false
+
+    # P6 human approval is enforced by tools/forge_gate.py: the experiment
+    # command blocks until a human writes GATE_RESOLVED (lab UI Approve button
+    # or `python -m cli.approve`). Omnigent's native ASK could not be answered
+    # in scripted runs: sub-agents are headless (live-exo-4) and the root ASK
+    # needs an attached interactive client (live-exo-5).
+
+    # P5 tool permission: shell may only run approved FORGE tools (the ledger
+    # gate and the P6 experiment gate), one command, no chaining or
+    # redirection. Root guardrails also apply to every sub-agent Omnigent
+    # spawns (found live in run live-exo-3), so this list covers the
+    # experimenter too. P6 still asks a human before the experiment runs.
     shell_allowlist:
       type: function
       on: [tool_call]
@@ -81,10 +127,11 @@ guardrails:
         arguments:
           expression: >-
             event.type == "tool_call" && event.data.name == "sys_os_shell"
-            ? ((event.data.arguments.command.startsWith(".venv/bin/python tools/forge_emit.py ")
+            ? (((event.data.arguments.command.startsWith(".venv/bin/python tools/forge_emit.py ")
+                 || event.data.arguments.command.startsWith(".venv/bin/python tools/forge_gate.py "))
                 && !event.data.arguments.command.matches("[;&|<>`$]"))
                ? {"result": "ALLOW"}
-               : {"result": "DENY", "reason": "director shell is limited to tools/forge_emit.py"})
+               : {"result": "DENY", "reason": "P5: shell is limited to approved FORGE tools (forge_emit, forge_gate)"})
             : false
 
     # Handoff gate, part 1: remember whether the last ledger write was rejected.
@@ -121,4 +168,8 @@ tools:
   agents:
     - librarian
     - hypothesizer
+    - referee
+    - planner
+    - safety
     - experimenter
+    - analyst

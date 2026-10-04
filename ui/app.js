@@ -97,7 +97,7 @@ function fold(list) {
   for (const e of list) {
     const p = e.payload || {};
     s.lastByAgent[e.agent] = e;
-    if (e.agent !== "system") {
+    if (e.agent !== "system" && e.agent !== "human") {
       if (!s.seen.includes(e.agent)) s.seen.push(e.agent);
       s.place[e.agent] = MOVE[e.type] || roomOfAgent(e.agent);
     }
@@ -136,6 +136,41 @@ const VERDICT_BADGE = { SUPPORTS: "ok", REFUTES: "bad", INCONCLUSIVE: "warn", TE
   NOVEL: "ok", KNOWN: "warn", CONTRADICTED: "bad", UNCERTAIN: "grey" };
 const badge = (t) => `<span class="badge ${VERDICT_BADGE[t] || "grey"}">${esc(t)}</span>`;
 
+// Harness each agent is configured with in omnigent/forge (config, not ledger data).
+const HARNESS = { director: "claude-sdk", librarian: "claude-sdk", hypothesizer: "codex", referee: "claude-sdk",
+  planner: "codex", safety: "claude-sdk", experimenter: "claude-sdk", analyst: "codex" };
+let pinned = null;
+const clip = (t, n) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
+function showAgentCard(name, el) {
+  const a = resolveAgent(name);
+  const mine = events.slice(0, pos).filter((e) => e.agent === name || (name === "human" && e.type === "GATE_RESOLVED"));
+  const last = mine[mine.length - 1];
+  const card = $("#agent-card");
+  card.innerHTML = `<div class="ac-head"><span class="ac-icon">${mascotSVG(name)}</span><div><b>${esc(a.label)}</b><small>${esc(a.role)}</small></div></div>
+    <dl class="kv"><dt>Doing</dt><dd>${esc(clip(last ? summary(last) : name === "human" ? "Watching; approves P6 gates" : "Idle", 150))}</dd>
+    ${HARNESS[name] ? `<dt>Harness</dt><dd>${HARNESS[name]} <span class="muted">(Omnigent)</span></dd>` : ""}
+    <dt>Events</dt><dd>${mine.length}</dd></dl>
+    ${mine.length ? `<div class="ac-recent">${mine.slice(-3).reverse().map((e) => `<div><span class="mono muted">#${e.seq}</span> ${esc(e.type)}</div>`).join("")}</div>` : ""}
+    ${pinned ? '<div class="muted ac-hint">click anywhere to close</div>' : '<div class="muted ac-hint">click to pin</div>'}`;
+  const fr = $("#floor").getBoundingClientRect(); const r = el.getBoundingClientRect();
+  card.style.left = `${Math.min(r.left - fr.left + r.width / 2, fr.width - 270)}px`;
+  card.style.top = `${r.top - fr.top + r.height + 6}px`;
+  card.hidden = false;
+}
+document.addEventListener("mouseover", (ev) => {
+  const m = ev.target.closest(".mascot"); if (!m || pinned) return;
+  showAgentCard(m.dataset.agent, m);
+});
+document.addEventListener("mouseout", (ev) => {
+  const m = ev.target.closest(".mascot"); if (!m || pinned || m.contains(ev.relatedTarget)) return;
+  $("#agent-card").hidden = true;
+});
+document.addEventListener("click", (ev) => {
+  const m = ev.target.closest(".mascot");
+  if (m) { pinned = m.dataset.agent; showAgentCard(pinned, m); return; }
+  if (!ev.target.closest("#agent-card")) { pinned = null; $("#agent-card").hidden = true; }
+});
+
 // ---------- mascots ----------
 function ensureMascot(name) {
   const id = `m-${name.replace(/[^a-z0-9_-]/gi, "_")}`;
@@ -144,6 +179,7 @@ function ensureMascot(name) {
     const a = resolveAgent(name);
     el = document.createElement("div");
     el.className = `mascot type-${a.type}`; el.id = id; el.style.left = "50%"; el.style.top = "50%";
+    el.dataset.agent = name; el.tabIndex = 0;
     el.title = `${a.label}: ${a.role}`;
     el.innerHTML = `${mascotSVG(name)}<span class="tag">${esc(a.label)}</span>`;
     $("#mascots").appendChild(el);
@@ -152,7 +188,7 @@ function ensureMascot(name) {
 }
 const mascotEl = (name) => document.getElementById(`m-${String(name).replace(/[^a-z0-9_-]/gi, "_")}`);
 function placeMascots(s, current) {
-  const names = [...s.seen, "human"];
+  const names = [...new Set([...s.seen, "human"])];
   document.querySelectorAll(".mascot").forEach((el) => { if (!names.some((n) => mascotEl(n) === el)) el.remove(); });
   const used = {};
   for (const n of names) {
@@ -164,7 +200,7 @@ function placeMascots(s, current) {
       el.classList.add("walking"); clearTimeout(el._walk); el._walk = setTimeout(() => el.classList.remove("walking"), 1100);
     }
     el.style.left = `${x}%`; el.style.top = `${y}%`;
-    const actor = current && (current.type === "GATE_RESOLVED" ? "human" : current.agent);
+    const actor = current && (current.type === "GATE_RESOLVED" || current.agent === "human" ? "human" : current.agent);
     el.classList.toggle("active", actor === n);
   }
   for (const n of names) {
@@ -184,8 +220,8 @@ function renderAlerts(s, current) {
   if (pending) {
     out.push(`<div class="alert danger" style="left:3%;top:73%"><b>⚠ Requires human approval</b>Action: ${esc(pending.action)}<br>Policy: ${esc(pending.policy || "P6")} · risk ${esc(pending.risk)}</div>`);
     out.push(`<div class="alert" style="left:69%;top:63%"><b>Agent knock</b>${esc(pending.action)} needs your approval.
-      <div class="btns"><button class="approve" disabled>Approve</button><button class="reject" disabled>Reject</button></div>
-      <div class="note">${live ? "Approve in the Omnigent session (P6 card)." : "Replay: the recorded decision follows."}</div></div>`);
+      <div class="btns"><button class="approve" data-gate="${esc(pending.gate_id)}" data-decision="approve" ${live ? "" : "disabled"}>Approve</button><button class="reject" data-gate="${esc(pending.gate_id)}" data-decision="deny" ${live ? "" : "disabled"}>Reject</button></div>
+      <div class="note">${live ? "Your decision is written to the ledger; the experiment waits for it (P6)." : "Replay: the recorded decision follows."}</div></div>`);
   }
   const lastDenial = current && current.type === "POLICY_DENIED" ? current.payload : null;
   if (lastDenial) out.push(`<div class="alert danger" style="left:3%;top:73%"><b>${esc(lastDenial.policy_id)} denied</b>${esc(lastDenial.reason)}</div>`);
@@ -194,6 +230,15 @@ function renderAlerts(s, current) {
 }
 
 // ---------- panels ----------
+function renderBanner(s) {
+  const pending = Object.values(s.gates).filter((g) => g.status === "pending").pop();
+  const el = $("#approval-banner");
+  if (!pending) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<b>⚠ Approval needed (${esc(pending.policy || "P6")})</b><span>${esc(pending.action)}</span>
+    <button class="approve" data-gate="${esc(pending.gate_id)}" data-decision="approve" ${live ? "" : "disabled"}>Approve</button>
+    <button class="reject" data-gate="${esc(pending.gate_id)}" data-decision="deny" ${live ? "" : "disabled"}>Reject</button>`;
+}
 function renderTop(s) {
   const running = s.run && !s.done;
   $("#status-dot").className = "dot " + (running ? "running" : s.done ? "done" : "");
@@ -227,7 +272,7 @@ function renderRun(s) {
     <div class="note-box"><b>Question</b><br>${esc(p.question)}</div>`;
 }
 function renderAgents(s) {
-  $("#agents").innerHTML = [...s.seen, "human"].map((n) => {
+  $("#agents").innerHTML = [...new Set([...s.seen, "human"])].map((n) => {
     const a = resolveAgent(n); const e = s.lastByAgent[n];
     return `<div class="agent-row"><span class="mini">${mascotSVG(n)}</span><span title="${esc(a.role)}">${esc(a.label)}</span><span title="${esc(e ? summary(e) : "")}">${esc(e ? summary(e) : n === "human" ? "Watching" : "Idle")}</span></div>`;
   }).join("") || `<p class="muted">No agents summoned yet.</p>`;
@@ -247,7 +292,7 @@ function renderLog() {
 function renderMinimap(s) {
   const order = ["library", "whiteboard", "compute", "safety", "meeting", "pi"];
   $("#minimap").innerHTML = order.map((room) =>
-    `<div title="${room}">${[...s.seen, "human"].filter((n) => (n === "human" ? "pi" : s.place[n] || roomOfAgent(n)) === room).map((n) => `<i style="background:${resolveAgent(n).color}" title="${esc(resolveAgent(n).label)}"></i>`).join("")}</div>`).join("");
+    `<div title="${room}">${[...new Set([...s.seen, "human"])].filter((n) => (n === "human" ? "pi" : s.place[n] || roomOfAgent(n)) === room).map((n) => `<i style="background:${resolveAgent(n).color}" title="${esc(resolveAgent(n).label)}"></i>`).join("")}</div>`).join("");
 }
 
 // ---------- pages ----------
@@ -288,17 +333,18 @@ function renderPages(s) {
       <tr><td>Librarian</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
       <tr><td>Hypothesizer</td><td>codex</td><td><span class="badge ok">yes</span></td></tr>
       <tr><td>Experimenter</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
-      <tr><td>Referee · Planner · Analyst · Safety</td><td>–</td><td><span class="badge warn">not yet (replay only)</span></td></tr>
+      <tr><td>Referee · Safety</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
+      <tr><td>Planner · Analyst</td><td>codex</td><td><span class="badge ok">yes</span></td></tr>
     </table>
     <h3 style="margin-top:18px">Agent roster</h3>
     <p class="muted">Omnigent decides which sub-agents to summon. Any agent name that appears in the ledger gets a mascot: matched to one of these archetypes by name, or a generic dot if nothing matches.</p>
     <div class="roster">${Object.entries(ARCHETYPES).map(([k, a]) => `<div class="ros">${mascotSVG(k)}<b>${esc(a.label)}</b><span>${esc(a.role)}</span></div>`).join("")}</div>
     <h3 style="margin-top:18px">Policies</h3>
     <table><tr><th>Policy</th><th>Enforcement</th><th>Status</th></tr>
-      <tr><td>P2 dispatch budget</td><td>Omnigent CEL policy on sys_session_send</td><td><span class="badge ok">enforced · tested live</span></td></tr>
+      <tr><td>P2 budget</td><td>Omnigent CEL policies: 60 dispatches, 10 experiments per run</td><td><span class="badge ok">enforced · tested live</span></td></tr>
       <tr><td>Handoff gate</td><td>tools/forge_emit.py + Omnigent tool_result/tool_call policies</td><td><span class="badge ok">enforced · tested live</span></td></tr>
-      <tr><td>P5 shell allowlist</td><td>Omnigent CEL policy on sys_os_shell</td><td><span class="badge ok">enforced · tested live</span></td></tr>
-      <tr><td>P6 human approval</td><td>Omnigent ASK on experimenter shell</td><td><span class="badge warn">written · UI card not yet confirmed</span></td></tr>
+      <tr><td>P5 shell allowlist</td><td>Omnigent CEL policy on sys_os_shell (applies to every sub-agent)</td><td><span class="badge ok">enforced · tested live</span></td></tr>
+      <tr><td>P6 human approval</td><td>tools/forge_gate.py: the experiment waits for GATE_RESOLVED from this UI or cli.approve</td><td><span class="badge ok">enforced · verified live (live-exo-8)</span></td></tr>
       <tr><td>P1 citations</td><td>tools/citation_check.py</td><td><span class="badge grey">tool, not an Omnigent policy yet</span></td></tr>
     </table>`;
 }
@@ -388,7 +434,8 @@ function renderHud(s, list) {
 function render() {
   const s = fold(events.slice(0, pos));
   const current = events[pos - 1];
-  renderTop(s); renderHud(s, events.slice(0, pos)); placeMascots(s, current); renderAlerts(s, current); renderRun(s);
+  if (pinned && mascotEl(pinned)) showAgentCard(pinned, mascotEl(pinned));
+  renderTop(s); renderBanner(s); renderHud(s, events.slice(0, pos)); placeMascots(s, current); renderAlerts(s, current); renderRun(s);
   renderAgents(s); renderRecent(); renderLog(); renderMinimap(s); renderPages(s);
   $("#scrub").max = events.length; $("#scrub").value = pos; $("#pos").textContent = `${pos} / ${events.length}`;
 }
@@ -418,6 +465,21 @@ function connectSSE(url) {
     if (pos === events.length - 1) { pos = events.length; render(); sendPacket(e); } else render();
   };
 }
+
+// The UI's only write: a human decision on a P6 gate, sent to the bridge.
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button[data-gate]");
+  if (!b || b.disabled) return;
+  const run = events[0] && events[0].run_id;
+  b.parentElement.querySelectorAll("button").forEach((x) => { x.disabled = true; });
+  b.textContent = "Sending…";
+  try {
+    const r = await fetch("/api/approve", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run_id: run, gate_id: b.dataset.gate, decision: b.dataset.decision }) });
+    const j = await r.json();
+    b.textContent = j.ok ? (j.status === "approved" ? "Approved ✓" : "Rejected") : "Failed";
+  } catch { b.textContent = "Failed"; }
+});
 
 function initNav() {
   document.querySelectorAll("#nav button").forEach((b) => b.addEventListener("click", () => {

@@ -47,3 +47,20 @@ def test_chain_verifies_after_mixed_handoffs(tmp_path):
     _run(db, "HYPOTHESIS_PROPOSED", json.dumps(HYP))
     _run(db, "HYPOTHESIS_PROPOSED", "{}")
     assert Ledger(db).verify("r") == (True, None)
+
+
+def test_second_run_created_is_skipped(tmp_path, capsys):
+    db = tmp_path / "l.db"
+    Ledger(db).append("r", "system", "RUN_CREATED", {"question": "q", "mode": "benchmark"})
+    assert _run(db, "RUN_CREATED", json.dumps({"question": "q", "mode": "live"}), agent="director") == 0
+    assert "skipped" in capsys.readouterr().out
+    assert [e["type"] for e in Ledger(db).read("r")] == ["RUN_CREATED"]
+
+
+def test_agents_cannot_write_as_human_or_resolve_gates(tmp_path, capsys):
+    db = tmp_path / "l.db"
+    gate = json.dumps({"gate_id": "G1", "action": "a", "risk": "low", "status": "approved"})
+    assert _run(db, "GATE_RESOLVED", gate, agent="experimenter") == 2
+    assert _run(db, "HYPOTHESIS_PROPOSED", json.dumps(HYP), agent="human") == 2
+    assert "reserved" in capsys.readouterr().out
+    assert [e["type"] for e in Ledger(db).read("r")] == ["ERROR", "ERROR"]

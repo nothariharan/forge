@@ -9,7 +9,8 @@ delete this file. It exists so the UI can follow a real Omnigent run today.
     # http://localhost:8766/runs   -> JSON list of run ids in the ledger
 
 Reads the same ledger as tools/forge_emit.py ($FORGE_LEDGER_DB or
-results/ledger.db). Read-only.
+results/ledger.db). Its only write is POST /api/approve: a human decision on a
+P6 gate (GATE_RESOLVED), which tools/forge_gate.py is waiting on.
 """
 from __future__ import annotations
 
@@ -25,6 +26,7 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from cli.approve import resolve  # noqa: E402
 from core.ledger import Ledger  # noqa: E402
 
 
@@ -46,6 +48,29 @@ class Handler(SimpleHTTPRequestHandler):
             return self._sse(parse_qs(url.query))
         return super().do_GET()
 
+    def do_POST(self):  # noqa: N802
+        # The only write the UI may make: a human decision on a P6 gate.
+        if urlparse(self.path).path != "/api/approve":
+            return self.send_error(404)
+        # Only this page may approve: a JSON body forces a CORS preflight (never
+        # answered here) and the Origin, when sent, must be this server.
+        origin = self.headers.get("Origin")
+        host = self.headers.get("Host", "")
+        if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json" or (
+                origin is not None and origin not in (f"http://{host}", f"https://{host}")):
+            return self.send_error(403, "approval must come from the lab UI")
+        try:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+            e = resolve(self.ledger, body["run_id"], body["gate_id"], body.get("decision") == "approve", via="lab-ui")
+            return self._json({"ok": True, "seq": e["seq"], "status": e["payload"]["status"]})
+        except (SystemExit, KeyError, ValueError) as err:
+            body = json.dumps({"ok": False, "error": str(err)}).encode()
+            self.send_response(409)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
     def _json(self, obj):
         body = json.dumps(obj).encode()
         self.send_response(200)
@@ -56,7 +81,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _sse(self, q):
         run = (q.get("run") or [""])[0]
-        after = int((q.get("after") or ["0"])[0])
+        # Browsers resend the last seen id on reconnect; resume after it instead of replaying the run.
+        after = int(self.headers.get("Last-Event-ID") or (q.get("after") or ["0"])[0])
         if not run:
             self.send_error(400, "run is required")
             return
