@@ -1,0 +1,21 @@
+I'm waiting on run E4 (lr, naive, gamma 2), which is running in the background. So far E1 and E2 show a gap near 0 for lr. E3 (hgb) didn't record because my first command timed out.I submitted `no_correction` as the final answer. It rests on logistic regression only and is preliminary, because the gradient-boosting and weighted estimators were never tested.
+
+For logistic regression with the plain naive estimator, the mean gap stayed well under the 0.02 threshold at every selection strength:
+
+| Run | Gamma | Mean gap | 95% range over 20 splits |
+|---|---|---|---|
+| E1 | 0 (negative control) | -0.0047 | -0.071 to 0.032 |
+| E2 | 1 | -0.0012 | -0.060 to 0.048 |
+| E4 | 2 | +0.0010 | -0.034 to 0.037 |
+
+The ranges are wide, about ±0.05, so a gap of 0.02 or more in individual splits is not excluded.
+
+My hypothesis predicted a gap of about 0.03 at gamma 1, and the logistic regression runs contradict it.
+
+- **Gradient boosting:** E3 (`hgb_naive_g1`) was still running when I submitted and has no recorded result. My first batched command timed out and started it. The other 6 runs I had budget for were not made.
+- **Weighted estimators:** the importance-weighted and clipped variants (`iw`, `iw_clip`) were never run.
+- **Data source:** the run records list the data version as "synthetic-fixture@…", so the runs may use a synthetic fixture rather than the real TESS TOI table. I did not confirm which.
+- **Single seed:** every run used one fixed seed.
+- **Literature:** I retrieved no literature, so the report cites no sources.
+
+The report is at `$FORGE_EPISODE_DIR/final_report.md`. It suggests running gradient boosting at gamma 1 and 2 next. After that come the weighted estimators and more seeds, plus a check of the data source.

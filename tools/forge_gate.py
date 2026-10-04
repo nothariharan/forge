@@ -37,7 +37,25 @@ sys.path.insert(0, str(ROOT))
 
 from core.ledger import Ledger  # noqa: E402
 
-APPROVED_TOOLS = ("tools/tess_resolution_shift.py",)
+APPROVED_TOOLS = ("tools/tess_resolution_shift.py", "tools/tess_bias_run.py")
+# Per-tool flag allowlist. tess_bias_run also has --oracle (computes the benchmark's ground truth) and
+# --fetch (downloads data); only the flags that run one experiment may pass, spelled out in full.
+TOOL_FLAGS = {"tools/tess_bias_run.py": frozenset({"--model", "--estimator", "--gamma", "--seed"})}
+INTERPRETERS = (".venv/bin/python", str(ROOT / ".venv" / "bin" / "python"), sys.executable)
+
+
+def command_problem(command: list[str]) -> str | None:
+    """Why this command may not run behind the gate, or None if it may."""
+    if len(command) < 2 or command[1] not in APPROVED_TOOLS:
+        return f"only {APPROVED_TOOLS} may run behind the gate"
+    if command[0] not in INTERPRETERS:
+        return "the command must start with .venv/bin/python"
+    allowed = TOOL_FLAGS.get(command[1])
+    if allowed is not None:
+        for arg in command[2:]:
+            if arg.startswith("-") and arg.split("=", 1)[0] not in allowed:
+                return f"{command[1]} accepts only {sorted(allowed)} behind the gate, not {arg.split('=', 1)[0]}"
+    return None
 
 
 def wait_for_decision(ledger: Ledger, run_id: str, gate_id: str, timeout: float, poll: float = 1.0,
@@ -70,8 +88,9 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv[:split])
     command = argv[split + 1:]
 
-    if len(command) < 2 or command[1] not in APPROVED_TOOLS:
-        print(f"FORGE_GATE_REFUSED: only {APPROVED_TOOLS} may run behind the gate")
+    problem = command_problem(command)
+    if problem:
+        print(f"FORGE_GATE_REFUSED: {problem}")
         return 5
 
     ledger = Ledger(args.db) if args.db else Ledger()

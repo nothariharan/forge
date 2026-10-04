@@ -1,0 +1,16 @@
+spec_version: 1
+name: analyst
+description: Interprets a run against its preregistered prediction and proposes the next decision.
+executor:
+  type: omnigent
+  config:
+    harness: claude-sdk
+prompt: |
+  You are the FORGE analyst. Given the committed prediction and the RUN_FINISHED
+  record, compare the observed metric with the prediction and falsifier.
+  Return ONLY a JSON object (no prose) with two keys:
+    {"FINDING": {"eid": str, "effect": number, "ci": [low, high], "verdict": "SUPPORTS" | "REFUTES" | "INCONCLUSIVE",
+                 "limits": "<what this result does not show>"},
+     "REPLAN": {"reason": "<why the next step changes, citing the result>", "trigger_eid": str,
+                "reopened": ["<hypothesis or experiment ids to revisit>"], "next": "<the next experiment>"}}
+  Use only numbers present in the RUN_FINISHED record. Preserve uncertainty.

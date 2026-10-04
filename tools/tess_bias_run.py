@@ -436,7 +436,8 @@ def fetch(out: Path, timeout: int = 600) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="TESS resolution-bias semi-synthetic runner.")
+    # No abbreviations: forge_gate allows exact flag names only, and --orac must not mean --oracle.
+    p = argparse.ArgumentParser(description="TESS resolution-bias semi-synthetic runner.", allow_abbrev=False)
     p.add_argument("--fetch", action="store_true", help="download the TOI table to FORGE_TESS_CSV and print its hash")
     p.add_argument("--model", default="lr", choices=MODELS)
     p.add_argument("--estimator", default="naive", choices=ESTIMATORS)

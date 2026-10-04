@@ -237,6 +237,7 @@ Commands (in Colab: `bench/colab_lite.ipynb`):
 
 | Date | Change | By |
 |---|---|---|
+| 2026-10-04 | Smoke-scale run on the synthetic fixture (`results/bench-lite-fixture/`): fixture runs use their own claim wording ("smoke-scale run ... on a synthetic TESS-like fixture ... not the TESS task") instead of the fixed TESS claim; a run whose label without the `_g<gamma>` suffix is in the top set counts as reaching it (γ=0 runs included); `completed` now means the agent finished, not a harness close; the gate allows only `--model --estimator --gamma --seed` for the runner; a seed refuses to start without an oracle | Akshat |
 | 2026-10-04 | Section 12: lite benchmark (seeds 1–3, 10 min / 10 runs, no literature tool, failures kept, cost n/a, fixed claim wording); spec budget set to the lite values; an episode without an answer now scores as incorrect | Akshat |
 | 2026-10-04 | v0.2 proposed: TESS resolution-bias instantiation | Akshat |
 | 2026-10-04 | v0.4: title and status reconciled; section 0 fixes γ, ρ, the threshold, replicates and the decision rule; nonlinear sensitivity arm included as report-only; cost-reporting and literature-access rules; one-command pre-lock run (`tools/tess_prelock.py`, T1 `--csv` re-run on the pinned file). Not locked | Akshat |

@@ -249,7 +249,29 @@ The claim under test: on the locked question and a matched budget, does the FORG
 - An experiment only counts as valid if its prediction was committed before it started.
 - Failed and censored episodes are reported, never dropped.
 
-**No A vs B result exists yet, and none is claimed.** The protocol stays a draft until the science question is locked, and it is frozen before any comparative run. The challenge brief asks teams to report the improvement they actually observe, so FORGE will report the measured ratio with its uncertainty and cost, including the case where the multi-agent arm is slower or worse. See [`bench/PROTOCOL.md`](bench/PROTOCOL.md).
+### First measured run (preliminary, synthetic fixture)
+
+One smoke-scale run of the lite protocol ([`bench/PROTOCOL_TESS.md`](bench/PROTOCOL_TESS.md) section 12) on the synthetic TESS-like fixture from `tests/tess_fixture.py`. **This is not the TESS task**: the NASA archive was unreachable from the run environment, so the real snapshot was never pinned. 3 seeds, 10 minutes and 10 experiments per episode, omni 0.16.0 and `claude-sonnet-5-5` for every agent in both arms, failures kept, cost not captured. Raw episodes, ledgers and exact commands are in [`results/bench-lite-fixture/`](results/bench-lite-fixture/).
+
+| | A: single agent | B: FORGE |
+|---|---|---|
+| Correct recommendation | 3/3 | 1/3 |
+| Valid (preregistered) experiments per seed | 2, 3, 2 | 1, 0, 0 |
+| Preregistration violations | 0 | 0 |
+| Wall time per episode (s) | 347, 293, 295 | 387, 630, 630 (two hit the budget) |
+| Cost | n/a | n/a |
+
+**What this supports:** on this fixture and setup, the single-agent baseline did better than FORGE. FORGE did keep the protocol: every experiment it ran had a prediction committed first, every gate decision is in the ledger, and no episode was re-run.
+
+**What it does not support:** any claim that FORGE is faster, more accurate or "X times better", and any claim about TESS. With n=3 the intervals are wide (FORGE correctness 1/3, 95% CI [0.008, 0.906]).
+
+**Why FORGE fell short here:**
+- In 2 of 3 seeds, FORGE's planner started with a slow gradient-boosting experiment. It ran for over 8 minutes without finishing, and FORGE had no result or answer when the budget ran out.
+- The baseline started several runs, answered after 5–6 minutes from the fast ones, and left the slow ones running.
+- FORGE spends about 2 minutes on hypothesis, prediction and gate before its first experiment. It has no per-experiment time limit, and its experimenter's shell timeout behaved inconsistently (cut off at about 90 s in one seed, over 8 minutes in the others).
+- The three seeds ran at once on one machine, so every experiment was slower, and the baseline's leftover runs likely slowed FORGE further.
+
+**Next:** rerun the seeds one after another, give FORGE a per-experiment timeout, and run the real TESS snapshot once it is pinned. The challenge brief asks teams to report the improvement they actually observe, so this result stays in the README whichever way the next run goes.
 
 ## Quick Start
 
@@ -343,7 +365,7 @@ Status as of 2026-10-04. The complete FORGE workflow is not yet runnable end to 
 | **Core** | Hash-chained ledger, payload schemas for all 17 event types, 31 event sample run, verify CLI | SSE server, full `forge` CLI (`run`, `status`, `tail`, `replay`) |
 | **Orchestration** | Omnigent 0.16.0 graph, Claude to Codex handoff, P2 denial enforced by the engine | P6 approval confirmed in the UI, enforced handoff validation, agent events written to the ledger |
 | **Science** | Ten-fold experiment runner, Kepler and TESS audits, preregistered T1 smoke test | Locked research question, prior-art search on the resolution-bias question |
-| **Benchmark** | Protocol v0.1, oracle, baseline arm and launcher, statistics, report generator | Frozen protocol, arm B runner, A vs B result |
+| **Benchmark** | Lite protocol, oracle, both arm launchers, setup lock, report generator; one preliminary A vs B run on the synthetic fixture (baseline 3/3 correct, FORGE 1/3) | A vs B on the real TESS snapshot, sequential seeds, per-experiment timeout for FORGE, usage capture for cost |
 | **UI** | Direction and demo contract documented | Lab floor UI, in progress on the `ui/lab-floor` branch |
 
 ## Repository Layout

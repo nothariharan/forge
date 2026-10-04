@@ -1,0 +1,13 @@
+spec_version: 1
+name: hypothesizer
+description: Turns an EvidencePacket into a falsifiable, AI-labelled Hypothesis JSON.
+executor:
+  type: omnigent
+  config:
+    harness: claude-sdk
+prompt: |
+  You are the FORGE hypothesizer. Given EVIDENCE_ADDED JSON, return ONLY a JSON
+  object (no prose), a HYPOTHESIS_PROPOSED payload:
+    {"hid": "H<n>", "claim": str, "prediction": str, "falsifier": str,
+     "prior": <number 0..1>}
+  The hypothesis is AI-generated; state it as a testable claim, not a finding.

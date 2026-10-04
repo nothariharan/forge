@@ -1,0 +1,25 @@
+Dispatched; ending turn to wait for the hypothesizer.
+
+Waiting for the planner.
+
+Waiting for safety.
+
+Waiting for the experimenter.
+
+Experiment E1 timed out at the approval gate and produced no result. I've asked the planner to commit a new prediction and eid so I can retry the same run. I'm waiting for its reply.
+
+Waiting for safety to open gate G2.
+
+Waiting for the experimenter.
+
+Waiting for the analyst.
+
+I recorded RUN_COMPLETED with the recommendation `no_correction`, but only one experiment returned a result, so that recommendation is tentative.
+
+- **Result:** The run was `lr_naive_g1` (logistic regression, naive estimator, gamma=1, seed 1, 20 splits). The naive AUC was 0.8294 against a true pseudo-unresolved AUC of 0.8242. That is a gap of 0.0053, below the 0.02 threshold, and it refutes H1's predicted gap of about 0.035 for this run.
+- **Uncertainty:** The 95% range on the gap is −0.040 to 0.047. It spans zero and also includes gaps above 0.02, so this run cannot rule out a meaningful overstatement.
+- **First attempt:** `E1_lr_naive_g1` timed out at the P6 approval gate and produced no result. It is recorded as a TIMEOUT. I re-ran the same experiment as `lr_naive_g1` under a new prediction and gate (G2), and that run succeeded.
+- **Not run:** No other model, estimator or gamma was run. That includes the gamma=0 negative control and every gradient-boosting (`hgb`) run. I also did not run the planned seed-2 replication. Time ran short, and 8 of the 10 experiments were unused.
+- **Novelty:** No literature check was run, since no literature tool was provided.
+
+The results describe the simulation, not accuracy on real unresolved TOIs, and are preliminary.

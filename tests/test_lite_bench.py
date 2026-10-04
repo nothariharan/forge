@@ -24,6 +24,7 @@ def lite(spec, tmp_path, monkeypatch):  # noqa: F811
     monkeypatch.setattr(run_lite_seed, "check_lock", lambda *a: dict(SETUP))
     oracle = tmp_path / "oracle.json"
     oracle.write_text(json.dumps(ORACLE))
+    spec = {**spec, "data_ver": "nasa-toi@" + "f" * 64}
     cmds = {"arm_a_cmd": script(tmp_path, "fa.py", FAKE_A), "arm_b_cmd": script(tmp_path, "fb.py", FAKE_B) + " -p {prompt}"}
     return spec, tmp_path / "bench-lite", str(oracle), cmds
 
@@ -161,3 +162,78 @@ def test_aggregate_flags_a_setup_mismatch(lite, monkeypatch, tmp_path):
     run_lite_seed.run_seed(2, spec_, str(out), oracle, **cmds)
     aggregate_lite.main(["--out", str(out), "--oracle", oracle, "--prelock", str(tmp_path / "none.json")])
     assert "setup differs across seeds" in (out / "report.md").read_text()
+
+
+def test_fixture_runs_are_never_labelled_as_tess(lite, tmp_path):
+    spec_, out, oracle, cmds = lite
+    fixture = {**spec_, "data_ver": "synthetic-fixture@" + "f" * 64}
+    s = run_lite_seed.run_seed(1, fixture, str(out), oracle, **cmds)
+    assert "NOT the TESS snapshot" in s["framing"]
+    aggregate_lite.main(["--out", str(out), "--oracle", oracle, "--prelock", str(tmp_path / "none.json")])
+    md = (out / "report.md").read_text()
+    assert "synthetic TESS-like fixture" in md and "synthetic fixture, not TESS data" in md
+    assert "on this TESS task" not in md
+
+
+def test_ground_truth_is_hidden_while_agents_run(lite, tmp_path, monkeypatch):
+    spec_, out, oracle, cmds = lite
+    truth = tmp_path / "tess_prelock"
+    truth.mkdir()
+    (truth / "oracle.json").write_text("{}")
+    seen = []
+    real = run_lite_seed.launch_arm_a.launch
+    def spy(*a, **k):
+        seen.append(truth.exists())
+        return real(*a, **k)
+    monkeypatch.setattr(run_lite_seed, "HIDDEN_DURING_EPISODES", (str(truth),))
+    monkeypatch.setattr(run_lite_seed.launch_arm_a, "launch", spy)
+    run_lite_seed.run_seed(1, spec_, str(out), oracle, arms=("A",), **cmds)
+    assert seen == [False] and (truth / "oracle.json").exists()  # hidden during the episode, restored after
+
+
+def test_oracle_mentions_are_flagged(tmp_path):
+    (tmp_path / "agent_stdout.log").write_text("ran python tools/tess_bias_run.py --oracle out.json")
+    assert run_lite_seed.leak_check(str(tmp_path)) == ["agent_stdout.log: --orac"]
+    assert run_lite_seed.leak_check(str(tmp_path / "missing")) == []
+
+
+def test_arm_b_is_told_how_to_run_the_shared_runner():
+    import launch_arm_b
+    spec_ = json.load(open(run_lite_seed.DEFAULT_SPEC))
+    msg = launch_arm_b.task_message(spec_, "B-1", seed=2)
+    assert "### Running an experiment" in msg and "### How to run this episode" in msg
+    assert "skip the librarian and the referee" in msg  # no literature tool: no empty evidence packet
+    assert ".venv/bin/python tools/tess_bias_run.py --model <lr|hgb> --estimator <naive|iw|iw_clip> --gamma <0|1|2> --seed 2" in msg
+
+
+def test_arm_b_runs_every_forge_agent_on_one_harness(tmp_path):
+    import launch_arm_b
+    dest, changed = launch_arm_b.benchmark_agent_dir(str(tmp_path / "ep"))
+    harnesses = set()
+    for root, _, files in os.walk(dest):
+        for name in files:
+            if name == "config.yaml":
+                harnesses |= {l.split(":", 1)[1].strip() for l in open(os.path.join(root, name)) if l.strip().startswith("harness:")}
+    assert harnesses == {"claude-sdk"}
+    src = open(os.path.join(launch_arm_b.FORGE_DIR, "agents", "planner", "config.yaml")).read()
+    assert all(v["to"] == "claude-sdk" for v in changed.values()) and "harness:" in src  # source config untouched
+
+
+def test_a_missing_oracle_stops_the_seed(lite, tmp_path):
+    spec_, out, oracle, cmds = lite
+    with pytest.raises(SystemExit, match="no oracle"):
+        run_lite_seed.run_seed(1, spec_, str(out), str(tmp_path / "missing.json"), **cmds)
+    assert not (out / "seed-1").exists()
+
+
+def test_the_oracle_folder_is_hidden_and_agent_copies_set_aside(tmp_path):
+    truth = tmp_path / "prelock"
+    truth.mkdir()
+    (truth / "oracle.json").write_text("{}")
+    paths = run_lite_seed.paths_to_hide(str(truth / "oracle.json"), str(tmp_path / "out"))
+    assert str(truth) in paths
+    with run_lite_seed.hidden([str(truth)]) as hide:
+        assert not truth.exists()
+        truth.mkdir()
+        (truth / "oracle.json").write_text('{"made": "by an agent"}')
+    assert (truth / "oracle.json").read_text() == "{}" and len(hide["recreated"]) == 1

@@ -1,0 +1,21 @@
+{
+  "run_id": "lite-A-1",
+  "seed": 1,
+  "command": [
+    "omni",
+    "run",
+    "/home/user/forge/results/bench-lite-fixture/seed-1/A/omni_agent",
+    "--no-session",
+    "--model",
+    "claude-sonnet-5-5",
+    "-p",
+    "<prompt.md>"
+  ],
+  "agent_dir": "/home/user/forge/results/bench-lite-fixture/seed-1/A/omni_agent",
+  "dry_run": false,
+  "started_at": "2026-10-04T11:00:13Z",
+  "returncode": 0,
+  "timed_out": false,
+  "finished_at": "2026-10-04T11:09:37Z",
+  "outcome": "completed"
+}

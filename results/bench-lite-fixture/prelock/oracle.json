@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0",
+  "status": "SEMI_SYNTHETIC_SIMULATION_NOT_REAL_UNRESOLVED_ACCURACY",
+  "data_sha256": "bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "replicates_per_seed": 20,
+  "resolution_model_oof_auc": 0.7522336310863,
+  "labeled_cohort": {
+    "n": 1194,
+    "positive": 421,
+    "n_unresolved": 1731
+  },
+  "gap_gamma1_lr_naive": {
+    "mean": -0.0002331944669218955,
+    "se": 0.0028453668809111546,
+    "ci95": [
+      -0.005810113553507758,
+      0.005343724619663968
+    ],
+    "replicate_range95": [
+      -0.049685287823761096,
+      0.05041779599298594
+    ],
+    "n": 100
+  },
+  "control_gamma0_mean_gap": -0.002533644609844492,
+  "control_within_bound": true,
+  "sensitivity_nonlinear_resolution": {
+    "resolution_model": "hgb",
+    "resolution_model_oof_auc": 0.7224980090129058,
+    "mean_gap": -0.007136949275470732,
+    "se": 0.0027569284554260797,
+    "ci95": [
+      -0.012540529048105847,
+      -0.0017333695028356163
+    ],
+    "n": 100,
+    "agrees_with_primary": true,
+    "note": "reported only; if it disagrees with the primary decision, the claim must say the linear mechanism may understate the selection effect"
+  },
+  "practical_threshold": 0.02,
+  "decision": "not meaningfully overstated under this mechanism: report resolved-set AUC with its interval",
+  "best": "no_correction",
+  "within_threshold": [
+    "hgb_naive",
+    "lr_naive",
+    "no_correction"
+  ],
+  "candidates": [
+    "no_correction",
+    "lr_naive",
+    "lr_iw",
+    "lr_iw_clip",
+    "hgb_naive",
+    "hgb_iw",
+    "hgb_iw_clip"
+  ],
+  "estimator_table": {
+    "lr_naive": {
+      "mean_abs_error": 0.022968536393027053,
+      "mean_signed_error": -0.0002331944669218955,
+      "n": 100
+    },
+    "lr_iw": {
+      "mean_abs_error": 0.029245660983445058,
+      "mean_signed_error": -0.004009751635576331,
+      "n": 100
+    },
+    "lr_iw_clip": {
+      "mean_abs_error": 0.026632570704417026,
+      "mean_signed_error": -0.005140056137708357,
+      "n": 100
+    },
+    "hgb_naive": {
+      "mean_abs_error": 0.024952958864551834,
+      "mean_signed_error": 0.004179166388271922,
+      "n": 100
+    },
+    "hgb_iw": {
+      "mean_abs_error": 0.02645270793399354,
+      "mean_signed_error": -0.0015526064710080867,
+      "n": 100
+    },
+    "hgb_iw_clip": {
+      "mean_abs_error": 0.02539024492980322,
+      "mean_signed_error": -0.002410794094953981,
+      "n": 100
+    }
+  }
+}

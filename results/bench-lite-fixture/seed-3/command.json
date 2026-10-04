@@ -1,0 +1,40 @@
+{
+  "command": "/home/user/forge/.venv/bin/python bench/run_lite_seed.py --seed 3 --spec /tmp/claude-0/-home-user-forge/d6aac372-7b2b-59ae-9a71-bff81d41d68d/scratchpad/fixrun/spec_fixture.json --out results/bench-lite-fixture --oracle /tmp/claude-0/-home-user-forge/d6aac372-7b2b-59ae-9a71-bff81d41d68d/scratchpad/fixrun/prelock/oracle.json --lock /tmp/claude-0/-home-user-forge/d6aac372-7b2b-59ae-9a71-bff81d41d68d/scratchpad/fixrun/lite_lock.json --model claude-sonnet-5-5 --arm-a-cmd 'omni run {agent_dir} --no-session --model claude-sonnet-5-5 -p {prompt}' --arm-b-cmd 'omni run {agent_dir} --no-session --model claude-sonnet-5-5 -p {prompt}'",
+  "git_commit": "1cde3962a059dab4463aa6ca1b8f4a04a12fd53c",
+  "git_dirty": false,
+  "lock": {
+    "omni_version": "0.16.0",
+    "model": "claude-sonnet-5-5",
+    "snapshot_sha256": "bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+    "code_commit": "1cde3962a059dab4463aa6ca1b8f4a04a12fd53c",
+    "omni_version_found": "0.16.0",
+    "head_commit": "1cde3962a059dab4463aa6ca1b8f4a04a12fd53c"
+  },
+  "python": "3.11.15",
+  "packages": {
+    "python": "3.11.15",
+    "numpy": "2.2.6",
+    "scikit-learn": "1.6.1",
+    "scipy": "1.15.3",
+    "pandas": "2.2.3"
+  },
+  "platform": "Linux-6.18.44-fc-v64-x86_64-with-glibc2.39",
+  "host": "vm",
+  "started_at": "2026-10-04T11:00:19Z",
+  "seed": 3,
+  "model": "claude-sonnet-5-5",
+  "data_ver": "synthetic-fixture@bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+  "snapshot_sha256": "bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+  "agent_cmds": {
+    "A": "omni run {agent_dir} --no-session --model claude-sonnet-5-5 -p {prompt}",
+    "B": "omni run {agent_dir} --no-session --model claude-sonnet-5-5 -p {prompt}"
+  },
+  "env": {
+    "FORGE_TESS_CSV": "/home/user/forge/results/bench-lite-fixture/data/toi_fixture.csv",
+    "FORGE_TESS_SHA256": "bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+    "FORGE_TESS_SPEC": "/tmp/claude-0/-home-user-forge/d6aac372-7b2b-59ae-9a71-bff81d41d68d/scratchpad/fixrun/spec_fixture.json"
+  },
+  "cost": "n/a: usage is not captured",
+  "agent_python": "/home/user/forge/.venv/bin/python",
+  "hidden_during_episodes": []
+}

@@ -1,0 +1,17 @@
+{
+  "omni_version": "0.16.0",
+  "model": "claude-sonnet-5-5",
+  "snapshot_sha256": "bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+  "code_commit": "1cde3962a059dab4463aa6ca1b8f4a04a12fd53c",
+  "code_paths": [
+    "bench",
+    "tools",
+    "core",
+    "schemas",
+    "omnigent",
+    "agents",
+    "policies",
+    "requirements.txt",
+    "requirements-science.txt"
+  ]
+}
