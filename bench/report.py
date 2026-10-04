@@ -157,9 +157,9 @@ def episode_metrics(episode_dir: str, oracle: Optional[dict]) -> dict:
                 break
 
     correct = None
-    if oracle and answer is not None:
+    if oracle:  # no answer (crash, timeout, budget) scores as incorrect, never drops out of the denominator
         within = oracle.get("within_threshold") or [oracle.get("best")]
-        correct = answer.get("candidate") in within
+        correct = (answer or {}).get("candidate") in within
 
     if "agents" in usage:
         totals = {k: sum((a.get(k) or 0) for a in usage["agents"].values())

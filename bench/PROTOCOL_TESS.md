@@ -158,7 +158,7 @@ T2a goes first: it is a third of the cost and decides whether T2b is worth runni
 | Bottleneck / denominator | Time and experiments from the question to a correct, preregistered estimator recommendation. Denominators: timed wall-clock hours (RUN_CREATED → RUN_COMPLETED) and valid experiments |
 | Headline multiplier | Time-to-correct-answer ratio A/B on episodes where both arms are correct, plus the S1 throughput ratio, each with a paired bootstrap CI. Reported next to correctness k/N and cost. |
 | Seeds | 1, 2, 3, 4, 5. Minimum 3, otherwise labeled preliminary. Run order alternates (A1 B1, B2 A2, ...). |
-| Budget per episode | 30 min wall clock, 10 experiment runs, the same USD cap for both arms (recorded; set when the model is fixed) |
+| Budget per episode | Full benchmark: 30 min wall clock, 10 experiment runs. Lite benchmark (section 12): 10 min, 10 runs, the same USD cap for both arms (recorded; set when the model is fixed) |
 | Stopping rule | An episode ends at the answer or the budget. The benchmark ends after 5 paired seeds. The only allowed re-run is an infrastructure failure before the first agent action. |
 | Uncertainty | Benchmark: as `PROTOCOL.md` section 9, over the 5 paired seeds. Science: over 100 pooled replicates (section 4.1). |
 
@@ -207,10 +207,33 @@ Other observations:
 
 **Not validated:** anything on the real snapshot. Hari runs `--fetch`, pins the hash, then `--oracle`, before lock.
 
+## 12. Lite benchmark (decided by Hari, 2026-10-04)
+
+The full benchmark (section 8) is not run before the deadline. Instead:
+
+| Item | Value |
+|---|---|
+| Seeds | 1, 2, 3, run in parallel on separate machines (Akshat 1, Ish 2, Hari 3). Seeds 4 and 5 are not run. |
+| Budget per episode | 10 min wall clock and 10 experiment runs, the same for both arms (`bench/specs/tess_resolution_bias.json`) |
+| Arms | Same model ID and the same built-in tools. No literature tool in either arm, so no citation-quality claim. The comparison is about the protocol: committed predictions, budget, ledger, approval gate. |
+| Snapshot | The pre-lock snapshot pinned in the spec. `bench/run_lite_seed.py` refuses to start if it is not pinned or the cached file differs. |
+| Failures | Failed, timed-out and budget_exhausted episodes stay in every denominator. An episode with no answer scores as incorrect. No re-runs. |
+| Cost | n/a unless both arms capture usage |
+| Pre-lock outcome | If the γ=0 control fails or the gap is too close to 0.02, the protocol is not re-engineered. The run goes ahead and every result is labelled **semi-synthetic, protocol not lockable** (`bench/aggregate_lite.py` reads `results/tess_prelock/summary.json`). |
+| Artifacts | `results/bench-lite/seed-N/`: `A/` and `B/` episode folders (events.jsonl, ledger.db, logs, manifest, answer, report), `command.json` (exact command, git commit, host, model, snapshot hash), `summary.json` |
+| Claim wording | Fixed: "in a lite benchmark (n=3 seeds), FORGE vs a single-agent baseline on this TESS task". Always labelled semi-synthetic. No claim beyond that. |
+
+Commands (in Colab: `bench/colab_lite.ipynb`):
+
+    python tools/tess_prelock.py                 # once, by one person; commit the snapshot, spec pin and results/tess_prelock/
+    python bench/run_lite_seed.py --seed N       # each machine, after the pin is on main; commit results/bench-lite/seed-N/
+    python bench/aggregate_lite.py               # after all seeds are merged; writes results/bench-lite/report.md and report.json
+
 ## Change log
 
 | Date | Change | By |
 |---|---|---|
+| 2026-10-04 | Section 12: lite benchmark (seeds 1–3, 10 min / 10 runs, no literature tool, failures kept, cost n/a, fixed claim wording); spec budget set to the lite values; an episode without an answer now scores as incorrect | Akshat |
 | 2026-10-04 | v0.2 proposed: TESS resolution-bias instantiation | Akshat |
 | 2026-10-04 | v0.4: title and status reconciled; section 0 fixes γ, ρ, the threshold, replicates and the decision rule; nonlinear sensitivity arm included as report-only; cost-reporting and literature-access rules; one-command pre-lock run (`tools/tess_prelock.py`, T1 `--csv` re-run on the pinned file). Not locked | Akshat |
 | 2026-10-04 | v0.3.1: Referee search done (partial overlap: IWCV method known, phenomenon described qualitatively, quantification not found); claim wording and the not-supported list updated; baseline prompt v0.2 and `bench/specs/tess_resolution_bias.json` added; open items refreshed | Akshat |
