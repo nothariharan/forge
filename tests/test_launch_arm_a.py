@@ -95,7 +95,7 @@ def test_agent_that_quits_without_answer_is_closed_as_aborted(spec, tmp_path):
     rec = launcher.launch(spec, 1, str(ep), run_id="A-1", agent_cmd=cmd)
     assert rec["outcome"] == "aborted"
     m = report.episode_metrics(str(ep), {"best": "x", "within_threshold": ["x"]})
-    assert m["attempts"] == 1 and m["correct"] is None  # stays in the denominator, no answer
+    assert m["attempts"] == 1 and m["correct"] is False  # no answer scores as incorrect, stays in the denominator
 
 
 def test_agent_past_the_deadline_is_killed_and_closed_as_budget_exhausted(spec, tmp_path, monkeypatch):

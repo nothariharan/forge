@@ -60,6 +60,7 @@ REPO_ROOT = os.path.dirname(BENCH_DIR)
 sys.path[:0] = [BENCH_DIR, REPO_ROOT]
 
 import arm_a  # noqa: E402
+import redact  # noqa: E402
 
 PROMPT_TEMPLATE = os.path.join(BENCH_DIR, "baseline_prompt.md")
 PLACEHOLDER_RE = re.compile(r"\{([A-Z][A-Z0-9_]*)\}")
@@ -154,6 +155,12 @@ def _stop_group(proc: subprocess.Popen) -> None:
             continue
 
 
+def model_env(model: Optional[str]) -> dict:
+    """Pins the model for the claude-sdk harness in both arms. Whether Omnigent passes it through is
+    checked in the smoke run (which model served the turn), not assumed."""
+    return {"ANTHROPIC_MODEL": model} if model else {}
+
+
 def build_cmd(agent_cmd: str, subs: dict, prompt: str) -> tuple[list[str], list[str]]:
     """Split the command, then substitute, so values with spaces stay one argument.
     Returns (command, command as recorded with the prompt replaced by a pointer to prompt.md)."""
@@ -162,7 +169,7 @@ def build_cmd(agent_cmd: str, subs: dict, prompt: str) -> tuple[list[str], list[
         for key, value in subs.items():
             part = part.replace(key, value)
         cmd.append(part)
-    return cmd, ["<prompt.md>" if part == prompt else part for part in cmd]
+    return cmd, ["<prompt.md>" if part == prompt else redact.redact_text(part) for part in cmd]
 
 
 def run_agent(cmd: list[str], env: dict, timeout: float, episode_dir: str) -> dict:
@@ -258,7 +265,7 @@ def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None
     if dry_run:
         record["note"] = "dry run: episode initialised and config written; agent not started"
     else:
-        env = {**os.environ, "FORGE_EPISODE_DIR": os.path.abspath(episode_dir)}
+        env = {**os.environ, "FORGE_EPISODE_DIR": os.path.abspath(episode_dir), **model_env(model)}
         started = time.time()
         record.update(run_agent(cmd, env, float(spec["wall_clock_minutes"]) * 60 + GRACE_SECONDS, episode_dir))
         stray = collect_stray_report(episode_dir, started)

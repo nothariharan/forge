@@ -1,0 +1,8 @@
+{
+  "_notes": "Setup shared by all three lite-benchmark seeds (bench/PROTOCOL_TESS.md section 12). Written once with `python bench/run_lite_seed.py --write-lock --model <id>` on a clean checkout after the snapshot pin and the FORGE event fixes are on main; then committed. bench/run_lite_seed.py refuses to run a seed unless the omni version, model, snapshot and code under code_paths match this file and the git tree is clean.",
+  "omni_version": "PIN",
+  "model": "PIN",
+  "snapshot_sha256": "PIN",
+  "code_commit": "PIN",
+  "code_paths": ["bench", "tools", "core", "schemas", "omnigent", "agents", "policies", "requirements.txt", "requirements-science.txt"]
+}
