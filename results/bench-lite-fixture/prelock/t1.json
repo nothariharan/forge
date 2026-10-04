@@ -1,0 +1,289 @@
+{
+  "status": "SHIFT_MEASUREMENT_ONLY_NOT_VETTING_ACCURACY_NOT_BENCHMARK_EVIDENCE",
+  "preregistration": "docs/coordination/TESS_RESOLUTION_SHIFT_PREREGISTRATION.md",
+  "retrieved_at_utc": "2026-10-04T10:39:32.051689+00:00",
+  "data_source": "NASA Exoplanet Archive TAP table toi (saved copy /home/user/forge/results/bench-lite-fixture/data/toi_fixture.csv)",
+  "sha256_raw_csv": "bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+  "environment": {
+    "python": "3.11.15",
+    "numpy": "2.2.6",
+    "sklearn": "1.6.1",
+    "platform": "Linux-6.18.44-fc-v64-x86_64-with-glibc2.39"
+  },
+  "protocol": {
+    "model": "LogisticRegression(max_iter=2000) on median-imputed standardized features",
+    "split": "GroupKFold(n_splits=5, shuffle=True) grouped on tid",
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "primary_metric": "out-of-fold ROC AUC, resolved vs unresolved, direction above 0.5",
+    "bootstrap": {
+      "iterations": 2000,
+      "unit": "tid cluster",
+      "interval": "95% percentile"
+    },
+    "permutation_control": {
+      "iterations": 200
+    },
+    "stopping_rule": "primary arm plus sensitivity arms only; no model added after results"
+  },
+  "arms": [
+    {
+      "arm": "primary_cp_fp_vs_pc_apc",
+      "resolved_states": [
+        "CP",
+        "FP"
+      ],
+      "unresolved_states": [
+        "PC",
+        "APC"
+      ],
+      "includes_timestamp_columns": false,
+      "n_rows": 2879,
+      "n_features": 12,
+      "n_features_requested": 12,
+      "columns_dropped_all_missing": [],
+      "n_hosts": 2507,
+      "hosts_with_multiple_tois": 286,
+      "class_counts": {
+        "resolved": 1148,
+        "unresolved": 1731
+      },
+      "dropped_rows_by_reason": {
+        "state_KP": 82,
+        "state_FA": 46
+      },
+      "feature_columns": [
+        "pl_eqt",
+        "pl_insol",
+        "pl_orbper",
+        "pl_rade",
+        "pl_raderr1",
+        "pl_trandep",
+        "pl_trandurh",
+        "st_dist",
+        "st_logg",
+        "st_rad",
+        "st_teff",
+        "st_tmag"
+      ],
+      "excluded_columns": {
+        "pl_eqtlim": "asymmetric-error or detection-limit derivation",
+        "pl_insolsymerr": "asymmetric-error or detection-limit derivation",
+        "release_date": "timestamp; encodes resolution age rather than triage features",
+        "rowupdate": "timestamp; encodes resolution age rather than triage features",
+        "tfopwg_disp": "identifier or label",
+        "tid": "identifier or label",
+        "toi": "identifier or label",
+        "toi_created": "timestamp; encodes resolution age rather than triage features"
+      },
+      "missingness": {
+        "all_nan_columns_dropped_by_imputer": [],
+        "columns_over_half_missing": [],
+        "overall_cell_missing_fraction": 0.0384
+      },
+      "oof_auc": 0.752776788104598,
+      "oof_auc_per_seed": {
+        "0": 0.7538964607274199,
+        "1": 0.7522775902430973,
+        "2": 0.7513863811576962,
+        "3": 0.7516188704843225,
+        "4": 0.7521044813072543
+      },
+      "cluster_bootstrap_auc": {
+        "n_effective": 2000,
+        "mean": 0.7528413381203084,
+        "ci95_low": 0.7352713072934018,
+        "ci95_high": 0.7712617426076672
+      },
+      "ci_excludes_half": true,
+      "ci_below_half": false,
+      "prediction_supported": true,
+      "falsifier_triggered": false,
+      "inconclusive": false,
+      "elapsed_seconds": 7.73
+    },
+    {
+      "arm": "with_timestamps",
+      "resolved_states": [
+        "CP",
+        "FP"
+      ],
+      "unresolved_states": [
+        "PC",
+        "APC"
+      ],
+      "includes_timestamp_columns": true,
+      "n_rows": 2879,
+      "n_features": 15,
+      "n_features_requested": 15,
+      "columns_dropped_all_missing": [],
+      "n_hosts": 2507,
+      "hosts_with_multiple_tois": 286,
+      "class_counts": {
+        "resolved": 1148,
+        "unresolved": 1731
+      },
+      "dropped_rows_by_reason": {
+        "state_KP": 82,
+        "state_FA": 46
+      },
+      "feature_columns": [
+        "pl_eqt",
+        "pl_insol",
+        "pl_orbper",
+        "pl_rade",
+        "pl_raderr1",
+        "pl_trandep",
+        "pl_trandurh",
+        "st_dist",
+        "st_logg",
+        "st_rad",
+        "st_teff",
+        "st_tmag",
+        "ts_release_date_days",
+        "ts_rowupdate_days",
+        "ts_toi_created_days"
+      ],
+      "excluded_columns": {
+        "pl_eqtlim": "asymmetric-error or detection-limit derivation",
+        "pl_insolsymerr": "asymmetric-error or detection-limit derivation",
+        "release_date": "converted to a numeric day offset for the sensitivity arm",
+        "rowupdate": "converted to a numeric day offset for the sensitivity arm",
+        "tfopwg_disp": "identifier or label",
+        "tid": "identifier or label",
+        "toi": "identifier or label",
+        "toi_created": "converted to a numeric day offset for the sensitivity arm"
+      },
+      "missingness": {
+        "all_nan_columns_dropped_by_imputer": [],
+        "columns_over_half_missing": [],
+        "overall_cell_missing_fraction": 0.0307
+      },
+      "oof_auc": 0.7523077836621397,
+      "oof_auc_per_seed": {
+        "0": 0.7536810810049175,
+        "1": 0.7518926241503069,
+        "2": 0.7515131935176742,
+        "3": 0.7512062270907434,
+        "4": 0.7507030034400368
+      },
+      "cluster_bootstrap_auc": {
+        "n_effective": 2000,
+        "mean": 0.7523655045304521,
+        "ci95_low": 0.7346712364928504,
+        "ci95_high": 0.7707851897163542
+      },
+      "ci_excludes_half": true,
+      "ci_below_half": false,
+      "prediction_supported": true,
+      "falsifier_triggered": false,
+      "inconclusive": false,
+      "elapsed_seconds": 8.495
+    },
+    {
+      "arm": "fa_counted_as_resolved",
+      "resolved_states": [
+        "CP",
+        "FP",
+        "FA"
+      ],
+      "unresolved_states": [
+        "PC",
+        "APC"
+      ],
+      "includes_timestamp_columns": false,
+      "n_rows": 2925,
+      "n_features": 12,
+      "n_features_requested": 12,
+      "columns_dropped_all_missing": [],
+      "n_hosts": 2539,
+      "hosts_with_multiple_tois": 297,
+      "class_counts": {
+        "resolved": 1194,
+        "unresolved": 1731
+      },
+      "dropped_rows_by_reason": {
+        "state_KP": 82
+      },
+      "feature_columns": [
+        "pl_eqt",
+        "pl_insol",
+        "pl_orbper",
+        "pl_rade",
+        "pl_raderr1",
+        "pl_trandep",
+        "pl_trandurh",
+        "st_dist",
+        "st_logg",
+        "st_rad",
+        "st_teff",
+        "st_tmag"
+      ],
+      "excluded_columns": {
+        "pl_eqtlim": "asymmetric-error or detection-limit derivation",
+        "pl_insolsymerr": "asymmetric-error or detection-limit derivation",
+        "release_date": "timestamp; encodes resolution age rather than triage features",
+        "rowupdate": "timestamp; encodes resolution age rather than triage features",
+        "tfopwg_disp": "identifier or label",
+        "tid": "identifier or label",
+        "toi": "identifier or label",
+        "toi_created": "timestamp; encodes resolution age rather than triage features"
+      },
+      "missingness": {
+        "all_nan_columns_dropped_by_imputer": [],
+        "columns_over_half_missing": [],
+        "overall_cell_missing_fraction": 0.0383
+      },
+      "oof_auc": 0.751776405617535,
+      "oof_auc_per_seed": {
+        "0": 0.7522336310863,
+        "1": 0.75314808202383,
+        "2": 0.7515785164993076,
+        "3": 0.7499992742452876,
+        "4": 0.7498052558188595
+      },
+      "cluster_bootstrap_auc": {
+        "n_effective": 2000,
+        "mean": 0.7516668638278244,
+        "ci95_low": 0.7337707679492824,
+        "ci95_high": 0.7686613248160364
+      },
+      "ci_excludes_half": true,
+      "ci_below_half": false,
+      "prediction_supported": true,
+      "falsifier_triggered": false,
+      "inconclusive": false,
+      "elapsed_seconds": 8.501
+    }
+  ],
+  "permutation_null_primary_arm": {
+    "n_permutations": 200,
+    "mean": 0.49642890104006265,
+    "max": 0.5348336443255495,
+    "p95": 0.5172101733706121
+  },
+  "verdict": {
+    "primary_arm_auc": 0.752776788104598,
+    "primary_arm_ci95": [
+      0.7352713072934018,
+      0.7712617426076672
+    ],
+    "shift_detected": true,
+    "falsifier_triggered": false,
+    "inconclusive": false,
+    "conclusion": "In the current catalog snapshot, these fields distinguish resolved from unresolved TOIs. Historical availability at triage was not established, and this result does not measure a vetting-accuracy gap. Further feature-provenance and prior-art review is required before designing T2."
+  },
+  "interpretation_limits": [
+    "This measures feature-distribution difference between resolved and unresolved TOIs.",
+    "It does not measure planet-vetting accuracy and never trains a planet classifier.",
+    "A detectable shift is neither necessary nor sufficient for an accuracy gap; no vetting-accuracy gap was measured.",
+    "Association is not causation. Shift may reflect how TFOPWG triages rather than how astronomers triage.",
+    "The falsifier requires the whole interval below 0.5, so under a true null it still fires about 2.5% of the time by chance. The permutation control, not the point estimate, is what rules out a broken pipeline.",
+    "Not benchmark evidence, not a novelty claim, and not a locked science contract."
+  ]
+}

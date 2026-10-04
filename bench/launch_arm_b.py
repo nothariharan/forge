@@ -29,6 +29,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import shutil
 import sys
 import time
 from datetime import datetime, timedelta, timezone
@@ -42,7 +44,30 @@ import launch_arm_a as shared  # noqa: E402
 
 from core.ledger import Ledger  # noqa: E402
 
-DEFAULT_AGENT_CMD = "omni run omnigent/forge --no-session -p {prompt}"
+DEFAULT_AGENT_CMD = "omni run {agent_dir} --no-session -p {prompt}"
+FORGE_DIR = os.path.join(REPO_ROOT, "omnigent", "forge")
+BENCH_HARNESS = "claude-sdk"
+
+
+def benchmark_agent_dir(episode_dir: str, harness: str = BENCH_HARNESS) -> tuple[str, dict]:
+    """A copy of the FORGE config with every agent on one harness, so both arms use the same model.
+    omnigent/forge itself is not changed; the copy is kept in the episode folder."""
+    dest = os.path.join(os.path.abspath(episode_dir), "forge_agent")
+    shutil.copytree(FORGE_DIR, dest)
+    changed = {}
+    for root, _, files in os.walk(dest):
+        for name in files:
+            if name != "config.yaml":
+                continue
+            path = os.path.join(root, name)
+            text = open(path, encoding="utf-8").read()
+            new = re.sub(r"(?m)^(\s*harness:\s*)(\S+)", lambda m: m.group(1) + harness, text)
+            old = re.findall(r"(?m)^\s*harness:\s*(\S+)", text)
+            if new != text:
+                changed[os.path.relpath(path, dest)] = {"from": old, "to": harness}
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(new)
+    return dest, changed
 SHARED_SECTIONS = ("### Research question", "### Task and metric", "### Budget", "### Research rules")
 
 
@@ -52,14 +77,43 @@ def _section(prompt: str, heading: str) -> str:
     return prompt[start:nxt if nxt != -1 else len(prompt)].strip()
 
 
-def task_message(spec: dict, run_id: str) -> str:
-    """FORGE's task: the arm A prompt's shared sections, verbatim, plus how to record the answer."""
+def run_section(spec: dict, seed: Optional[int]) -> str:
+    """How FORGE runs one experiment: the same runner arm A calls through `bench/arm_a.py run`."""
+    if not spec.get("runner_command"):
+        return ""
+    cmd = spec["runner_command"].replace("{SEED}", str(seed) if seed is not None else "<seed>")
+    return (
+        "### Running an experiment\n\n"
+        f"Each experiment is one run of this command (the experimenter runs it behind the P6 gate); the seed is fixed:\n\n"
+        f"    {cmd}\n\n"
+        "It prints JSON; its `metrics` object holds the metric. Label each experiment with the candidate id "
+        "`<model>_<estimator>_g<gamma>` and put it in the RUN_STARTED and RUN_FINISHED payloads as \"candidate\".\n\n"
+    )
+
+
+def loop_section(spec: dict) -> str:
+    """Benchmark mode: run the whole loop; without a literature tool, skip the evidence steps instead of
+    blocking on an empty evidence packet (the schema needs at least one sourced claim)."""
+    text = ("### How to run this episode\n\n"
+            "Run the full loop (planner, safety, experimenter, analyst, repeated) until the question is answered "
+            "or the budget runs out, then record RUN_COMPLETED. Nobody will reply during the episode.\n")
+    if str(spec.get("literature_tools", "")).lower().startswith("no literature tool"):
+        text += ("No literature tool is provided in this episode, so skip the librarian and the referee: record no "
+                 "EVIDENCE_ADDED or NOVELTY_VERDICT, give the hypothesizer the research question and task text "
+                 "above as its input, and tell the planner the novelty check was not run.\n")
+    return text + "\n"
+
+
+def task_message(spec: dict, run_id: str, seed: Optional[int] = None) -> str:
+    """FORGE's task: the arm A prompt's shared sections, verbatim, plus how to run an experiment and record the answer."""
     filled = shared.fill_prompt(spec)
     body = "\n\n".join(_section(filled, h) for h in SHARED_SECTIONS)
     return (
         f"Run id: {run_id}\n\n"
         "Investigate the research question below with the FORGE team and record every handoff in the ledger.\n\n"
         f"{body}\n\n"
+        f"{loop_section(spec)}"
+        f"{run_section(spec, seed)}"
         "### Final answer\n\n"
         "End the run by recording RUN_COMPLETED with "
         '{"status": "completed", "summary": "<one paragraph>", "candidate": "<id of the candidate you recommend>"}. '
@@ -78,7 +132,7 @@ def _past_deadline(manifest: dict) -> bool:
 def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None, model: Optional[str] = None,
            agent_cmd: str = DEFAULT_AGENT_CMD, dry_run: bool = False) -> dict:
     run_id = run_id or f"B-seed{seed}-{int(time.time())}"
-    prompt = task_message(spec, run_id)  # fails before anything is created if a placeholder is missing
+    prompt = task_message(spec, run_id, seed)  # fails before anything is created if a placeholder is missing
     if os.path.exists(os.path.join(episode_dir, "manifest.json")):
         raise SystemExit(f"episode already started at {episode_dir}")
     os.makedirs(episode_dir, exist_ok=True)
@@ -103,8 +157,11 @@ def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None
     ledger.append(run_id, "system", "RUN_CREATED", {"question": spec["question"], "mode": "benchmark"})
 
     prompt_file = os.path.join(os.path.abspath(episode_dir), "prompt.md")
-    cmd, shown = shared.build_cmd(agent_cmd, {"{prompt}": prompt, "{prompt_file}": prompt_file}, prompt)
-    record = {"run_id": run_id, "seed": seed, "command": shown, "dry_run": dry_run}
+    agent_dir, harness_changes = benchmark_agent_dir(episode_dir)
+    cmd, shown = shared.build_cmd(agent_cmd, {"{prompt}": prompt, "{prompt_file}": prompt_file,
+                                              "{agent_dir}": agent_dir}, prompt)
+    record = {"run_id": run_id, "seed": seed, "command": shown, "dry_run": dry_run,
+              "agent_dir": agent_dir, "harness_changes": harness_changes}
     if dry_run:
         record["note"] = "dry run: episode initialised; FORGE not started"
     else:
@@ -122,7 +179,9 @@ def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None
                 json.dump(manifest, f, indent=2)
         completed = next(e for e in ledger.read(run_id) if e["type"] == "RUN_COMPLETED")
         record["outcome"] = completed["payload"].get("status")
-        if completed["payload"].get("candidate") is not None:
+        # Only a completed run submits an answer. An aborted run's candidate is a placeholder and must not be
+        # scored (failures count as incorrect).
+        if completed["payload"].get("status") == "completed" and completed["payload"].get("candidate") is not None:
             with open(os.path.join(episode_dir, "answer.json"), "w", encoding="utf-8") as f:
                 json.dump({"candidate": completed["payload"]["candidate"], "submitted_at": completed["ts"]}, f, indent=2)
 
@@ -139,7 +198,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--episode", required=True, help="episode folder, e.g. results/bench/<id>/B/seed-1")
     p.add_argument("--run-id")
     p.add_argument("--model", help="model ID, recorded in the manifest (must match arm A)")
-    p.add_argument("--agent-cmd", default=DEFAULT_AGENT_CMD, help="{prompt} and {prompt_file} are substituted")
+    p.add_argument("--agent-cmd", default=DEFAULT_AGENT_CMD, help="{agent_dir}, {prompt} and {prompt_file} are substituted")
     p.add_argument("--dry-run", action="store_true")
     a = p.parse_args(argv)
     print(json.dumps(launch(shared.load_spec(a.spec), a.seed, a.episode, a.run_id, a.model, a.agent_cmd, a.dry_run),

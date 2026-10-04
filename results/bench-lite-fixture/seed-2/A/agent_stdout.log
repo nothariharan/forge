@@ -1,0 +1,18 @@
+Status: runs take about 44 seconds each. E2 was cut off by the timeout and its ID is now used up. E3 and E4 are running in the background.I submitted **no_correction**. The evidence is thin, because only logistic regression with the naive estimator was tested. Naive resolved-set AUC was not meaningfully overstated in any of the three runs I finished. The meaningful-overstatement threshold is a gap of 0.02 or more.
+
+| Run | Gamma | Mean gap | 95% range over 20 splits |
+|---|---|---|---|
+| E1 | 0 | -0.002 | -0.027 to 0.036 |
+| E2 | 1 | -0.002 | -0.043 to 0.037 |
+| E3 | 2 | +0.002 | -0.018 to 0.043 |
+
+Resolved-set AUC for the logistic regression was about 0.82 in each run. The report says to quote it as is, with its interval.
+
+- **Unfinished work:** E4 (gradient boosting, naive, gamma 1) was still running when I wrote the report, so it is not in the answer. I never ran the importance-weighted or clipped estimators, since there was no bias to correct for logistic regression. Gradient boosting could behave differently.
+- **Data version:** The run records label the data `synthetic-fixture@bd9aba94...`. That may mean the runs used a fixture and not the real TOI snapshot, and I didn't check.
+- **Resolution model:** Its out-of-fold AUC is only 0.75, and a small true gap can't be ruled out given the ±0.04 spread. All runs used the fixed seed.
+- **Timeout:** My first batched command timed out at 60 seconds. I recovered the E2 result from `run_records.jsonl`.
+- **Prediction:** My E1 prediction was too tight. I committed an sd of 0.01, but the per-split spread is about 0.03.
+- **Citations:** No literature was retrieved, so the report cites nothing.
+
+The report is at `$FORGE_EPISODE_DIR/final_report.md`.

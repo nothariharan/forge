@@ -1,0 +1,41 @@
+{
+  "run_id": "lite-B-2",
+  "seed": 2,
+  "command": [
+    "omni",
+    "run",
+    "/home/user/forge/results/bench-lite-fixture/seed-2/B/forge_agent",
+    "--no-session",
+    "--model",
+    "claude-sonnet-5-5",
+    "-p",
+    "<prompt.md>"
+  ],
+  "dry_run": false,
+  "agent_dir": "/home/user/forge/results/bench-lite-fixture/seed-2/B/forge_agent",
+  "harness_changes": {
+    "agents/planner/config.yaml": {
+      "from": [
+        "codex"
+      ],
+      "to": "claude-sdk"
+    },
+    "agents/hypothesizer/config.yaml": {
+      "from": [
+        "codex"
+      ],
+      "to": "claude-sdk"
+    },
+    "agents/analyst/config.yaml": {
+      "from": [
+        "codex"
+      ],
+      "to": "claude-sdk"
+    }
+  },
+  "started_at": "2026-10-04T11:00:16Z",
+  "returncode": null,
+  "timed_out": true,
+  "finished_at": "2026-10-04T11:10:46Z",
+  "outcome": "budget_exhausted"
+}

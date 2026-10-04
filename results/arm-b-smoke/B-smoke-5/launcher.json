@@ -1,0 +1,18 @@
+{
+  "run_id": "B-smoke-5",
+  "seed": 1,
+  "command": [
+    "omni",
+    "run",
+    "omnigent/forge",
+    "--no-session",
+    "-p",
+    "<prompt.md>"
+  ],
+  "dry_run": false,
+  "started_at": "2026-10-04T10:57:55Z",
+  "returncode": 0,
+  "timed_out": false,
+  "finished_at": "2026-10-04T11:02:43Z",
+  "outcome": "completed"
+}

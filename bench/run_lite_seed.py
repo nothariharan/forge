@@ -27,10 +27,14 @@ import os
 import platform
 import re
 import shlex
+import shutil
+import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import traceback
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -50,6 +54,78 @@ DEFAULT_LOCK = os.path.join(BENCH_DIR, "specs", "lite_lock.json")
 LOCK_KEYS = ("omni_version", "model", "snapshot_sha256", "code_commit")
 FRAMING = ("semi-synthetic simulation on the TESS TOI snapshot; lite benchmark (n=3 seeds), FORGE vs a "
            "single-agent baseline on this TESS task; not accuracy on real unresolved TOIs")
+FIXTURE_FRAMING = ("synthetic TESS-like fixture (tests/tess_fixture.py), NOT the TESS snapshot; smoke-scale run of the "
+                   "lite benchmark protocol, FORGE vs a single-agent baseline; no claim about TESS")
+# Ground truth the agents must not see while an episode runs (both arms run inside the repository).
+HIDDEN_DURING_EPISODES = (os.path.join(REPO_ROOT, "results", "tess_prelock"),)
+LEAK_MARKERS = ("--oracle", "tess_prelock", "oracle.json")
+VENV_BIN = os.path.join(REPO_ROOT, ".venv", "bin")
+
+
+def framing(spec: dict) -> str:
+    return FRAMING if str(spec.get("data_ver", "")).startswith("nasa-toi@") else FIXTURE_FRAMING
+
+
+# Where hidden files went, so a run killed hard (kill -9, closed laptop) can be recovered by the next run.
+HIDDEN_MARKER = os.path.join(REPO_ROOT, "results", ".hidden_during_episodes.json")
+
+
+def restore_stranded(marker: str = HIDDEN_MARKER) -> list[str]:
+    """Put back ground-truth files left in a temporary folder by an interrupted run."""
+    if not os.path.exists(marker):
+        return []
+    with open(marker, encoding="utf-8") as f:
+        moved = json.load(f)
+    restored = []
+    for dest, path in moved:
+        if os.path.exists(dest) and not os.path.exists(path):
+            shutil.move(dest, path)
+            restored.append(path)
+    os.remove(marker)
+    return restored
+
+
+@contextmanager
+def hidden(paths=None, marker: str = HIDDEN_MARKER):
+    """Move ground-truth files out of the repository while the episodes run, then restore them.
+    SIGTERM also restores them; after a hard kill the next run restores them (restore_stranded)."""
+    paths = HIDDEN_DURING_EPISODES if paths is None else paths
+    restore_stranded(marker)
+    stash = tempfile.mkdtemp(prefix="forge-hidden-")
+    moved = []
+
+    def on_term(signum, frame):
+        raise SystemExit(128 + signum)  # unwinds into the finally below
+
+    old_term = signal.signal(signal.SIGTERM, on_term)
+    try:
+        for i, path in enumerate(paths):
+            if os.path.exists(path):
+                dest = os.path.join(stash, str(i))
+                moved.append((dest, path))
+                with open(marker, "w", encoding="utf-8") as f:
+                    json.dump(moved, f)
+                shutil.move(path, dest)
+        yield [p for _, p in moved]
+    finally:
+        for dest, path in moved:
+            if os.path.exists(dest):
+                shutil.move(dest, path)
+        if os.path.exists(marker):
+            os.remove(marker)
+        shutil.rmtree(stash, ignore_errors=True)
+        signal.signal(signal.SIGTERM, old_term)
+
+
+def leak_check(episode_dir: str) -> list[str]:
+    """Agent output that mentions the oracle or its files (a sign the ground truth was looked up)."""
+    hits = []
+    for name in ("agent_stdout.log", "agent_stderr.log"):
+        path = os.path.join(episode_dir, name)
+        if os.path.exists(path):
+            text = open(path, encoding="utf-8", errors="replace").read()
+            hits += [f"{name}: {m}" for m in LEAK_MARKERS if m in text]
+    return hits
 
 
 def _now() -> str:
@@ -170,7 +246,7 @@ def run_seed(seed: int, spec: dict, out_root: str = DEFAULT_OUT, oracle_path: st
         "command": redact.redact_text(" ".join(shlex.quote(a) for a in (argv or sys.argv))),
         "git_commit": setup["head_commit"], "git_dirty": False, "lock": setup,
         "python": platform.python_version(), "packages": package_versions(), "platform": platform.platform(), "host": socket.gethostname(),
-        "started_at": _now(), "seed": seed, "model": model, "snapshot_sha256": sha,
+        "started_at": _now(), "seed": seed, "model": model, "data_ver": spec.get("data_ver"), "snapshot_sha256": sha,
         "agent_cmds": {"A": redact.redact_text(arm_a_cmd), "B": redact.redact_text(arm_b_cmd)},
         "env": redact.recorded_env(os.environ),
         "cost": "n/a: usage is not captured",
@@ -179,27 +255,39 @@ def run_seed(seed: int, spec: dict, out_root: str = DEFAULT_OUT, oracle_path: st
         json.dump(command, f, indent=2)
 
     oracle = json.load(open(oracle_path)) if os.path.exists(oracle_path) else None
+    old_path = os.environ.get("PATH", "")
+    if os.path.isdir(VENV_BIN):  # both arms' `python` / `.venv/bin/python` resolve to the same pinned environment
+        os.environ["PATH"] = VENV_BIN + os.pathsep + old_path
+    command["agent_python"] = shutil.which("python")
     episodes = {}
-    for arm in arm_order(seed, list(arms)):
+    with hidden() as hidden_paths:
+        command["hidden_during_episodes"] = [os.path.relpath(p, REPO_ROOT) for p in hidden_paths]
+        for arm in arm_order(seed, list(arms)):
+            ep = os.path.join(seed_dir, arm)
+            entry = {"arm": arm, "started_at": _now()}
+            try:
+                if arm == "A":
+                    rec = launch_arm_a.launch(spec, seed, ep, run_id=f"lite-A-{seed}", model=model, agent_cmd=arm_a_cmd)
+                else:
+                    rec = launch_arm_b.launch(spec, seed, ep, run_id=f"lite-B-{seed}", model=model, agent_cmd=arm_b_cmd)
+                entry.update(outcome=rec.get("outcome"), failure_reason=rec.get("failure_reason"),
+                             timed_out=rec.get("timed_out"), returncode=rec.get("returncode"))
+            except (Exception, SystemExit) as exc:  # a crashed launch stays in the record, never dropped
+                entry.update(outcome="launch_failed", error=f"{type(exc).__name__}: {exc}",
+                             traceback=traceback.format_exc(limit=5))
+            entry["finished_at"] = _now()
+            episodes[arm] = entry
+            print(f"seed {seed} arm {arm}: {entry['outcome']}")
+    os.environ["PATH"] = old_path
+    for arm, entry in episodes.items():  # scored after the ground truth is back in place
         ep = os.path.join(seed_dir, arm)
-        entry = {"arm": arm, "started_at": _now()}
-        try:
-            if arm == "A":
-                rec = launch_arm_a.launch(spec, seed, ep, run_id=f"lite-A-{seed}", model=model, agent_cmd=arm_a_cmd)
-            else:
-                rec = launch_arm_b.launch(spec, seed, ep, run_id=f"lite-B-{seed}", model=model, agent_cmd=arm_b_cmd)
-            entry.update(outcome=rec.get("outcome"), failure_reason=rec.get("failure_reason"),
-                         timed_out=rec.get("timed_out"), returncode=rec.get("returncode"))
-            entry["metrics"] = report.episode_metrics(ep, oracle)
-        except (Exception, SystemExit) as exc:  # a crashed launch stays in the record, never dropped
-            entry.update(outcome="launch_failed", error=f"{type(exc).__name__}: {exc}",
-                         traceback=traceback.format_exc(limit=5))
-        entry["finished_at"] = _now()
-        episodes[arm] = entry
-        print(f"seed {seed} arm {arm}: {entry['outcome']}")
+        entry["metrics"] = report.episode_metrics(ep, oracle)
+        entry["oracle_mentions"] = leak_check(ep)
+    with open(os.path.join(seed_dir, "command.json"), "w", encoding="utf-8") as f:
+        json.dump(command, f, indent=2)
 
     summary = {
-        "framing": FRAMING, "seed": seed, "snapshot_sha256": sha,
+        "framing": framing(spec), "data_ver": spec.get("data_ver"), "seed": seed, "snapshot_sha256": sha,
         "oracle": os.path.relpath(oracle_path, REPO_ROOT) if oracle else None,
         "oracle_answer": oracle and {"best": oracle["best"], "within_threshold": oracle["within_threshold"]},
         "budget": {"wall_clock_minutes": spec.get("wall_clock_minutes"),

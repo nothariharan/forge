@@ -1,0 +1,16 @@
+{
+  "run_id": "lite-A-2",
+  "arm": "A",
+  "seed": 2,
+  "question": "On the NASA Exoplanet Archive TESS TOI table, does evaluating a vetting classifier only on resolved TOIs overstate its accuracy on candidates that look like the unresolved pool, and should resolved-set AUC be corrected before it is quoted as triage accuracy? This is studied in a semi-synthetic simulation: labeled TOIs (CP vs FP+FA) are re-split, host by host, into a pseudo-resolved set and a pseudo-unresolved set using a resolution model fitted to the current catalog, so the true accuracy on the pseudo-unresolved set is known.",
+  "task_id": "tess-resolution-bias",
+  "metric_name": "gap",
+  "runner": "tools.tess_bias_run:run",
+  "data_ver": "synthetic-fixture@bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+  "ledger_path": null,
+  "deadline_ts": "2026-10-04T11:20:46Z",
+  "max_experiments": 10,
+  "model": "claude-sonnet-5-5",
+  "git_commit": "1cde3962a059dab4463aa6ca1b8f4a04a12fd53c",
+  "started_at": "2026-10-04T11:10:46.536987Z"
+}

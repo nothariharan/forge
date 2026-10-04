@@ -89,6 +89,12 @@ def test_invalid_event_rejected_and_nothing_written(ledger, kwargs):
     assert ledger.verify("r1") == (True, None)
 
 
+def test_empty_evidence_is_an_honest_no_evidence_event(ledger):
+    assert ledger.append("r1", "librarian", "EVIDENCE_ADDED", {"claims": []})["seq"] == 1
+    with pytest.raises(ValidationError):  # a claim, when present, still needs text, ref and quote
+        ledger.append("r1", "librarian", "EVIDENCE_ADDED", {"claims": [{"text": "t"}]})
+
+
 def test_spec_chosen_must_be_a_candidate(ledger):
     assert ledger.append("r1", "planner", "EXPERIMENT_SELECTED", SPEC)["seq"] == 1
     with pytest.raises(ValidationError, match="chosen"):
@@ -189,6 +195,22 @@ def test_verify_cli_exit_codes(ledger, capsys):
     assert verify_cli.main(["demo", *db]) == 1
     assert "BROKEN at seq 7" in capsys.readouterr().out
     assert verify_cli.main(["missing", *db]) == 1
+
+
+def test_verify_cli_checks_an_exported_jsonl(ledger, tmp_path, capsys):
+    emit_fake_run(ledger, "demo")
+    out = tmp_path / "events.jsonl"
+    ledger.export_jsonl("demo", out)
+    assert verify_cli.main(["demo", "--jsonl", str(out)]) == 0
+    assert "chain OK, 31 events" in capsys.readouterr().out
+    lines = out.read_text().splitlines()
+    tampered = json.loads(lines[4])
+    tampered["agent"] = "system"
+    lines[4] = json.dumps(tampered)
+    out.write_text("\n".join(lines) + "\n")
+    assert verify_cli.main(["demo", "--jsonl", str(out)]) == 1
+    assert "BROKEN at seq 5" in capsys.readouterr().out
+    assert verify_cli.main(["missing", "--jsonl", str(out)]) == 1
 
 
 def test_python_event_types_match_shared_envelope_schema():

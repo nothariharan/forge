@@ -21,3 +21,4 @@ results/handoffs/
 
 # Lite benchmark artifacts are committed, ledgers included
 !results/bench-lite/**/ledger.db
+results/.hidden_during_episodes.json

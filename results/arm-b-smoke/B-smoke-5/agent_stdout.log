@@ -1,0 +1,35 @@
+The run was already created by the harness (RUN_CREATED skipped), and the librarian is dispatched. I'm waiting for its evidence packet before moving on to the hypothesizer.
+
+The librarian returned an empty evidence packet (it had no retrieval tool, so it cited nothing), which is recorded as EVIDENCE_ADDED at seq 2. The hypothesizer is now dispatched with that empty packet and told to cite no sources; I'm waiting for its hypothesis.
+
+Hypothesis H1 is recorded at seq 3 (AI-generated, no sources cited). The referee is now dispatched with the hypothesis and the empty evidence packet; I'm waiting for its novelty verdict.
+
+The referee's verdict is UNCERTAIN (no prior-art search was possible), recorded at seq 4. The planner is now dispatched to commit a prediction and select experiment E1; I'm waiting for its reply.
+
+The planner's prediction for E1 (lr, naive, gamma=2; predicted gap 0.04 ± 0.03) and its experiment selection are recorded at seq 5 and 6. Safety is now reviewing E1 to open the approval gate; I'm waiting for its reply.
+
+Gate G1 is open (seq 7) and RUN_STARTED for E1 is recorded (seq 8). The experimenter is now running E1 behind the P6 gate, which needs your approval in the lab UI; I'm waiting for its result.
+
+E1 finished: for logistic regression with the naive estimator at gamma=2, resolved-set AUC was 0.917 against a true pseudo-unresolved AUC of 0.879. That is a gap of 0.039 (95% range 0.016 to 0.061), close to the predicted 0.04, though the lower end sits just under the 0.02 threshold.
+
+RUN_FINISHED is recorded at seq 10. The analyst is now interpreting the result against the prediction; I'm waiting for its finding and replan.
+
+Run B-smoke-5 is complete and recorded, with `lr_iw_clip` as the final candidate — but that recommendation is a judgement, not a measured result. Only one of the 10 allowed experiments ran before the wall clock ran out, and it did not test any correction.
+
+**What was measured (E1: logistic regression, naive estimator, gamma=2, seed 1, 20 splits):**
+
+| Quantity | Value |
+|---|---|
+| Naive resolved-set AUC | 0.917 |
+| True pseudo-unresolved AUC | 0.879 |
+| Gap | 0.039 (95% range 0.016 to 0.061) |
+| Preregistered prediction | 0.04 ± 0.03 |
+
+- **Overstatement:** the point estimate is above the 0.02 threshold, so the falsifier was not triggered and the analyst's verdict is SUPPORTS. The lower end of the range is below 0.02, so a less-than-meaningful overstatement cannot be ruled out.
+- **Not tested:** gamma=0 (the negative control), gamma=1 (the selection actually fitted to the catalog), the gradient-boosting model, and both importance-weighted estimators.
+- **Why `lr_iw_clip`:** E1 suggests naive AUC is probably overstated under strong selection, and clipped importance weighting was the correction named in the hypothesis. No run showed it reduces the gap; the analyst explicitly noted that none of the correction options has evidence behind it.
+- **No citations:** the librarian had no retrieval tool and returned an empty evidence packet, so nothing is cited. The referee's novelty verdict is UNCERTAIN because no prior-art search was run.
+
+All conclusions here are AI-generated and describe the simulation only, not accuracy on real unresolved TOIs.
+
+The ledger holds events through seq 13 (RUN_COMPLETED), with no rejected handoffs or policy denials. Payloads are in `results/handoffs/B-smoke-5-1.json` through `-12.json`.
