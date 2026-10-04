@@ -79,7 +79,7 @@ async function day() {
     const text = await (await fetch("fixtures/live-exo-9.jsonl")).text();
     events = text.split("\n").filter(Boolean).map((l) => JSON.parse(l)).sort((a, b) => a.seq - b.seq);
   } catch { $("#day").innerHTML = '<p class="muted">The run could not be loaded.</p>'; return; }
-  $("#day").innerHTML = events.map((e) => {
+  $("#day").innerHTML = '<div class="rail" aria-hidden="true"><i id="rail-fill"></i></div>' + events.map((e) => {
     const f = LINES[e.type]; if (!f) return "";
     const [title, body] = f(e.payload);
     const who = e.type === "GATE_RESOLVED" ? "human" : e.agent;
@@ -87,8 +87,7 @@ async function day() {
     return `<div class="ev ${cls}"><span class="t">${e.ts.slice(11, 16)}</span><span class="who" title="${esc(who)}">${mascotSVG(who)}</span>
       <div class="bubble"><b>${esc(title)}</b><span>${esc(body)}</span></div></div>`;
   }).join("");
-  const obs = new IntersectionObserver((es) => es.forEach((x) => { if (x.isIntersecting) { x.target.classList.add("in"); obs.unobserve(x.target); } }), { threshold: 0.2 });
-  document.querySelectorAll(".ev").forEach((el) => obs.observe(el));
+  scrollTimeline();
 
   const fin = events.find((e) => e.type === "FINDING")?.payload;
   const agents = new Set(events.map((e) => e.agent).filter((a) => !["system", "human", "harness"].includes(a)));
@@ -97,9 +96,51 @@ async function day() {
     $("#result").innerHTML = `<div class="stat"><b>${hits} in 100</b><span>Pick one followed-up object and one open candidate at random: this often, the catalog values alone tell which is which</span></div>
       <div class="stat"><b>${pct(fin.ci[0])} to ${pct(fin.ci[1])}</b><span>The range we are 95% confident the true figure is in</span></div>
       <div class="stat"><b>${events.length} steps</b><span>${agents.size} agents, 1 human approval, every step on the record</span></div>`;
+    countUp($("#result"));
   }
   const first = events[0], last = events[events.length - 1];
   $("#day-note").textContent = `Real Omnigent run ${first.run_id}, ${first.ts.slice(0, 10)}, ${first.ts.slice(11, 16)} to ${last.ts.slice(11, 16)} UTC, on a NASA Exoplanet Archive snapshot; the record's hash chain verifies. For researchers: the figure is the experiment's AUC (${fmt(fin?.effect)}). It shows the catalog's own values separate resolved from unresolved objects; it is not a measure of how accurately planets are vetted.`;
+}
+// ---------- scroll-triggered timeline ----------
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function scrollTimeline() {
+  const day = $("#day"), fill = $("#rail-fill"), evs = [...day.querySelectorAll(".ev")];
+  if (REDUCED) { evs.forEach((e) => e.classList.add("in", "lit")); fill.style.height = "100%"; return; }
+  const update = () => {
+    const vh = innerHeight, r = day.getBoundingClientRect();
+    // the rail fills as the reader's eye line (60% down the screen) moves through the timeline
+    const eye = vh * 0.6;
+    const progress = Math.min(1, Math.max(0, (eye - r.top) / r.height));
+    fill.style.height = `${progress * 100}%`;
+    for (const el of evs) {
+      const top = el.getBoundingClientRect().top;
+      if (top < vh * 0.88) el.classList.add("in");          // appears as it scrolls into view
+      el.classList.toggle("lit", top + 22 < eye);            // lights up once the rail reaches it
+    }
+  };
+  // scroll events already arrive at most once per frame; the work is 13 rect reads
+  addEventListener("scroll", update, { passive: true });
+  addEventListener("resize", update);
+  update();
+}
+// numbers in the result cards count up the first time they are seen
+function countUp(root) {
+  const targets = [...root.querySelectorAll(".stat b")];
+  const parts = targets.map((b) => b.textContent);
+  if (REDUCED) return;
+  const counted = (s, f) => s.replace(/\d+/g, (n, at) => (s.slice(at).startsWith("100") && /in 100/.test(s) && at === s.indexOf("100") ? n : f(Number(n))));
+  targets.forEach((b, i) => { b.textContent = counted(parts[i], () => 0); });
+  new IntersectionObserver((es, obs) => {
+    if (!es.some((e) => e.isIntersecting)) return;
+    obs.disconnect();
+    const t0 = performance.now(), dur = 1300;
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / dur), ease = 1 - Math.pow(1 - k, 3);
+      targets.forEach((b, i) => { b.textContent = counted(parts[i], (n) => String(Math.round(n * ease))); });
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, { threshold: 0.5 }).observe(root);
 }
 const fmt = (x) => (typeof x === "number" ? x.toFixed(3) : "n/a");
 
@@ -107,7 +148,7 @@ wordmark(document.body);
 day();
 
 // copy buttons for the run-it-yourself commands
-document.querySelectorAll(".copy").forEach((b) => b.addEventListener("click", async () => {
+document.querySelectorAll(".copy-btn").forEach((b) => b.addEventListener("click", async () => {
   const text = b.previousElementSibling.textContent;
   try { await navigator.clipboard.writeText(text); b.textContent = "Copied"; }
   catch { b.textContent = "Select + copy"; }
