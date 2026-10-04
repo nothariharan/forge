@@ -177,7 +177,7 @@ Cut order: polish/extra rooms → multi-analyst ensemble → tournament ranking 
 - The official challenge is verified as `docs/references/reference-02.pdf`; use it as the rubric source. The separately archived ElevenLabs brief is not relevant to FORGE.
 - Pin the exact Omnigent release/config dependencies and complete P6 UI approval plus enforced handoff validation.
 - Confirm Claude Code account/runtime availability and team access; do not commit secrets.
-- Science lead and benchmark lead to assess whether the Adult missingness candidate has enough scientific value, then lock one question, task, metric, candidate space, budgets, seeds and stopping rule together.
-- Validate a complete ten-fold OpenML runner invocation and save the raw artifact before an oracle sweep.
+- Science lead and benchmark lead to select a defensible question after the scoped prior-art review; the unmodified Adult missingness comparison is already studied and should not be presented as a breakthrough.
+- Resolve the Python scientific-stack issue, validate a complete ten-fold runner invocation in the pinned clean environment, and save its raw artifact before an oracle sweep.
 - Complete Arm A's `Ledger.append` integration, SSE, CLI and UI replay before connecting live agents.
 - Verify every named paper/tool/algorithm source from primary references before submission citation.

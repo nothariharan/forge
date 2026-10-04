@@ -1,0 +1,7 @@
+# Python 3.12 dependency set for tools/openml_run.py.
+# This clean-environment set still requires a successful install and runner
+# validation before it is treated as a reproducible lock for benchmark runs.
+numpy==2.2.6
+pandas==2.2.3
+scikit-learn==1.6.1
+threadpoolctl==3.6.0

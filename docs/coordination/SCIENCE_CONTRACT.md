@@ -1,10 +1,16 @@
 # Science contract (to be locked)
 
-Status: **provisional candidate; corrected one-fold feasibility run recorded; benchmark protocol and full runner validation pending.** Science lead: Hari (proposed).
+Status: **candidate not locked; corrected one-fold feasibility run recorded; prior art shows the basic question is already studied; full runner validation is blocked by the local Python environment.** Science lead: Hari (proposed).
 
 ## Challenge alignment
 
 The governing brief is `docs/references/reference-02.pdf`, Track 03 “Agentic Scientific Discovery.” It requires one specific question, a reproducible computational experiment, and a result that informs the next decision. The planner should compare at least two possible tests and justify its choice by expected learning, feasibility and cost. The Adult task below remains a candidate only; its scientific value and prior art need review before locking it.
+
+## Prior-art/value screen (2026-10-04)
+
+The current question—whether categorical missing-value handling changes predictive performance on Adult—is not a new research direction. A 2016 supervised-imputation study explicitly evaluates Adult with missing categorical data and perturbations ([arXiv:1610.09075](https://arxiv.org/abs/1610.09075)); a 2020 benchmark compares imputation strategies across predictive models and datasets ([arXiv:2007.02837](https://arxiv.org/abs/2007.02837)). Related work already studies data-preparation effects on Adult fairness ([arXiv:1910.02321](https://arxiv.org/abs/1910.02321)) and how imputation choices affect group fairness ([Jeanselme et al., ML4H 2022](https://proceedings.mlr.press/v193/jeanselme22a.html)).
+
+**Inference and recommendation:** the current mode-vs-indicator comparison is useful feasibility work, but is too close to established studies to lock unchanged as the submission's scientific question or present as a breakthrough. Keep Adult as a fast engineering/runner validation task. Before locking science, specify a distinct gap that matters to a domain expert, search directly for that gap, and be ready to choose another question/domain. A fairness extension alone is not automatically novel given the prior work above.
 
 ## Feasibility candidate (2026-10-04)
 
@@ -21,7 +27,8 @@ The governing brief is `docs/references/reference-02.pdf`, Track 03 “Agentic S
 - Initial candidate rejected: OpenML task 31 (`credit-g`) was inspected and found to have **zero** missing feature values, so it cannot answer the candidate question. The paper/catalogue hint that led to checking it was not sufficient evidence.
 - Interpretation: feasibility only. One fold and one seed. The early estimate favors indicators slightly, but cannot establish a general effect. It does not establish generalization or benchmark performance. Adult is an income prediction dataset; fairness subgroup metrics and their interpretation need review.
 - Runner status: `tools/openml_run.py` now exposes Akshat's requested `run(task_id, params, seed)` interface and computes proposed metrics over all ten official folds. Syntax compilation succeeded, but a full ten-fold invocation has not yet completed in this environment; do not use it for an oracle sweep until that call is validated.
-- Next action: Akshat to freeze/revise the candidate space, metric definitions (including subgroup AUC gap), practical threshold, and budgets in `bench/PROTOCOL.md`; an outside-lane teammate reviews the baseline prompt. Then validate the full runner and oracle spec before comparative episodes.
+- Validation environment issue (2026-10-04): the default Python 3.12.10 environment reports NumPy 2.5.1, pandas 3.0.6 and scikit-learn 1.9.0, but importing pandas terminates the interpreter with Windows exit status `-1073740022`. Python 3.9 and 3.13 have no NumPy installed. An isolated Python 3.12 install attempt could not resolve NumPy from the configured package index. Therefore the full runner has **not** been validated here; reproduce from a clean environment using `requirements-science.txt`, and preserve the output as a validation artifact before any oracle sweep.
+- Next action: science lead proposes/locks a question only after a scoped prior-art/value check and a successful complete runner call. Then Akshat freezes candidate space, metrics, threshold and budgets in `bench/PROTOCOL.md`, obtains an outside-lane baseline-prompt review, and prepares the benchmark. Do not start an oracle sweep before both the science decision and runner validation are recorded.
 
 ### Machine-readable run output
 

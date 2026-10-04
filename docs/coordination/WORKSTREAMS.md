@@ -5,7 +5,7 @@ This file is the repo-visible handoff board. Update status and interfaces in a P
 | Lane | Branch | Lead (confirm with team) | First deliverable | Current status |
 |---|---|---|---|---|
 | Orchestration | `work/orchestration` | Saksham (based on PR #5) | Omnigent graph, engine policy proof, event wiring | Partial smoke test merged; P6 UI verification, enforced handoff validation, and ledger wiring remain |
-| Science + planner | `work/science` | Hari | Lock question/task/metric and validate the full runner | One-fold feasibility only; protocol and runner validation remain |
+| Science + planner | `work/science` | Hari | Choose a worthwhile question after prior-art review; validate full runner and publish contract | Adult one-fold feasibility only; simple question overlaps prior work and local runner validation is blocked by Python environment |
 | Benchmark + rigor | `work/benchmark` | Akshat | Assess candidate value, then freeze protocol with Hari; complete baseline and measured comparison plan | Protocol v0.1 and tooling exist; science-dependent fields, candidate-value review, independent prompt review, and Arm A `Ledger.append` migration remain |
 | Core + CLI | `work/core-ui` | Ish | SSE server and `forge tail` / status / replay against the fake stream | Ledger/schemas/fake stream/verify CLI merged; SSE and broader CLI remain |
 | Product UI | `work/core-ui` | To assign | Research-lab room view with SVG agent mascots, driven by fake/replay events | Direction and demo path documented in `ui/README.md`; implementation not started |
