@@ -152,6 +152,9 @@ Stored under `results/bench/<bench_id>/<arm>/seed-<n>/`:
 
 ## 13. Open questions for Hari (science)
 
+**Update 2026-10-04:** the TESS resolution-bias instantiation of this protocol, with dataset, labels, split, metric, oracle, budget and supportable claims, is proposed in [`PROTOCOL_TESS.md`](PROTOCOL_TESS.md). It is not locked yet. The questions below are answered there for that task.
+
+
 1. Can the provisional astronomy direction be expressed with an observed outcome, object-disjoint held-out cohort, and a defensible prior-art gap? See `docs/coordination/SCIENCE_DECISION_PACKET.md`; its old precision-transfer numbers are withdrawn.
 2. Once Hari locks a valid question: task/dataset version, split protocol, primary metric/direction/threshold, candidate space and oracle affordability.
 3. Primary benchmark outcome: decision correctness or experiments/time to reach the oracle top set; define the bottleneck and denominator explicitly.
