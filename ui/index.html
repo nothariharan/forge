@@ -5,14 +5,18 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FORGE · Agentic Science Lab</title>
-<meta name="description" content="FORGE is a lab of specialist AI agents, orchestrated by Omnigent, that takes a scientific question from evidence to experiment to the next decision, with every step on a hash-chained record.">
+<meta name="description" content="FORGE is a lab of AI research agents, run by Omnigent, that takes a scientific question from evidence to experiment to the next decision, with a human approving every experiment and every step on the record.">
+<meta property="og:title" content="FORGE · Agentic Science Lab">
+<meta property="og:description" content="A lab of AI research agents, run by Omnigent, that takes a scientific question from evidence to experiment to the next decision. You approve every experiment.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://forge-omnigent.vercel.app/">
 <script>
   // Old links to the lab (/?run=, ?src=, ?tour=, ?sse=) still open the lab.
   if (/[?&](run|src|tour|sse|at)=/.test(location.search)) location.replace("lab.html" + location.search);
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="landing.css">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Jacquard+24&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="landing.css?v=3">
 </head>
 <body>
 <header class="nav">
@@ -47,8 +51,8 @@
       <div class="card yellow">
         <div class="mock">
           <div class="mock-head"><span class="m" data-agent="librarian"></span>Librarian · evidence</div>
-          <div class="cite"><b>arXiv:2103.12538</b><span>“We present 2241 exoplanet candidates identified with data from TESS…”</span></div>
-          <div class="cite"><b>arXiv:1406.0151</b><span>The TESS mission paper.</span></div>
+          <div class="cite"><b>arXiv:2103.12538</b><span>The TESS catalog of 2,241 planet candidates</span></div>
+          <div class="cite"><b>arXiv:1406.0151</b><span>The TESS mission paper</span></div>
           <div class="mock-foot"><span class="m" data-agent="referee"></span>Referee · novelty <em>UNCERTAIN</em></div>
         </div>
       </div>
@@ -65,7 +69,7 @@
           <div class="row"><span>#6</span><span>planner</span><span>EXPERIMENT_SELECTED</span></div>
           <div class="row"><span>#7</span><span>safety</span><span>GATE_OPENED</span></div>
           <div class="row hl"><span>#8</span><span>experimenter</span><span>RUN_STARTED</span></div>
-          <div class="note">prediction + falsifier locked before compute</div>
+          <div class="note">The prediction is locked in before anything runs</div>
         </div>
       </div>
       <div class="copy">
@@ -77,7 +81,7 @@
     <div class="feature">
       <div class="card blue">
         <div class="mock">
-          <div class="alert"><b>⚠ Approval needed (P6)</b><span>Run E1: preregistered T1 shift check on the TESS TOI snapshot</span>
+          <div class="alert"><b>⚠ Approval needed (P6)</b><span>Run E1: the preregistered TESS check</span>
             <div class="btns"><span class="approve">Approve</span><span class="reject">Reject</span></div>
           </div>
           <div class="mock-foot"><span class="m" data-agent="human"></span>You · <em>approved</em> → the experiment starts</div>
@@ -148,10 +152,8 @@
 
   <section class="block" id="agents">
     <h2>Meet the agents</h2>
-    <p class="sub">Eight agents ran in the live loop. Omnigent can summon others for a different domain, and the lab gives each one its own character.</p>
+    <p class="sub">Eight agents and one human ran the live loop. The rest are on call: Omnigent summons them when a different domain needs them, and the lab gives each its own character.</p>
     <div class="roster" id="roster"></div>
-    <p class="sub small">Also ready when Omnigent summons them:</p>
-    <div class="roster mini" id="roster-more"></div>
   </section>
 
   <section class="block" id="run-it">
@@ -189,6 +191,6 @@
   <span><span class="mark"></span>FORGE</span>
   <span>Built on Omnigent · Hack-Nation 7th Global AI Hackathon · Track 03</span>
 </footer>
-<script type="module" src="landing.js"></script>
+<script type="module" src="landing.js?v=4"></script>
 </body>
 </html>
