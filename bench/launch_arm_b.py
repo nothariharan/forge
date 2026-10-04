@@ -29,6 +29,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import shutil
 import sys
 import time
 from datetime import datetime, timedelta, timezone
@@ -42,7 +44,30 @@ import launch_arm_a as shared  # noqa: E402
 
 from core.ledger import Ledger  # noqa: E402
 
-DEFAULT_AGENT_CMD = "omni run omnigent/forge --no-session -p {prompt}"
+DEFAULT_AGENT_CMD = "omni run {agent_dir} --no-session -p {prompt}"
+FORGE_DIR = os.path.join(REPO_ROOT, "omnigent", "forge")
+BENCH_HARNESS = "claude-sdk"
+
+
+def benchmark_agent_dir(episode_dir: str, harness: str = BENCH_HARNESS) -> tuple[str, dict]:
+    """A copy of the FORGE config with every agent on one harness, so both arms use the same model.
+    omnigent/forge itself is not changed; the copy is kept in the episode folder."""
+    dest = os.path.join(os.path.abspath(episode_dir), "forge_agent")
+    shutil.copytree(FORGE_DIR, dest)
+    changed = {}
+    for root, _, files in os.walk(dest):
+        for name in files:
+            if name != "config.yaml":
+                continue
+            path = os.path.join(root, name)
+            text = open(path, encoding="utf-8").read()
+            new = re.sub(r"(?m)^(\s*harness:\s*)(\S+)", lambda m: m.group(1) + harness, text)
+            old = re.findall(r"(?m)^\s*harness:\s*(\S+)", text)
+            if new != text:
+                changed[os.path.relpath(path, dest)] = {"from": old, "to": harness}
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(new)
+    return dest, changed
 SHARED_SECTIONS = ("### Research question", "### Task and metric", "### Budget", "### Research rules")
 
 
@@ -132,8 +157,11 @@ def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None
     ledger.append(run_id, "system", "RUN_CREATED", {"question": spec["question"], "mode": "benchmark"})
 
     prompt_file = os.path.join(os.path.abspath(episode_dir), "prompt.md")
-    cmd, shown = shared.build_cmd(agent_cmd, {"{prompt}": prompt, "{prompt_file}": prompt_file}, prompt)
-    record = {"run_id": run_id, "seed": seed, "command": shown, "dry_run": dry_run}
+    agent_dir, harness_changes = benchmark_agent_dir(episode_dir)
+    cmd, shown = shared.build_cmd(agent_cmd, {"{prompt}": prompt, "{prompt_file}": prompt_file,
+                                              "{agent_dir}": agent_dir}, prompt)
+    record = {"run_id": run_id, "seed": seed, "command": shown, "dry_run": dry_run,
+              "agent_dir": agent_dir, "harness_changes": harness_changes}
     if dry_run:
         record["note"] = "dry run: episode initialised; FORGE not started"
     else:
@@ -168,7 +196,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--episode", required=True, help="episode folder, e.g. results/bench/<id>/B/seed-1")
     p.add_argument("--run-id")
     p.add_argument("--model", help="model ID, recorded in the manifest (must match arm A)")
-    p.add_argument("--agent-cmd", default=DEFAULT_AGENT_CMD, help="{prompt} and {prompt_file} are substituted")
+    p.add_argument("--agent-cmd", default=DEFAULT_AGENT_CMD, help="{agent_dir}, {prompt} and {prompt_file} are substituted")
     p.add_argument("--dry-run", action="store_true")
     a = p.parse_args(argv)
     print(json.dumps(launch(shared.load_spec(a.spec), a.seed, a.episode, a.run_id, a.model, a.agent_cmd, a.dry_run),

@@ -204,3 +204,16 @@ def test_arm_b_is_told_how_to_run_the_shared_runner():
     assert "### Running an experiment" in msg and "### How to run this episode" in msg
     assert "skip the librarian and the referee" in msg  # no literature tool: no empty evidence packet
     assert ".venv/bin/python tools/tess_bias_run.py --model <lr|hgb> --estimator <naive|iw|iw_clip> --gamma <0|1|2> --seed 2" in msg
+
+
+def test_arm_b_runs_every_forge_agent_on_one_harness(tmp_path):
+    import launch_arm_b
+    dest, changed = launch_arm_b.benchmark_agent_dir(str(tmp_path / "ep"))
+    harnesses = set()
+    for root, _, files in os.walk(dest):
+        for name in files:
+            if name == "config.yaml":
+                harnesses |= {l.split(":", 1)[1].strip() for l in open(os.path.join(root, name)) if l.strip().startswith("harness:")}
+    assert harnesses == {"claude-sdk"}
+    src = open(os.path.join(launch_arm_b.FORGE_DIR, "agents", "planner", "config.yaml")).read()
+    assert all(v["to"] == "claude-sdk" for v in changed.values()) and "harness:" in src  # source config untouched
