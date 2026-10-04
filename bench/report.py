@@ -112,6 +112,7 @@ def episode_metrics(episode_dir: str, oracle: Optional[dict]) -> dict:
     replans = 0
     gate_open: dict[str, datetime] = {}
     human_seconds = 0.0
+    auto_approved_gates = 0
 
     for e in events:
         p = e.get("payload", {})
@@ -134,7 +135,13 @@ def episode_metrics(episode_dir: str, oracle: Optional[dict]) -> dict:
         elif t == "GATE_OPENED" and p.get("gate_id"):
             gate_open[p["gate_id"]] = _ts(e["ts"])
         elif t == "GATE_RESOLVED" and p.get("gate_id") in gate_open:
-            human_seconds += (_ts(e["ts"]) - gate_open.pop(p["gate_id"])).total_seconds()
+            opened_at = gate_open.pop(p["gate_id"])
+            # Only a human decision counts as human time; benchmark auto-approval (agent "harness",
+            # FORGE_GATE_MODE=auto) is counted separately and never as a human.
+            if e.get("agent") == "human":
+                human_seconds += (_ts(e["ts"]) - opened_at).total_seconds()
+            else:
+                auto_approved_gates += 1
 
     attempts = list(started)
     valid = [
@@ -199,6 +206,7 @@ def episode_metrics(episode_dir: str, oracle: Optional[dict]) -> dict:
         "compute_seconds": totals["compute_seconds"],
         "usd_per_valid_experiment": _div(totals["usd"], len(valid)),
         "human_seconds": human_seconds,
+        "auto_approved_gates": auto_approved_gates,
         "reached_top": reached_top,
         "experiments_to_top": experiments_to_top,
         "correct": correct,

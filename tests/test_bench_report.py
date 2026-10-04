@@ -52,9 +52,9 @@ def _write_episode(root, arm, seed, events, usage=None, citations=None, answer=N
     d.mkdir(parents=True)
     (d / "manifest.json").write_text(json.dumps({"arm": arm, "seed": seed, "metric_name": metric}))
     lines = []
-    for i, (ts, typ, payload) in enumerate(events, start=1):
+    for i, (ts, typ, payload, *agent) in enumerate(events, start=1):
         lines.append(json.dumps({"seq": i, "ts": f"2026-10-04T12:{ts}Z", "run_id": f"{arm}{seed}",
-                                 "agent": "x", "type": typ, "payload": payload}))
+                                 "agent": agent[0] if agent else "x", "type": typ, "payload": payload}))
     (d / "events.jsonl").write_text("\n".join(lines) + "\n")
     if usage is not None:
         (d / "usage.json").write_text(json.dumps(usage))
@@ -82,7 +82,8 @@ def test_episode_metrics_counts(tmp_path):
     events += _experiment(6, "E3", "H2", "c3", status="error")     # failed -> invalid
     events += _experiment(8, "E4", "H2", "best")                   # valid, reaches top
     events += [("09:00", "REPLAN", {"trigger_eid": "E4"}),
-               ("10:00", "GATE_OPENED", {"gate_id": "G1"}), ("10:45", "GATE_RESOLVED", {"gate_id": "G1"}),
+               ("10:00", "GATE_OPENED", {"gate_id": "G1"}), ("10:45", "GATE_RESOLVED", {"gate_id": "G1"}, "human"),
+               ("11:00", "GATE_OPENED", {"gate_id": "G2"}), ("11:30", "GATE_RESOLVED", {"gate_id": "G2"}, "harness"),
                ("30:00", "RUN_COMPLETED", {})]
     _write_episode(tmp_path, "B", 1, events,
                    usage={"agents": {"p": {"tokens_in": 100, "tokens_out": 50, "usd": 0.5}, "q": {"tokens_in": 10, "usd": 0.1}}},
@@ -97,7 +98,7 @@ def test_episode_metrics_counts(tmp_path):
     assert m["valid_experiments_per_hour"] == pytest.approx(4.0)
     assert m["invalid_attempt_rate"] == 0.5
     assert m["replans_per_valid_experiment"] == 0.5
-    assert m["human_seconds"] == 45
+    assert m["human_seconds"] == 45 and m["auto_approved_gates"] == 1  # the harness gate is not human time
     assert m["tokens_total"] == 160 and m["usd"] == pytest.approx(0.6)
     assert m["usd_per_valid_experiment"] == pytest.approx(0.3)
     assert m["experiments_to_top"] == 2 and m["reached_top"] is True and m["correct"] is True
