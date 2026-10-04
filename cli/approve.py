@@ -13,7 +13,7 @@ import sys
 from core.ledger import Ledger
 
 
-def resolve(ledger: Ledger, run_id: str, gate_id: str, approve: bool, via: str) -> dict:
+def resolve(ledger: Ledger, run_id: str, gate_id: str, approve: bool, via: str, agent: str = "human") -> dict:
     events = ledger.read(run_id)
     opened = next((e for e in reversed(events) if e["type"] == "GATE_OPENED" and e["payload"].get("gate_id") == gate_id), None)
     if opened is None:
@@ -23,7 +23,7 @@ def resolve(ledger: Ledger, run_id: str, gate_id: str, approve: bool, via: str) 
     p = opened["payload"]
     payload = {"gate_id": gate_id, "action": p.get("action", ""), "risk": p.get("risk", "unknown"),
                "status": "approved" if approve else "denied", "policy": p.get("policy", "P6"), "resolved_via": via}
-    return ledger.append(run_id, "human", "GATE_RESOLVED", payload, refs={"gate_id": gate_id})
+    return ledger.append(run_id, agent, "GATE_RESOLVED", payload, refs={"gate_id": gate_id})
 
 
 def main(argv=None) -> int:

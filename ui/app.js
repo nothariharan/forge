@@ -194,6 +194,15 @@ function renderAlerts(s, current) {
 }
 
 // ---------- panels ----------
+function renderBanner(s) {
+  const pending = Object.values(s.gates).filter((g) => g.status === "pending").pop();
+  const el = $("#approval-banner");
+  if (!pending) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<b>⚠ Approval needed (${esc(pending.policy || "P6")})</b><span>${esc(pending.action)}</span>
+    <button class="approve" data-gate="${esc(pending.gate_id)}" data-decision="approve" ${live ? "" : "disabled"}>Approve</button>
+    <button class="reject" data-gate="${esc(pending.gate_id)}" data-decision="deny" ${live ? "" : "disabled"}>Reject</button>`;
+}
 function renderTop(s) {
   const running = s.run && !s.done;
   $("#status-dot").className = "dot " + (running ? "running" : s.done ? "done" : "");
@@ -288,17 +297,18 @@ function renderPages(s) {
       <tr><td>Librarian</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
       <tr><td>Hypothesizer</td><td>codex</td><td><span class="badge ok">yes</span></td></tr>
       <tr><td>Experimenter</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
-      <tr><td>Referee · Planner · Analyst · Safety</td><td>–</td><td><span class="badge warn">not yet (replay only)</span></td></tr>
+      <tr><td>Referee · Safety</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
+      <tr><td>Planner · Analyst</td><td>codex</td><td><span class="badge ok">yes</span></td></tr>
     </table>
     <h3 style="margin-top:18px">Agent roster</h3>
     <p class="muted">Omnigent decides which sub-agents to summon. Any agent name that appears in the ledger gets a mascot: matched to one of these archetypes by name, or a generic dot if nothing matches.</p>
     <div class="roster">${Object.entries(ARCHETYPES).map(([k, a]) => `<div class="ros">${mascotSVG(k)}<b>${esc(a.label)}</b><span>${esc(a.role)}</span></div>`).join("")}</div>
     <h3 style="margin-top:18px">Policies</h3>
     <table><tr><th>Policy</th><th>Enforcement</th><th>Status</th></tr>
-      <tr><td>P2 dispatch budget</td><td>Omnigent CEL policy on sys_session_send</td><td><span class="badge ok">enforced · tested live</span></td></tr>
+      <tr><td>P2 budget</td><td>Omnigent CEL policies: 60 dispatches, 10 experiments per run</td><td><span class="badge ok">enforced · tested live</span></td></tr>
       <tr><td>Handoff gate</td><td>tools/forge_emit.py + Omnigent tool_result/tool_call policies</td><td><span class="badge ok">enforced · tested live</span></td></tr>
-      <tr><td>P5 shell allowlist</td><td>Omnigent CEL policy on sys_os_shell</td><td><span class="badge ok">enforced · tested live</span></td></tr>
-      <tr><td>P6 human approval</td><td>Omnigent ASK on experimenter shell</td><td><span class="badge warn">written · UI card not yet confirmed</span></td></tr>
+      <tr><td>P5 shell allowlist</td><td>Omnigent CEL policy on sys_os_shell (applies to every sub-agent)</td><td><span class="badge ok">enforced · tested live</span></td></tr>
+      <tr><td>P6 human approval</td><td>tools/forge_gate.py: the experiment waits for GATE_RESOLVED from this UI or cli.approve</td><td><span class="badge ok">enforced · verified live (live-exo-8)</span></td></tr>
       <tr><td>P1 citations</td><td>tools/citation_check.py</td><td><span class="badge grey">tool, not an Omnigent policy yet</span></td></tr>
     </table>`;
 }
@@ -388,7 +398,7 @@ function renderHud(s, list) {
 function render() {
   const s = fold(events.slice(0, pos));
   const current = events[pos - 1];
-  renderTop(s); renderHud(s, events.slice(0, pos)); placeMascots(s, current); renderAlerts(s, current); renderRun(s);
+  renderTop(s); renderBanner(s); renderHud(s, events.slice(0, pos)); placeMascots(s, current); renderAlerts(s, current); renderRun(s);
   renderAgents(s); renderRecent(); renderLog(); renderMinimap(s); renderPages(s);
   $("#scrub").max = events.length; $("#scrub").value = pos; $("#pos").textContent = `${pos} / ${events.length}`;
 }

@@ -47,3 +47,11 @@ def test_chain_verifies_after_mixed_handoffs(tmp_path):
     _run(db, "HYPOTHESIS_PROPOSED", json.dumps(HYP))
     _run(db, "HYPOTHESIS_PROPOSED", "{}")
     assert Ledger(db).verify("r") == (True, None)
+
+
+def test_second_run_created_is_skipped(tmp_path, capsys):
+    db = tmp_path / "l.db"
+    Ledger(db).append("r", "system", "RUN_CREATED", {"question": "q", "mode": "benchmark"})
+    assert _run(db, "RUN_CREATED", json.dumps({"question": "q", "mode": "live"}), agent="director") == 0
+    assert "skipped" in capsys.readouterr().out
+    assert [e["type"] for e in Ledger(db).read("r")] == ["RUN_CREATED"]

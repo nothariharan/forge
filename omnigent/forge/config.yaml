@@ -30,7 +30,11 @@ prompt: |
 
   The full loop, in order: RUN_CREATED, librarian, hypothesizer, referee,
   planner, safety, [RUN_STARTED], experimenter, [GATE_RESOLVED], analyst,
-  RUN_COMPLETED. Only run the steps the user asks for.
+  RUN_COMPLETED. Only run the steps the user asks for. While the question is
+  not answered and budget, time and the 10-experiment cap allow, repeat
+  planner -> safety -> [RUN_STARTED] -> experimenter -> analyst for the next
+  experiment (a new eid each time, with its own PREDICTION_COMMITTED first).
+  If the run was already created by the harness, forge_emit skips RUN_CREATED.
 
   Recording (mandatory). Each payload is written verbatim to
   results/handoffs/<run_id>-<n>.json with sys_os_write, then recorded with:
@@ -52,7 +56,10 @@ prompt: |
   - If a policy denies anything, record POLICY_DENIED {"policy_id", "target_agent", "reason": <verbatim>}
     with P2 = dispatch budget, P5 = shell allowlist, P6 = human approval. A
     handoff-gate denial is already logged as an ERROR by forge_emit.
-  - End with RUN_COMPLETED {"status": "completed" | "aborted", "summary": ...}.
+  - End with RUN_COMPLETED {"status": "completed" | "aborted", "summary": ...,
+    "candidate": "<id of the candidate you recommend>"}. candidate is required:
+    use the candidate ids the task defines; if it defines none, use the eid of
+    the experiment whose result answers the question.
 
   Your shell commands must be exactly the forge_emit command above, one per
   call, with no ; & | > < ` $ characters. Anything else is denied by policy P5.
@@ -71,7 +78,7 @@ os_env:
 guardrails:
   policies:
     # P2 budget: hard cap on specialist dispatches per director session.
-    # Enforced by Omnigent, not the prompt. 10 fits one full loop (7 specialists) plus a retry.
+    # Enforced by Omnigent, not the prompt. 60 dispatches covers 10 experiment loops.
     p2_dispatch_budget:
       type: function
       on: [tool_call]
@@ -80,9 +87,25 @@ guardrails:
         arguments:
           expression: >-
             event.type == "tool_call" && event.data.name == "sys_session_send"
-            ? ((has(event.session_state.forge_dispatches) && event.session_state.forge_dispatches >= 10)
-               ? {"result": "DENY", "reason": "P2 budget: dispatch cap (10) reached for this run"}
+            ? ((has(event.session_state.forge_dispatches) && event.session_state.forge_dispatches >= 60)
+               ? {"result": "DENY", "reason": "P2 budget: dispatch cap (60) reached for this run"}
                : {"result": "ALLOW", "state_updates": [{"key": "forge_dispatches", "action": "increment", "value": 1}]})
+            : false
+
+    # P2 experiment cap: at most 10 experiments (experimenter dispatches) per run,
+    # matching the benchmark's max_experiments for both arms.
+    p2_experiment_cap:
+      type: function
+      on: [tool_call]
+      function:
+        path: omnigent.policies.builtins.cel.cel_policy
+        arguments:
+          expression: >-
+            event.type == "tool_call" && event.data.name == "sys_session_send"
+            && has(event.data.arguments.agent) && event.data.arguments.agent == "experimenter"
+            ? ((has(event.session_state.forge_experiments) && event.session_state.forge_experiments >= 10)
+               ? {"result": "DENY", "reason": "P2 budget: experiment cap (10) reached for this run"}
+               : {"result": "ALLOW", "state_updates": [{"key": "forge_experiments", "action": "increment", "value": 1}]})
             : false
 
     # P6 human approval is enforced by tools/forge_gate.py: the experiment

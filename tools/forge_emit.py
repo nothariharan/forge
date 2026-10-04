@@ -71,6 +71,11 @@ def main(argv: list[str] | None = None) -> int:
     if not isinstance(payload, dict):
         return _reject(ledger, args, raw, "payload is not a JSON object")
 
+    if args.type == "RUN_CREATED" and any(e["type"] == "RUN_CREATED" for e in ledger.read(args.run_id)):
+        # The benchmark launcher opens the run itself; never write a second RUN_CREATED.
+        print(f"FORGE_EMIT_OK skipped: run {args.run_id} already created")
+        return 0
+
     try:
         event = ledger.append(args.run_id, args.agent, args.type, payload,
                               refs=refs, ai_generated=args.ai_generated)

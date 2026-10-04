@@ -1,6 +1,6 @@
 # FORGE UI direction and demo contract
 
-Status: **not implemented**. The core/UI lane should build from `core/fake_events.py` and `core/ledger.py`; the UI must not depend on live agents to render a complete demo.
+Status: **implemented** (Lab Floor v1, see below). Read-only over the ledger; its only write is a human decision on a P6 gate (POST /api/approve). Replays work offline; live runs stream through `ui/live_server.py`.
 
 ## Provisional science context (2026-10-04)
 
@@ -62,8 +62,8 @@ python3 -m http.server 8765        # from the repo root
 | Omnigent director + librarian / hypothesizer / experimenter writing to the ledger | **wired** (each handoff goes through `tools/forge_emit.py`) | `omnigent/forge/` |
 | UI following a live run | **wired via a temporary bridge**: `ui/live_server.py` streams `Ledger.subscribe` as SSE. Replace with the core lane's SSE server when it lands (`?sse=<url>`) | `ui/live_server.py` |
 | Dynamic sub-agents | **wired**: any agent name in the ledger gets a mascot, matched to one of 15 archetypes by name (`ui/mascots.js`), generic dot otherwise | `ui/mascots.js` |
-| Approve / Reject buttons | **stub**: disabled. Live approval happens in the Omnigent session (P6 ASK card). TODO: POST to an approval endpoint once one exists | `renderAlerts` in `ui/app.js` |
-| Referee / planner / analyst / safety live agents | **not yet in Omnigent**: they appear in the demo replay only. Add `omnigent/forge/agents/<name>/config.yaml`; the UI needs no change | `omnigent/forge/agents/` |
+| Approve / Reject buttons | **wired**: banner + PI Office card POST to `/api/approve`, which writes GATE_RESOLVED; `tools/forge_gate.py` holds the experiment until then (verified in live-exo-8) | `ui/app.js`, `ui/live_server.py`, `tools/forge_gate.py` |
+| Referee / planner / analyst / safety live agents | **wired**: all seven specialists run in Omnigent (claude-sdk + codex) | `omnigent/forge/agents/` |
 | Policy denials from the engine itself | **partial**: the director records POLICY_DENIED after a denial; the engine does not write to the ledger directly. TODO: an Omnigent hook or session-export importer | `omnigent/forge/config.yaml` |
 
 Run it live:

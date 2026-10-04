@@ -8,6 +8,10 @@ then executes the command. Without an approval the experiment never starts.
     python tools/forge_gate.py --run-id R --gate-id G1 -- \\
         .venv/bin/python tools/tess_resolution_shift.py --bootstrap 200 ...
 
+FORGE_GATE_MODE=auto (set by bench/launch_arm_b.py) approves immediately and
+records the approval as agent "harness", so benchmark runs never wait on a
+human and never pretend one approved.
+
 Exit codes: the wrapped command's own code once approved; 3 if the human
 denied it; 4 on timeout; 5 if the wrapped command is not an approved tool.
 
@@ -18,6 +22,7 @@ answered (found live in runs live-exo-4 and live-exo-5).
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -62,6 +67,15 @@ def main(argv: list[str] | None = None) -> int:
         return 5
 
     ledger = Ledger(args.db) if args.db else Ledger()
+    if os.environ.get("FORGE_GATE_MODE") == "auto":
+        # Matched benchmark (arm B): no human in the loop, same as arm A. Logged as
+        # the harness, never as a human approval.
+        from cli.approve import resolve
+        try:
+            resolve(ledger, args.run_id, args.gate_id, approve=True, via="benchmark-auto (FORGE_GATE_MODE=auto, no human)", agent="harness")
+        except SystemExit as why:  # gate never opened, or already resolved
+            print(f"FORGE_GATE_AUTO: {why}; running without a recorded gate", flush=True)
+            return subprocess.run(command, cwd=ROOT).returncode
     print(f"FORGE_GATE_WAITING run={args.run_id} gate={args.gate_id}: approve in the lab UI or `python -m cli.approve {args.run_id} {args.gate_id}`", flush=True)
     decision = wait_for_decision(ledger, args.run_id, args.gate_id, args.timeout)
     if decision is None:

@@ -1,6 +1,6 @@
 # Omnigent feasibility smoke test
 
-Status: **pass except P6 UI confirmation** (2026-10-04). Owner: Saksham (orchestration).
+Status: **pass** (2026-10-04): full seven-agent loop verified live in run live-exo-8. Owner: Saksham (orchestration).
 
 ## Environment
 
@@ -25,7 +25,7 @@ Status: **pass except P6 UI confirmation** (2026-10-04). Owner: Saksham (orchest
 | 3. Structured handoff | PASS (prompt-level) | 3 librarian runs each returned a valid `EvidencePacket` JSON (keys checked by the director) |
 | 4. Invalid handoff rejected | **PASS** | `tools/forge_emit.py` validates against the ledger schema and writes an `ERROR` with the raw input instead; Omnigent's `handoff_gate_*` policies then deny the next `sys_session_send` (`Denied by policy: handoff gate: last handoff failed ledger schema validation`). Live run, ledger chain verified |
 | 5. Real policy denial | **PASS** | P2: cap of 3 dispatches. Dispatches 1-3 allowed, #4 returned `Denied by policy: P2 budget: dispatch cap (3) reached for this run`. Enforced by the Omnigent policy engine, not the prompt |
-| 5b. Human approval (P6, `ASK`) | UNVERIFIED | In a headless run the experimenter loaded the shell tool and the marker command never executed, but the run ended when the REPL's stdin closed, so it is not yet clear whether `ASK` paused the call. Next: confirm the approval card in the web UI |
+| 5b. Human approval (P6) | **PASS** | Omnigent's native ASK cannot be answered in scripted runs (sub-agents are headless: live-exo-4; root ASK needs an attached client: live-exo-5). P6 is enforced by `tools/forge_gate.py`: the experiment command blocks until GATE_RESOLVED is written by the lab UI Approve button or `python -m cli.approve`. Verified live in **live-exo-8**: human approval at seq 9, then the real T1 run (AUC 0.7616, 95% CI [0.750, 0.774]), 13 events, chain OK. Benchmark runs set FORGE_GATE_MODE=auto, logged as `harness`, never as a human |
 | 6. Events → ledger | **PASS** | Director records RUN_CREATED, each specialist result, POLICY_DENIED and RUN_COMPLETED through `Ledger.append` (via forge_emit). Live run wrote 4 events, `verify` = OK |
 | 7. Tool permission (P5) | **PASS** | Director shell limited to `tools/forge_emit.py`, no chaining; `ls` → `Denied by policy: director shell is limited to tools/forge_emit.py` |
 
@@ -42,3 +42,10 @@ omni run omnigent/forge
 ```
 
 Continue with Omnigent? **Yes.** Multi-harness handoff and engine-enforced denial both work.
+
+## Live findings (2026-10-04 afternoon)
+
+- Root `guardrails` apply to every sub-agent Omnigent spawns: the director's shell allowlist blocked the experimenter (live-exo-3). P5 now lists the approved FORGE tools for all agents.
+- The handoff gate caught a schema violation in a live run (`seed: '0-4'`) and the engine blocked the next dispatch (live-exo-7).
+- Full loop in live-exo-8: librarian → hypothesizer → referee → planner (PREDICTION_COMMITTED before RUN_STARTED) → safety gate → human approval in the lab UI → experimenter (real T1 script on the NASA archive) → analyst FINDING + REPLAN → RUN_COMPLETED.
+- P2 now caps 60 dispatches and 10 experiments per run; RUN_COMPLETED carries `candidate` for bench scoring.

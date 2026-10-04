@@ -45,3 +45,13 @@ def test_denied_gate_never_runs_command(tmp_path, monkeypatch):
     rc = forge_gate.main(["--run-id", "r", "--gate-id", "G1", "--db", str(tmp_path / "l.db"), "--timeout", "1",
                           "--", ".venv/bin/python", "tools/tess_resolution_shift.py"])
     assert rc == 3 and ran == []
+
+
+def test_benchmark_auto_mode_logs_harness_not_human(tmp_path, monkeypatch):
+    led = _ledger(tmp_path)
+    monkeypatch.setenv("FORGE_GATE_MODE", "auto")
+    monkeypatch.setattr(forge_gate.subprocess, "run", lambda *a, **k: type("R", (), {"returncode": 0})())
+    rc = forge_gate.main(["--run-id", "r", "--gate-id", "G1", "--db", str(tmp_path / "l.db"), "--timeout", "2",
+                          "--", ".venv/bin/python", "tools/tess_resolution_shift.py"])
+    resolved = [e for e in led.read("r") if e["type"] == "GATE_RESOLVED"]
+    assert rc == 0 and resolved[0]["agent"] == "harness" and "benchmark-auto" in resolved[0]["payload"]["resolved_via"]

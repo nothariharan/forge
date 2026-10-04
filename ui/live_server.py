@@ -74,7 +74,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _sse(self, q):
         run = (q.get("run") or [""])[0]
-        after = int((q.get("after") or ["0"])[0])
+        # Browsers resend the last seen id on reconnect; resume after it instead of replaying the run.
+        after = int(self.headers.get("Last-Event-ID") or (q.get("after") or ["0"])[0])
         if not run:
             self.send_error(400, "run is required")
             return
