@@ -1,0 +1,40 @@
+{
+  "status": "EXPLORATORY_FEASIBILITY_ONLY_NOT_BENCHMARK_EVIDENCE",
+  "task_id": 7592,
+  "task_name": "adult",
+  "dataset_id": 1590,
+  "dataset_version": 2,
+  "dataset_sha256": "77aa1703717a29f0b5642e94c3ba1defd2486f0b34d4d8eccc1b37a5f7d226b0",
+  "split_protocol": "OpenML task official stratified 10-fold cross-validation, all folds, repeat 0",
+  "metric": {"primary_candidate": "roc_auc", "direction": "maximize", "status": "provisional; OpenML task metadata has no evaluation measure"},
+  "seed": 1,
+  "repetitions": 1,
+  "total_runtime_seconds": 165.271,
+  "runtime_scope": "all nine candidates, cached data, excludes interpreter startup and dataset download; per-candidate wall times were not recorded",
+  "environment": {
+    "python": "3.12.10",
+    "numpy": "2.2.6",
+    "pandas": "2.2.3",
+    "scipy": "1.15.3",
+    "scikit_learn": "1.6.1",
+    "threadpoolctl": "3.6.0"
+  },
+  "runner_git_commit_before_local_fixes": "51b58b1460e374310916a51145053ef7a6e611f4",
+  "candidates": [
+    {"model":"logistic","strategy":"mode","metrics":{"roc_auc":0.9053433604506141,"log_loss":0.3200934947167153,"accuracy":0.8515007575447361,"sex_auc_gap":0.05134081521522604,"race_auc_gap":0.05458929452240058,"subgroup_auc_gap":0.05458929452240058,"fold_log_loss_sd":0.008175741903502693}},
+    {"model":"logistic","strategy":"mode_indicator","metrics":{"roc_auc":0.9066990229854544,"log_loss":0.31809486995696795,"accuracy":0.8528725277425167,"sex_auc_gap":0.05067701534019897,"race_auc_gap":0.05168418920280127,"subgroup_auc_gap":0.05168418920280127,"fold_log_loss_sd":0.007543623104828223}},
+    {"model":"logistic","strategy":"own_category","metrics":{"roc_auc":0.9067069864981958,"log_loss":0.31808085242746215,"accuracy":0.8526677859219525,"sex_auc_gap":0.05069194744832495,"race_auc_gap":0.05239029667287132,"subgroup_auc_gap":0.05239029667287132,"fold_log_loss_sd":0.007498715569122424}},
+    {"model":"logistic","strategy":"drop","metrics":{"roc_auc":0.8976615586996386,"log_loss":0.33120105892043206,"accuracy":0.8430858687195446,"sex_auc_gap":0.05905046434360173,"race_auc_gap":0.06000846245361602,"subgroup_auc_gap":0.06000846245361602,"fold_log_loss_sd":0.007016008972828223}},
+    {"model":"hgb","strategy":"mode","metrics":{"roc_auc":0.928541591224301,"log_loss":0.2765868214971997,"accuracy":0.8726710617910814,"sex_auc_gap":0.037565062279341976,"race_auc_gap":0.05750392833975704,"subgroup_auc_gap":0.05750392833975704,"fold_log_loss_sd":0.006803954589597412}},
+    {"model":"hgb","strategy":"mode_indicator","metrics":{"roc_auc":0.9291882040479033,"log_loss":0.2754922453262478,"accuracy":0.8740223578068056,"sex_auc_gap":0.037720314342214345,"race_auc_gap":0.056826478136057346,"subgroup_auc_gap":0.056826478136057346,"fold_log_loss_sd":0.0067594180953833}},
+    {"model":"hgb","strategy":"own_category","metrics":{"roc_auc":0.9292484105532111,"log_loss":0.2753870888966678,"accuracy":0.8734695548912821,"sex_auc_gap":0.03805311613840523,"race_auc_gap":0.051800558147224396,"subgroup_auc_gap":0.051800558147224396,"fold_log_loss_sd":0.006482472397227309}},
+    {"model":"hgb","strategy":"drop","metrics":{"roc_auc":0.9230796520423941,"log_loss":0.2848458147019561,"accuracy":0.8666311780844356,"sex_auc_gap":0.04070671537970039,"race_auc_gap":0.05994416424061222,"subgroup_auc_gap":0.05994416424061222,"fold_log_loss_sd":0.006199064028305013}},
+    {"model":"hgb_native","strategy":"mode","metrics":{"roc_auc":0.9290934893712034,"log_loss":0.27552384399920404,"accuracy":0.87308054543221,"sex_auc_gap":0.036584368960805747,"race_auc_gap":0.057037135896920055,"subgroup_auc_gap":0.057037135896920055,"fold_log_loss_sd":0.006890907803811611}}
+  ],
+  "setup_issues": [
+    "The default Python environment's pandas import crashes with Windows exit code -1073740022; do not use that environment for science runs.",
+    "The isolated environment used exact project dependencies with scipy pinned at 1.15.3 to avoid solver-option warnings from the newest SciPy resolver choice.",
+    "Single seed, provisional metric, exploratory candidate set, and previously identified prior-art overlap; not inferential results and not an agent-vs-agent benchmark."
+  ],
+  "interpretation": "At seed 1, HGB variants have higher ROC AUC than logistic variants; candidate effects are descriptive only. This does not establish discovery, novelty, or agent acceleration."
+}

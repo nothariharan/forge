@@ -1,6 +1,6 @@
 # FORGE implementation plan
 
-**Status (2026-10-04):** implementation is underway. Ledger/schemas/fake-event generator and an Omnigent graph are merged. Omnigent handoff and P2 dispatch denial passed a smoke test; P6 UI approval and enforced handoff validation are still open. OpenML Adult task 7592 has a one-fold feasibility result only. The exact research question and benchmark protocol are not locked, and no A-vs-B benchmark result exists.
+**Status (2026-10-04):** implementation is underway. Ledger/schemas/fake-event generator and an Omnigent graph are merged. Omnigent handoff and P2 dispatch denial passed a smoke test; P6 UI approval and enforced handoff validation are still open. OpenML Adult task 7592 has a ten-fold runner validation and a one-seed nine-candidate exploratory sweep, recorded as feasibility-only. The exact research question and benchmark protocol are not locked, and no A-vs-B benchmark result exists.
 
 ## Objective and evaluation thesis
 
@@ -14,7 +14,7 @@ The demo should make the use case legible first: a person can follow one researc
 
 - **Core:** append-only ledger, payload schemas, 31-event fake run, and verify CLI are merged. Remaining core work includes SSE over `Ledger.subscribe`, the full `forge` CLI, and wiring the UI to replay/live ledger events.
 - **Orchestration:** Omnigent 0.16.0 graph is merged. Mixed-harness handoff and P2 dispatch cap were exercised. P6 approval was not confirmed in the web UI; handoff validation is still prompt-level; agent events are not yet ledgered.
-- **Science:** Adult task 7592 feasibility is one official fold and one seed. Akshat proposed a nine-candidate space and ROC AUC as primary metric, but these are not frozen. The full ten-fold runner has not completed a validation run.
+- **Science:** Adult task 7592 has a full 10-fold runner validation (one candidate) and a one-seed nine-candidate exploratory sweep. Akshat's candidate space and ROC AUC are not frozen; prior work makes the basic question unsuitable as a claimed breakthrough. See `docs/coordination/SCIENCE_CONTRACT.md` and its raw sweep artifact.
 - **Benchmark:** protocol v0.1 and baseline/oracle tooling exist, but protocol-dependent fields remain TBD. Arm A still needs to move from its duplicate JSONL writer to `Ledger.append`; no comparative evidence exists yet.
 - **UI:** no product UI is implemented. Build from the fake event stream; the visual direction is documented in `ui/README.md`.
 

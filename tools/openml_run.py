@@ -147,7 +147,10 @@ def run(task_id: int | str, params: dict, seed: int) -> dict:
         raise ValueError(f"This runner supports OpenML task {TASK_ID}, got {task_id}")
     model_name = params.get("model", "logistic")
     strategy = params.get("strategy", "mode")
+    # Native HGB needs categorical dtypes. Do not mutate the cached frame:
+    # the oracle evaluates multiple candidates sequentially in one process.
     X, y, folds, meta = _load_task()
+    X = X.copy()
     if model_name == "hgb_native":
         for c in X.columns:
             if X[c].dtype == object:
