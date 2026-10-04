@@ -17,7 +17,7 @@
 | Item | Value |
 |---|---|
 | Source | NASA Exoplanet Archive TAP, table `toi` |
-| Snapshot | The T1 retrieval: 2026-10-04T06:01:46Z, raw CSV sha256 `485a05d6f94cf3399523df75e314c533e2d8ffad05e217a2e59517580a90f609`. The runner refuses a different hash unless the protocol change log records a new snapshot. |
+| Snapshot | **Changed in v0.3.** T1's raw CSV (sha256 `485a05d6…`) was not saved, and the live archive keeps changing, so that hash cannot be reproduced. The snapshot is pinned when the cache is first created (`python tools/tess_bias_run.py --fetch` saves the raw bytes to `results/cache/toi.csv` and prints their sha256). That hash is recorded in the change log and set as `FORGE_TESS_SHA256`. The runner refuses any other file. T1 should be re-run on the same pinned file, so the shift result and T2 share one snapshot. |
 | Rows | 8,148 TOIs; dispositions `CP` 813, `FP` 1,314, `FA` 100, `KP` 607, `PC` 4,813, `APC` 487, blank 14 |
 | Features | The 39 numeric `pl_*` / `st_*` columns of the T1 primary arm. Excluded, as in T1: label, identifiers (`toi`, `tid`, `toipfx`), timestamps (`toi_created`, `rowupdate`, `release_date`), `*lim*` / `*symerr*` derivations, all-missing columns. |
 | Grouping key | `tid` (TIC ID). Every split in this protocol is at host level. |
@@ -43,12 +43,26 @@ A prospective temporal split is impossible: the table has no disposition date. T
    - γ = 1 is primary: the selection fitted to the catalog.
    - γ = 0 is the **negative control**: random selection, so there should be no gap.
    - γ = 2 is a stress test.
-4. **Replicates:** R = 20 per condition, seeded `1000·episode_seed + r`.
+4. **Replicates:** R = 20 per condition per seed, seeded `1000·seed + r`. See section 4.1 for how replicates and benchmark seeds fit together.
 
 **What is measured, per replicate:**
-- **True deployment AUC:** fit the vetting model on all of R\*, score U\*, compute AUC against true labels.
+- **True deployment AUC (changed in v0.3):** the mean, over the 5 grouped CV folds inside R\*, of each fold model's AUC on U\*. The naive estimate and the truth then come from the same fold models, trained on the same amount of data. Fitting the "true" model on all of R\* would make naive CV look pessimistic purely because of training size (a learning-curve bias), which is not resolution bias.
 - **Naive estimate:** `tid`-grouped 5-fold CV AUC within R\* only. This is what a team would report today.
 - **Gap Δ:** naive minus true. Positive means resolved-set evaluation overstates accuracy.
+
+### 4.1 Replicates, seeds and uncertainty (added in v0.3)
+
+There are two separate sources of uncertainty, and they are reported separately:
+
+| Level | What varies | Count | Interval reported |
+|---|---|---|---|
+| **Simulation** (science result) | which hosts land in R\* vs U\*, and the CV folds | 20 replicates × 5 seeds = **100 simulated splits**, pooled | mean Δ ± 1.96 SE over the 100 replicate gaps (precision of the simulated mean), plus the 2.5–97.5 percentile of single replicates (how much one split can vary) |
+| **Benchmark** (agent comparison) | the agents' behavior: which experiments they run and what they conclude | **5 paired episodes per arm** | `PROTOCOL.md` section 9: paired bootstrap over the 5 seeds, Clopper-Pearson for correctness k/5 |
+
+- Episode seed *s* gives that episode's runner calls the replicate set `1000·s + 0…19`. Arm A and arm B share the seed, so they see identical simulated splits (paired).
+- The oracle pools all 5 seeds' replicates (100) into one ground truth, and every episode is scored against it. An episode sees 20 of those 100 replicates, so its own numbers are noisier than the pooled truth. That is realistic, and both arms face it equally.
+- The science result is computed once from the same 100 pooled replicates. It does not depend on what any agent did.
+- The simulation interval is conditional on the snapshot and the mechanism. It says nothing about uncertainty from the covariate-shift assumption, which is a limitation, not a number.
 
 ### Limitations of this split (must travel with every result)
 
@@ -118,7 +132,7 @@ T2a goes first: it is a third of the cost and decides whether T2b is worth runni
 | Seeds | 1, 2, 3, 4, 5. Minimum 3, otherwise labeled preliminary. Run order alternates (A1 B1, B2 A2, ...). |
 | Budget per episode | 30 min wall clock, 10 experiment runs, the same USD cap for both arms (recorded; set when the model is fixed) |
 | Stopping rule | An episode ends at the answer or the budget. The benchmark ends after 5 paired seeds. The only allowed re-run is an infrastructure failure before the first agent action. |
-| Uncertainty | As `PROTOCOL.md` section 9 |
+| Uncertainty | Benchmark: as `PROTOCOL.md` section 9, over the 5 paired seeds. Science: over 100 pooled replicates (section 4.1). |
 
 ## 9. The exact claims this can support
 
