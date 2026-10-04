@@ -44,8 +44,8 @@ Run these from the repository root. The episode folder is already set in `$FORGE
 - After looking at a result, record what you decided next. Add `--changed` if the result changed your plan, and list any hypotheses or experiments it reopens:
   `python bench/arm_a.py decide --after E1 --decision "<what you will do next and why>" [--changed --reopen H1]`
 - Literature: {LITERATURE_TOOLS}
-- Submit your final answer once, at the end:
-  `python bench/arm_a.py answer --candidate <id> --report final_report.md`
+- Submit your final answer once, at the end. Write your report to `$FORGE_EPISODE_DIR/final_report.md` (inside the episode folder, not the repository root), then:
+  `python bench/arm_a.py answer --candidate <id> --report "$FORGE_EPISODE_DIR/final_report.md"`
 
 ### Research rules
 
@@ -55,7 +55,7 @@ Run these from the repository root. The episode folder is already set in `$FORGE
 4. Report failed runs, null results and uncertainty honestly. Do not claim a discovery.
 5. Do not access the network except through the tools listed above.
 
-### Final report (`final_report.md`)
+### Final report (`$FORGE_EPISODE_DIR/final_report.md`)
 
 1. Final answer: the candidate you recommend and why.
 2. Evidence: the experiments you ran (IDs, results) and the sources you used, each with an identifier and quote.
