@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import statistics
 import sys
 from datetime import datetime
@@ -159,7 +160,10 @@ def episode_metrics(episode_dir: str, oracle: Optional[dict]) -> dict:
         within = oracle["within_threshold"]
         reached_top = False
         for i, eid in enumerate(valid, start=1):
-            if started[eid].get("candidate") in within:
+            cand = started[eid].get("candidate")
+            # Run labels may carry a setting suffix (TESS: <model>_<estimator>_g<gamma>); the oracle names the
+            # estimator, so a run counts when its label without the suffix is in the top set.
+            if cand in within or (isinstance(cand, str) and re.sub(r"_g[0-9.]+$", "", cand) in within):
                 experiments_to_top, reached_top = i, True
                 break
 

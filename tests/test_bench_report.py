@@ -145,3 +145,10 @@ def test_report_flags_preliminary_with_too_few_seeds(tmp_path):
         _write_episode(tmp_path, arm, 1, [("00:00", "RUN_CREATED", {}), ("10:00", "RUN_COMPLETED", {})])
     report.main([str(tmp_path)])
     assert "PRELIMINARY" in (tmp_path / "report.md").read_text()
+
+
+def test_reached_top_matches_labels_with_a_setting_suffix(tmp_path):
+    events = [("00:00", "RUN_CREATED", {})] + _experiment(1, "E1", "H1", "hgb_iw_g1") + _experiment(3, "E2", "H1", "lr_naive_g1")
+    _write_episode(tmp_path, "A", 1, events)
+    m = report.episode_metrics(str(tmp_path / "A" / "seed-1"), {"best": "no_correction", "within_threshold": ["no_correction", "lr_naive"]})
+    assert m["reached_top"] is True and m["experiments_to_top"] == 2
