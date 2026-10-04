@@ -66,7 +66,15 @@ Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/ar
 - Closes an episode without an answer as `budget_exhausted` (deadline) or `aborted` (agent exited early), so it stays in every denominator.
 - Writes `prompt.md`, `omni_agent/config.yaml`, `agent_stdout.log`, `agent_stderr.log` and `launcher.json` into the episode folder.
 
-**Not verified:** a real `omni run` of the generated config. `omni` is not installed where this was built, and the smoke test notes headless runs can end early when stdin closes. The agent command is configurable with `--agent-cmd` (`{agent_dir}` is substituted) for whichever headless invocation the orchestration lane confirms.
+**Headless command** (confirmed by Saksham, Omnigent 0.16.0, 2026-10-04): `omni run <agent_dir> --no-session -p "<filled prompt>" </dev/null`. This is the launcher's default:
+- `--no-session` gives each episode a fresh temporary store, so episodes stay independent.
+- The final answer goes to stdout (`agent_stdout.log`), and omni exits 0 on its own.
+- The launcher always closes stdin.
+- The filled prompt goes in via `-p`. The config's own `prompt:` is a short role line, so the task text is not sent twice (that would inflate arm A's token cost).
+- The baseline config has no `ASK` policies: a headless run cannot answer an approval prompt and would die.
+- Run `omni setup` once per machine first; the `claude-sdk` harness needs a Claude credential.
+
+**Not verified here:** a real `omni run` of a generated config. `omni` is not installed in the environment this was built in. The first real episode on a machine with `omni setup` done is the check.
 
 `bench/baseline_prompt.md` was reviewed independently by Hari (2026-10-04): balanced for a solo arm, no oracle hints, question/budget/tools/scoring laid out fairly. **Not freeze-ready:** it still assumes an OpenML task and a single candidate recommendation, so it stays a draft until the science question is locked and the prompt is adapted to it.
 

@@ -8,9 +8,11 @@ Steps, all recorded in the episode folder:
    max experiments) written into its manifest so arm_a.py enforces it.
 3. Write a one-agent Omnigent config (omni_agent/config.yaml) using only the
    fields verified in docs/coordination/OMNIGENT_SMOKE_TEST.md: spec_version 1,
-   the claude-sdk harness, a caller_process OS env and the filled prompt. No
-   sub-agents and no policy gates: those are what arm B adds.
-4. Run the agent with a hard timeout at the wall-clock budget.
+   the claude-sdk harness, a caller_process OS env and a short role prompt. No
+   sub-agents and no policy gates: those are what arm B adds, and an ASK gate
+   would kill a headless run because nobody can answer it.
+4. Run the agent headless with the filled prompt as the task, stdin closed and
+   a hard timeout at the wall-clock budget.
 5. If the agent never submitted an answer, close the episode as
    budget_exhausted (timed out) or aborted (agent exited early), so it stays
    in every denominator.
@@ -27,9 +29,15 @@ runner settings, for example:
 Usage:
     python bench/launch_arm_a.py --spec spec.json --seed 1 --episode results/bench/<id>/A/seed-1 [--dry-run]
 
-The agent command defaults to "omni run {agent_dir}". Headless Omnigent runs
-are not verified yet (the smoke test notes the REPL exits when stdin closes),
-so the command is configurable with --agent-cmd; {agent_dir} is substituted.
+Headless command (confirmed by the orchestration lane, Omnigent 0.16.0):
+
+    omni run <agent_dir> --no-session -p "<filled prompt>" </dev/null
+
+--no-session keeps each episode in a fresh temporary store, so episodes stay
+independent; the final answer is printed to stdout and omni exits 0. The
+launcher always closes stdin. Run `omni setup` once per machine first: the
+claude-sdk harness needs a Claude credential. --agent-cmd overrides the
+command; {agent_dir}, {prompt} and {prompt_file} are substituted.
 """
 
 from __future__ import annotations
@@ -86,6 +94,15 @@ def fill_prompt(spec: dict, template_path: str = PROMPT_TEMPLATE) -> str:
     return PLACEHOLDER_RE.sub(lambda m: values[m.group(1)], prompt)
 
 
+DEFAULT_AGENT_CMD = "omni run {agent_dir} --no-session -p {prompt}"
+
+# The task itself goes in with -p, so it is not repeated here (that would double arm A's prompt tokens).
+ROLE_PROMPT = (
+    "You are a research scientist working alone. Your task, budget, tools and rules are given in the\n"
+    "user message. Follow them exactly and use only the tools it lists.\n"
+)
+
+
 def agent_config(prompt: str, name: str) -> str:
     """One-agent Omnigent config, limited to fields verified in the smoke test."""
     body = "\n".join(("  " + line) if line else "" for line in prompt.splitlines())
@@ -126,7 +143,7 @@ def _has_answer(ep: arm_a.Episode) -> bool:
 
 
 def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None, ledger: Optional[str] = None,
-           model: Optional[str] = None, agent_cmd: str = "omni run {agent_dir}", dry_run: bool = False) -> dict:
+           model: Optional[str] = None, agent_cmd: str = DEFAULT_AGENT_CMD, dry_run: bool = False) -> dict:
     prompt = fill_prompt(spec)  # fails before anything is created if a placeholder is missing
     run_id = run_id or f"A-seed{seed}-{int(time.time())}"
     init = ["--episode", episode_dir, "init", "--arm", "A", "--seed", str(seed), "--question", spec["question"],
@@ -144,10 +161,17 @@ def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None
     agent_dir = os.path.join(os.path.abspath(episode_dir), "omni_agent")
     os.makedirs(agent_dir, exist_ok=True)
     with open(os.path.join(agent_dir, "config.yaml"), "w", encoding="utf-8") as f:
-        f.write(agent_config(prompt, f"forge-arm-a-seed{seed}"))
+        f.write(agent_config(ROLE_PROMPT, f"forge-arm-a-seed{seed}"))
 
-    cmd = [part.replace("{agent_dir}", agent_dir) for part in shlex.split(agent_cmd)]
-    record = {"run_id": run_id, "seed": seed, "command": cmd, "agent_dir": agent_dir, "dry_run": dry_run}
+    prompt_file = os.path.join(os.path.abspath(episode_dir), "prompt.md")
+    subs = {"{agent_dir}": agent_dir, "{prompt}": prompt, "{prompt_file}": prompt_file}
+    cmd = []
+    for part in shlex.split(agent_cmd):  # substitute after splitting, so values with spaces stay one argument
+        for key, value in subs.items():
+            part = part.replace(key, value)
+        cmd.append(part)
+    shown = ["<prompt.md>" if part == prompt else part for part in cmd]  # the prompt itself is saved in prompt.md
+    record = {"run_id": run_id, "seed": seed, "command": shown, "agent_dir": agent_dir, "dry_run": dry_run}
     ep = arm_a.Episode(episode_dir)
     if dry_run:
         record["note"] = "dry run: episode initialised and config written; agent not started"
@@ -156,7 +180,8 @@ def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None
         timeout = float(spec["wall_clock_minutes"]) * 60 + GRACE_SECONDS
         record["started_at"] = _now()
         # Own process group, so a timeout also stops the harness processes the agent command starts.
-        proc = subprocess.Popen(cmd, cwd=REPO_ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        proc = subprocess.Popen(cmd, cwd=REPO_ROOT, env=env, stdin=subprocess.DEVNULL,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 text=True, start_new_session=True)
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
@@ -191,7 +216,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--run-id")
     p.add_argument("--ledger", help="shared ledger database (default: <episode>/ledger.db)")
     p.add_argument("--model", help="model ID, recorded in the manifest (must match arm B)")
-    p.add_argument("--agent-cmd", default="omni run {agent_dir}", help="command that runs the agent; {agent_dir} is substituted")
+    p.add_argument("--agent-cmd", default=DEFAULT_AGENT_CMD,
+                   help="command that runs the agent; {agent_dir}, {prompt} and {prompt_file} are substituted")
     p.add_argument("--dry-run", action="store_true", help="initialise and write the config, do not start the agent")
     a = p.parse_args(argv)
     record = launch(load_spec(a.spec), a.seed, a.episode, a.run_id, a.ledger, a.model, a.agent_cmd, a.dry_run)

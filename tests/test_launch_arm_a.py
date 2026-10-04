@@ -56,11 +56,13 @@ def test_dry_run_writes_config_and_prompt_without_starting(spec, tmp_path):
     config = (ep / "omni_agent" / "config.yaml").read_text()
     assert config.startswith("# Generated") and "spec_version: 1\n" in config and "harness: claude-sdk" in config
     assert "tools:" not in config and "guardrails:" not in config  # arm A has no sub-agents or gates
-    assert "  Does X beat Y?" in config
+    assert "Does X beat Y?" not in config and "given in the" in config  # task goes in via -p, not the config
+    assert "ASK" not in config  # a headless run cannot answer an approval prompt
     assert (ep / "prompt.md").read_text() == launcher.fill_prompt(spec)
     m = json.loads((ep / "manifest.json").read_text())
     assert m["max_experiments"] == 2 and m["deadline_ts"] and m["seed"] == 1
-    assert rec["dry_run"] and rec["command"][:2] == ["omni", "run"]
+    assert rec["dry_run"]
+    assert rec["command"] == ["omni", "run", str(ep.resolve() / "omni_agent"), "--no-session", "-p", "<prompt.md>"]
     assert [e["type"] for e in arm_a.Episode(str(ep)).events()] == ["RUN_CREATED"]
 
 
@@ -159,3 +161,18 @@ def test_paths_with_spaces(spec, tmp_path):
     cmd = fake_agent(spaced, 'call("answer", "--candidate", "x")\n')
     rec = launcher.launch(spec, 1, str(spaced / "A" / "seed 1"), run_id="A-1", agent_cmd=cmd)
     assert rec["outcome"] == "completed" and rec["agent_dir"].endswith("seed 1/omni_agent")
+
+
+def test_agent_gets_the_filled_prompt_and_a_closed_stdin(spec, tmp_path):
+    seen = tmp_path / "seen.json"
+    cmd = fake_agent(tmp_path, f"""
+        import json
+        json.dump({{"argv": sys.argv[1:], "stdin": sys.stdin.read()}}, open({str(seen)!r}, "w"))
+        call("answer", "--candidate", "x")
+    """) + " --no-session -p {prompt}"
+    ep = tmp_path / "A" / "seed-1"
+    rec = launcher.launch(spec, 1, str(ep), run_id="A-1", agent_cmd=cmd)
+    got = json.loads(seen.read_text())
+    assert got["argv"][1:3] == ["--no-session", "-p"] and got["argv"][3] == (ep / "prompt.md").read_text()
+    assert got["stdin"] == ""  # stdin is closed, so a REPL would not wait on it
+    assert rec["outcome"] == "completed" and rec["command"][-1] == "<prompt.md>"
