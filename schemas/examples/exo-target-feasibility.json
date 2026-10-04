@@ -1,0 +1,275 @@
+{
+  "status": "TARGET_AVAILABILITY_AUDIT_ONLY_NO_MODEL_NO_METRIC",
+  "retrieved_at_utc": "2026-10-04T04:49:24.217529+00:00",
+  "data_source": "NASA Exoplanet Archive TAP",
+  "definitions": {
+    "confirmed": "CONFIRMED",
+    "false_positive": "FALSE POSITIVE",
+    "unresolved_censored_states": [
+      "NOT DISPOSITIONED",
+      "CANDIDATE"
+    ],
+    "censoring_rule": "Objects still in an unresolved state at the later release are censored: they are excluded from the labeled cohort and reported separately. They are never recoded as positives.",
+    "outcome_rule": "An outcome is observable only at a release later than the one supplying features. Objects already labeled at the feature release are excluded from the cohort.",
+    "minimum_usable_class": 200
+  },
+  "sha256_raw_csv": {
+    "Q1_Q6_KOI": "559a34bf52786e023420acbde51f120c86a54dad0431201f0ac9cf95080f31f9",
+    "Q1_Q8_KOI": "299207cdbef7fad4fc329f2fe047dfc234134db2f25bc84d8f5e29b22cb38fd5",
+    "Q1_Q12_KOI": "387e14f1df513e0d69a13d2ea70078ee7cdd7e8cf24827de7e857b0d0ac0d6de",
+    "Q1_Q16_KOI": "d34740886840e691aaf7c1c93163c848ab42ffc718f15156db759207a8315e04",
+    "Q1_Q17_DR24_KOI": "4ebd563e7ce7d17bae7075a9f0d3b4cf867d387998e12e4947cef1b868c60743",
+    "Q1_Q17_DR25_KOI": "084e0ed7a5156c65d7cf07cda299ecf87919f4ea1eefd6871419fc6e43603d59",
+    "CUMULATIVE": "201b52138748edbae7a921b5d1a5dbaccee951e6a34455bb7a857a4879d3d8a1"
+  },
+  "release_row_counts": {
+    "Q1_Q6_KOI": 2935,
+    "Q1_Q8_KOI": 3865,
+    "Q1_Q12_KOI": 5855,
+    "Q1_Q16_KOI": 7348,
+    "Q1_Q17_DR24_KOI": 7470,
+    "Q1_Q17_DR25_KOI": 8054,
+    "CUMULATIVE": 9564
+  },
+  "release_disposition_counts": {
+    "Q1_Q6_KOI": {
+      "CANDIDATE": 398,
+      "CONFIRMED": 1949,
+      "FALSE POSITIVE": 588
+    },
+    "Q1_Q8_KOI": {
+      "CANDIDATE": 266,
+      "CONFIRMED": 2320,
+      "FALSE POSITIVE": 701,
+      "NOT DISPOSITIONED": 578
+    },
+    "Q1_Q12_KOI": {
+      "CANDIDATE": 498,
+      "CONFIRMED": 2693,
+      "FALSE POSITIVE": 1473,
+      "NOT DISPOSITIONED": 1191
+    },
+    "Q1_Q16_KOI": {
+      "CANDIDATE": 714,
+      "CONFIRMED": 2735,
+      "FALSE POSITIVE": 1600,
+      "NOT DISPOSITIONED": 2299
+    },
+    "Q1_Q17_DR24_KOI": {
+      "CANDIDATE": 1595,
+      "CONFIRMED": 2714,
+      "FALSE POSITIVE": 3161
+    },
+    "Q1_Q17_DR25_KOI": {
+      "CANDIDATE": 1358,
+      "CONFIRMED": 2731,
+      "FALSE POSITIVE": 3965
+    },
+    "CUMULATIVE": {
+      "CANDIDATE": 1977,
+      "CONFIRMED": 2748,
+      "FALSE POSITIVE": 4839
+    }
+  },
+  "confirmed_planet_count_by_release": {
+    "Q1_Q6_KOI": 1949,
+    "Q1_Q8_KOI": 2320,
+    "Q1_Q12_KOI": 2693,
+    "Q1_Q16_KOI": 2735,
+    "Q1_Q17_DR24_KOI": 2714,
+    "Q1_Q17_DR25_KOI": 2731,
+    "CUMULATIVE": 2748
+  },
+  "confirmed_planet_trend_analysis": {
+    "baseline_release": "Q1_Q16_KOI",
+    "baseline_confirmed": 2735,
+    "latest_release": "CUMULATIVE",
+    "latest_confirmed": 2748,
+    "net_confirmed_change": 13,
+    "net_confirmed_change_percent": 0.4753199268738574,
+    "baseline_total_kois": 7348,
+    "latest_total_kois": 9564,
+    "net_total_change_percent": 30.157866086009797,
+    "baseline_confirmed_share": 0.37221012520413715,
+    "latest_confirmed_share": 0.28732747804265996,
+    "confirmed_band_after_baseline": [
+      2714,
+      2748
+    ],
+    "interpretation": "The CONFIRMED count is effectively frozen after Q1-Q16 while the catalog keeps growing, so the confirmed class cannot be replenished from later candidate pools."
+  },
+  "cohort_candidates": [
+    {
+      "early_state": "NOT DISPOSITIONED",
+      "cohort_at_early_release": 2299,
+      "outcome_counts": {
+        "CANDIDATE": 759,
+        "CONFIRMED": 28,
+        "FALSE POSITIVE": 1132
+      },
+      "resolved_positive_confirmed": 28,
+      "resolved_negative_false_positive": 1132,
+      "censored_still_unresolved": 759,
+      "unmatchable_excluded": 359,
+      "ambiguous_kepid_excluded": 21,
+      "usable_labeled_cohort": 1160,
+      "join_attrition": {
+        "strict_kepoi_name_matches": 1864,
+        "kepid_only_matches": 55,
+        "total_matched": 1919,
+        "note": "kepoi_name is not stable across deliveries; a strict-only join drops objects that were renumbered, including rare CONFIRMED promotions."
+      },
+      "feasible": false,
+      "early_release": "Q1_Q16_KOI",
+      "late_release": "Q1_Q17_DR24_KOI"
+    },
+    {
+      "early_state": "CANDIDATE",
+      "cohort_at_early_release": 714,
+      "outcome_counts": {
+        "CANDIDATE": 403,
+        "CONFIRMED": 14,
+        "FALSE POSITIVE": 34
+      },
+      "resolved_positive_confirmed": 14,
+      "resolved_negative_false_positive": 34,
+      "censored_still_unresolved": 403,
+      "unmatchable_excluded": 258,
+      "ambiguous_kepid_excluded": 5,
+      "usable_labeled_cohort": 48,
+      "join_attrition": {
+        "strict_kepoi_name_matches": 427,
+        "kepid_only_matches": 24,
+        "total_matched": 451,
+        "note": "kepoi_name is not stable across deliveries; a strict-only join drops objects that were renumbered, including rare CONFIRMED promotions."
+      },
+      "feasible": false,
+      "early_release": "Q1_Q16_KOI",
+      "late_release": "Q1_Q17_DR24_KOI"
+    },
+    {
+      "early_state": "CANDIDATE",
+      "cohort_at_early_release": 1595,
+      "outcome_counts": {
+        "CANDIDATE": 1018,
+        "CONFIRMED": 4,
+        "FALSE POSITIVE": 440
+      },
+      "resolved_positive_confirmed": 4,
+      "resolved_negative_false_positive": 440,
+      "censored_still_unresolved": 1018,
+      "unmatchable_excluded": 127,
+      "ambiguous_kepid_excluded": 6,
+      "usable_labeled_cohort": 444,
+      "join_attrition": {
+        "strict_kepoi_name_matches": 1448,
+        "kepid_only_matches": 14,
+        "total_matched": 1462,
+        "note": "kepoi_name is not stable across deliveries; a strict-only join drops objects that were renumbered, including rare CONFIRMED promotions."
+      },
+      "feasible": false,
+      "early_release": "Q1_Q17_DR24_KOI",
+      "late_release": "Q1_Q17_DR25_KOI"
+    },
+    {
+      "early_state": "CANDIDATE",
+      "cohort_at_early_release": 1358,
+      "outcome_counts": {
+        "CANDIDATE": 1229,
+        "FALSE POSITIVE": 129
+      },
+      "resolved_positive_confirmed": 0,
+      "resolved_negative_false_positive": 129,
+      "censored_still_unresolved": 1229,
+      "unmatchable_excluded": 0,
+      "ambiguous_kepid_excluded": 0,
+      "usable_labeled_cohort": 129,
+      "join_attrition": {
+        "strict_kepoi_name_matches": 1358,
+        "kepid_only_matches": 0,
+        "total_matched": 1358,
+        "note": "kepoi_name is not stable across deliveries; a strict-only join drops objects that were renumbered, including rare CONFIRMED promotions."
+      },
+      "feasible": false,
+      "early_release": "Q1_Q17_DR25_KOI",
+      "late_release": "CUMULATIVE"
+    }
+  ],
+  "toi_candidate_cohort": {
+    "table": "toi",
+    "disposition_column": "tfopwg_disp",
+    "queried_columns": [
+      "toi",
+      "tid",
+      "sectors",
+      "toi_created",
+      "ctoi_alias",
+      "tfopwg_disp"
+    ],
+    "row_count": 8148,
+    "disposition_counts": {
+      "(blank)": 14,
+      "APC": 487,
+      "CP": 813,
+      "FA": 100,
+      "FP": 1314,
+      "KP": 607,
+      "PC": 4813
+    },
+    "resolved_positive_kp_or_cp": 1420,
+    "resolved_negative_fp": 1314,
+    "censored_pc_apc_fa": 5400,
+    "blank_disposition": 14,
+    "usable_labeled_cohort": 2734,
+    "class_balance_positive_fraction": 0.5193855157278713,
+    "distinct_hosts_tid_in_resolved_cohort": 2588,
+    "resolved_tois_per_host_histogram": {
+      "1": 2479,
+      "2": 82,
+      "3": 19,
+      "4": 6,
+      "5": 2
+    },
+    "multi_toi_hosts_in_resolved_cohort": 109,
+    "ctoi_alias_present_by_state": {
+      "CP": {
+        "yes": 813
+      },
+      "FP": {
+        "yes": 1314
+      },
+      "KP": {
+        "yes": 607
+      }
+    },
+    "ctoi_alias_is_independent_reference_standard": false,
+    "ctoi_alias_note": "ctoi_alias is populated for every resolved row, including all false positives, so it cannot corroborate confirmation independently of tfopwg_disp.",
+    "toi_created_populated_rows": 8148,
+    "toi_created_min": "2018-08-30 14:17:58",
+    "toi_created_max": "2026-08-27 20:16:53",
+    "feasible_for_binary_outcome": true,
+    "host_grouping_key": "tid",
+    "host_grouping_caveat": "The TOI table exposes no TIC column. tid is the only host grouping key, so star-level disjointness must be enforced on tid and re-checked against TIC via an external cross-match before lock."
+  },
+  "toi_sha256_raw_csv": "c4484837e5b441368ce50c10f2c26aaae1f868276878e9af4d87a705e5e0a9ab",
+  "verdict": {
+    "kepler_prospective_confirmation_target": "NOT_FEASIBLE",
+    "kepler_rationale": "The CONFIRMED class is a near-absorbing state. New confirmations from unresolved pools are 0 to 28 objects per release pair, far below the minimum usable class size, so no prospective confirmed-planet outcome can be modeled or reported.",
+    "kepler_false_positive_target": "NOT_RECOMMENDED",
+    "kepler_false_positive_rationale": "FALSE POSITIVE is abundant and adjudicated, but it was produced by the same photometric and astrometric vetting that the candidate features encode, so a model trained on it largely distills the archive's own vetting rules rather than testing a scientific hypothesis.",
+    "surviving_exoplanet_candidate": "tess_toi_resolved_disposition",
+    "unresolved_before_lock": [
+      "Establish an independent reference standard. ctoi_alias does not work: it is populated for every resolved row, including all false positives. Ground-based confirmation (for example a cross-match against pscomppars) must be tested as the adjudication source before KP/CP can be treated as a planet outcome.",
+      "Confirm host-level grouping. The TOI table exposes no TIC column, so star-level disjointness must be enforced on tid and re-checked against TIC externally.",
+      "Confirm a prospective temporal split is viable using toi_created, and that the confirmed class still grows after the chosen cut date.",
+      "Complete a prior-art review of TESS candidate classification before any novelty language is used."
+    ]
+  },
+  "model_evaluation": null,
+  "limitations": [
+    "This audit measures label availability only. It is not a scientific result, a novelty claim, or benchmark evidence.",
+    "Disposition labels are the archive's own best-knowledge automated and committee adjudications, not ground truth from an independent reference standard.",
+    "kepid-based matching is ambiguous for multi-KOI systems; ambiguous objects are counted and excluded rather than assigned.",
+    "Archive contents change over time; compare reruns using the stored timestamps and SHA-256 hashes."
+  ]
+}
