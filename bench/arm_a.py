@@ -41,6 +41,7 @@ import argparse
 import hashlib
 import importlib
 import json
+import math
 import numbers
 import os
 import shutil
@@ -48,7 +49,7 @@ import subprocess
 import sys
 import time
 import traceback
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 BENCH_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -121,6 +122,10 @@ def cmd_init(ep: Episode, a) -> None:
         "runner": a.runner,
         "data_ver": a.data_ver,
         "ledger_path": os.path.abspath(a.ledger) if a.ledger else None,
+        # Budget (bench/PROTOCOL.md section 5). Enforced here so both arms face the same caps.
+        "deadline_ts": (datetime.now(timezone.utc) + timedelta(minutes=a.wall_clock_minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        if a.wall_clock_minutes else None,
+        "max_experiments": a.max_experiments,
         "model": a.model,
         "git_commit": _git_commit(),
         "started_at": _now(),
@@ -158,15 +163,47 @@ def _code_hash(runner_ref: str) -> str:
         return "sha256:" + hashlib.sha256(f.read()).hexdigest()
 
 
+def _is_number(v) -> bool:
+    return isinstance(v, numbers.Real) and not isinstance(v, bool) and math.isfinite(v)
+
+
 def _numeric_metrics(metrics: dict) -> dict:
-    # The event schema allows numbers only; lists such as per-fold scores stay in run_records.jsonl.
-    return {k: v for k, v in metrics.items() if isinstance(v, numbers.Real) and not isinstance(v, bool)}
+    # The event schema allows finite numbers only (the ledger rejects NaN/inf); lists such as
+    # per-fold scores and non-finite values stay in run_records.jsonl.
+    return {k: v for k, v in metrics.items() if _is_number(v)}
+
+
+def _json_safe(obj):
+    """Non-finite floats become strings, so run_records.jsonl stays strict JSON."""
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return str(obj)
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    return obj
+
+
+def _check_open(ep: Episode, m: dict) -> None:
+    if any(e["type"] == "RUN_COMPLETED" for e in ep.events()):
+        raise SystemExit("the episode is closed; nothing more is recorded")
+    if _past_deadline(m):
+        raise SystemExit(f"budget: wall clock ran out at {m['deadline_ts']}; the episode is over")
+
+
+def _past_deadline(m: dict) -> bool:
+    return bool(m.get("deadline_ts")) and datetime.now(timezone.utc) >= datetime.fromisoformat(
+        m["deadline_ts"].replace("Z", "+00:00"))
 
 
 def cmd_run(ep: Episode, a) -> None:
     m = ep.manifest()
-    if any(e["type"] == "RUN_STARTED" and e["payload"].get("eid") == a.eid for e in ep.events()):
+    _check_open(ep, m)
+    started = [e for e in ep.events() if e["type"] == "RUN_STARTED"]
+    if any(e["payload"].get("eid") == a.eid for e in started):
         raise SystemExit(f"experiment id {a.eid} was already used; pick a new one")
+    if m.get("max_experiments") is not None and len(started) >= m["max_experiments"]:
+        raise SystemExit(f"budget: all {m['max_experiments']} experiment runs are used; submit your answer")
     params = json.loads(a.params)
     runner = resolve_runner(m["runner"])
     ident = {"eid": a.eid, "hid": a.hid, "code_hash": _code_hash(m["runner"]), "data_ver": m["data_ver"], "seed": m["seed"]}
@@ -178,19 +215,28 @@ def cmd_run(ep: Episode, a) -> None:
     try:
         result = runner(m["task_id"], params, m["seed"])
         metrics = (result or {}).get("metrics", {})
-        status = "ok" if metrics.get(m["metric_name"]) is not None else "missing_metric"
+        value = metrics.get(m["metric_name"])
+        status = "ok" if _is_number(value) else ("missing_metric" if value is None else "non_finite_metric")
         record.update(status=status, metrics=metrics, raw=result)
     except Exception as exc:
         status, metrics = "error", {}
         record.update(status=status, metrics={}, error=f"{type(exc).__name__}: {exc}", traceback=traceback.format_exc(limit=5))
     record["wall_seconds"] = round(time.monotonic() - t0, 3)
     with open(os.path.join(ep.path, "run_records.jsonl"), "a", encoding="utf-8") as f:
-        f.write(json.dumps(record, default=str) + "\n")
+        f.write(json.dumps(_json_safe(record), default=str, allow_nan=False) + "\n")
     finished = {**ident, "status": status, "metrics": _numeric_metrics(metrics), "wall_seconds": record["wall_seconds"]}
     if record.get("error"):
         finished["error"] = record["error"]
-    ep.emit("RUN_FINISHED", finished, False, agent="harness", refs={"hid": a.hid, "eid": a.eid})
-    print(json.dumps({"eid": a.eid, "status": status, "metrics": metrics, "error": record.get("error")}, default=str))
+    refs = {"hid": a.hid, "eid": a.eid}
+    try:
+        ep.emit("RUN_FINISHED", finished, False, agent="harness", refs=refs)
+    except SystemExit as exc:
+        # RUN_STARTED is already in the ledger, so the run must still be closed.
+        status = "error"
+        ep.emit("RUN_FINISHED", {**ident, "status": status, "metrics": {}, "wall_seconds": record["wall_seconds"],
+                                 "error": f"result could not be recorded: {exc}"}, False, agent="harness", refs=refs)
+    print(json.dumps(_json_safe({"eid": a.eid, "status": status, "metrics": metrics, "error": record.get("error")}),
+                     default=str))
 
 
 def cmd_decide(ep: Episode, a) -> None:
@@ -207,6 +253,8 @@ def cmd_decide(ep: Episode, a) -> None:
 def cmd_answer(ep: Episode, a) -> None:
     if any(e["type"] == "RUN_COMPLETED" for e in ep.events()):
         raise SystemExit("final answer already submitted")
+    if _past_deadline(ep.manifest()):
+        raise SystemExit("budget: wall clock ran out; answers after the deadline are not accepted")
     with open(os.path.join(ep.path, "answer.json"), "w", encoding="utf-8") as f:
         json.dump({"candidate": a.candidate, "submitted_at": _now()}, f, indent=2)
     if a.report:
@@ -233,6 +281,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--model", help="model ID used by the agent")
     s.add_argument("--run-id")
     s.add_argument("--ledger", help="shared ledger database (default: <episode>/ledger.db)")
+    s.add_argument("--wall-clock-minutes", type=float, help="episode deadline, minutes from init")
+    s.add_argument("--max-experiments", type=int, help="maximum experiment runs")
 
     s = sub.add_parser("hypothesis")
     s.add_argument("--hid", required=True)
@@ -263,10 +313,27 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("answer")
     s.add_argument("--candidate", required=True)
     s.add_argument("--report", help="path to the final report markdown")
+
+    s = sub.add_parser("close", help="harness only: end an episode that has no final answer")
+    s.add_argument("--status", required=True, choices=["budget_exhausted", "aborted"])
+    s.add_argument("--summary", default="")
     return p
 
 
-COMMANDS = {"init": cmd_init, "hypothesis": cmd_hypothesis, "predict": cmd_predict, "run": cmd_run,
+def cmd_close(ep: Episode, a) -> None:
+    if any(e["type"] == "RUN_COMPLETED" for e in ep.events()):
+        print("episode already completed")
+        return
+    m = ep.manifest()
+    ep.emit("RUN_COMPLETED", {"status": a.status, "summary": a.summary or "no final answer submitted"}, False, agent="harness")
+    # report.py ends the timed window at RUN_COMPLETED; keep the cutoff in the manifest too.
+    m["budget_end_ts"] = m.get("deadline_ts") or _now()
+    with open(ep.manifest_path, "w", encoding="utf-8") as f:
+        json.dump(m, f, indent=2)
+    print(f"episode closed: {a.status}")
+
+
+COMMANDS = {"close": cmd_close, "init": cmd_init, "hypothesis": cmd_hypothesis, "predict": cmd_predict, "run": cmd_run,
             "decide": cmd_decide, "answer": cmd_answer}
 
 

@@ -1,7 +1,7 @@
 # Benchmark lane: status and interfaces
 
 - **Owner:** Akshat
-- **Branch:** task branches from `main` (latest: `bench/arm-a-ledger-append`)
+- **Branch:** task branches from `main` (latest: `bench/arm-a-launcher`)
 - **Status:** protocol draft v0.1, citation checker, report generator, oracle sweep and arm A tools ready; arm A writes through the shared ledger. The science question is not locked (see `BENCHMARK_TESS_GATE_REVIEW.md`), so the protocol and baseline prompt stay drafts. No matched A-vs-B benchmark has been run.
 
 ## Done
@@ -56,7 +56,25 @@ The open questions are listed in `bench/PROTOCOL.md` section 13. First review wh
 
 ### Baseline arm (for Akshat)
 
-Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/arm_a.py` writes through `core/ledger.py`. Still to do: a launcher compatible with the Omnigent run setup.
+Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/arm_a.py` writes through `core/ledger.py`.
+
+**Launcher (`bench/launch_arm_a.py`, 2026-10-04):**
+- Fills `bench/baseline_prompt.md` from a spec file and refuses to start if any placeholder has no value.
+- Runs `arm_a.py init` with the budget written into the manifest. `arm_a.py` then refuses runs beyond `max_experiments`, refuses runs or answers after the deadline, and refuses anything after the episode is closed.
+- Writes a one-agent Omnigent config using only fields verified in `OMNIGENT_SMOKE_TEST.md` (`spec_version: 1`, `claude-sdk`, `caller_process`, prompt), with no sub-agents and no policy gates.
+- Runs the agent in its own process group with a hard timeout at the wall-clock budget plus 30 s grace, and stops the whole group on timeout.
+- Closes an episode without an answer as `budget_exhausted` (deadline) or `aborted` (agent exited early), so it stays in every denominator.
+- Writes `prompt.md`, `omni_agent/config.yaml`, `agent_stdout.log`, `agent_stderr.log` and `launcher.json` into the episode folder.
+
+**Headless command** (confirmed by Saksham, Omnigent 0.16.0, 2026-10-04): `omni run <agent_dir> --no-session -p "<filled prompt>" </dev/null`. This is the launcher's default:
+- `--no-session` gives each episode a fresh temporary store, so episodes stay independent.
+- The final answer goes to stdout (`agent_stdout.log`), and omni exits 0 on its own.
+- The launcher always closes stdin.
+- The filled prompt goes in via `-p`. The config's own `prompt:` is a short role line, so the task text is not sent twice (that would inflate arm A's token cost).
+- The baseline config has no `ASK` policies: a headless run cannot answer an approval prompt and would die.
+- Run `omni setup` once per machine first; the `claude-sdk` harness needs a Claude credential.
+
+**Not verified here:** a real `omni run` of a generated config. `omni` is not installed in the environment this was built in. The first real episode on a machine with `omni setup` done is the check.
 
 `bench/baseline_prompt.md` was reviewed independently by Hari (2026-10-04): balanced for a solo arm, no oracle hints, question/budget/tools/scoring laid out fairly. **Not freeze-ready:** it still assumes an OpenML task and a single candidate recommendation, so it stays a draft until the science question is locked and the prompt is adapted to it.
 
@@ -68,5 +86,5 @@ Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/ar
 
 1. ~~Prior-art and value review~~ done for Adult, Kepler and TESS (`BENCHMARK_REVIEW_EXOPLANET.md`, `BENCHMARK_TESS_GATE_REVIEW.md`); waiting on Hari's TESS cross-match and Referee search.
 2. With Hari, lock the question and protocol TBDs, including the bottleneck/denominator, candidate tests, budgets, primary metric, seeds and stopping rule.
-3. ~~Migrate Arm A to `Ledger.append`~~ done; ~~independent prompt review~~ done (Hari). Still to do: the single-agent launcher, and adapting the prompt to the locked question.
+3. ~~Migrate Arm A to `Ledger.append`~~ done; ~~independent prompt review~~ done (Hari). ~~Single-agent launcher~~ done (`bench/launch_arm_a.py`), pending one real `omni run` check. Still to do: adapting the prompt to the locked question.
 4. Validate the full OpenML runner before writing/running an oracle sweep. Then complete the matched comparison, uncertainty/cost analysis, citation/novelty checks, and next-experiment write-up.

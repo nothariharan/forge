@@ -148,3 +148,40 @@ def test_shared_ledger_holds_several_episodes(tmp_path, monkeypatch):
         arm_a.main(["--episode", str(tmp_path / "other"), "init", "--seed", "1", "--question", "Q", "--metric", "auc",
                     "--runner", "stub_mod:run", "--task-id", "1", "--data-ver", "v1", "--run-id", "A-1",
                     "--ledger", str(shared)])
+
+
+@pytest.fixture
+def nan_episode(tmp_path, monkeypatch):
+    (tmp_path / "nan_mod.py").write_text(
+        "def run(t, p, s):\n"
+        "    return {'metrics': {'auc': float(p.get('auc', 'nan')), 'aux': float('inf'), 'folds': [0.8, float('nan')]}}\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    ep = tmp_path / "ep"
+    arm_a.main(["--episode", str(ep), "init", "--seed", "1", "--question", "Q", "--metric", "auc",
+                "--runner", "nan_mod:run", "--task-id", "1", "--data-ver", "v1", "--run-id", "A-nan"])
+    return ep
+
+
+def test_non_finite_metrics_still_close_the_run(nan_episode):
+    ep = nan_episode
+    arm_a.main(["--episode", str(ep), "run", "--eid", "E1", "--hid", "H1", "--candidate", "x", "--params", "{}"])
+    arm_a.main(["--episode", str(ep), "predict", "--eid", "E2", "--hid", "H1", "--mean", "0.8", "--sd", "0.01", "--falsifier", "f"])
+    arm_a.main(["--episode", str(ep), "run", "--eid", "E2", "--hid", "H1", "--candidate", "y", "--params", '{"auc": 0.8}'])
+    finished = [e["payload"] for e in _events(ep) if e["type"] == "RUN_FINISHED"]
+    assert [p["status"] for p in finished] == ["non_finite_metric", "ok"]
+    assert finished[0]["metrics"] == {} and finished[1]["metrics"] == {"auc": 0.8}  # inf and NaN dropped
+    records = [json.loads(l) for l in open(ep / "run_records.jsonl")]  # strict JSON, values kept as text
+    assert records[0]["metrics"] == {"auc": "nan", "aux": "inf", "folds": [0.8, "nan"]}
+    assert Ledger(ep / "ledger.db").verify("A-nan") == (True, None)
+    m = report.episode_metrics(str(ep), None)
+    assert m["attempts"] == 2 and m["valid_experiments"] == 1
+
+
+def test_run_is_closed_even_if_the_result_event_is_rejected(nan_episode, monkeypatch):
+    monkeypatch.setattr(arm_a, "_numeric_metrics", lambda metrics: {"auc": float("nan")})  # force a ledger rejection
+    arm_a.main(["--episode", str(nan_episode), "run", "--eid", "E1", "--hid", "H1", "--candidate", "x", "--params", "{}"])
+    types = [e["type"] for e in _events(nan_episode)]
+    assert types == ["RUN_CREATED", "RUN_STARTED", "RUN_FINISHED"]
+    finished = _events(nan_episode)[-1]["payload"]
+    assert finished["status"] == "error" and "could not be recorded" in finished["error"]
