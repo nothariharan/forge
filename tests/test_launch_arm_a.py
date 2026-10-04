@@ -147,6 +147,12 @@ def test_timeout_stops_processes_the_agent_started(spec, tmp_path, monkeypatch):
 
 def _running(pid: int) -> bool:
     """True if the process exists and is not a zombie (killed but not yet reaped by init)."""
+    if os.name == "nt":
+        try:
+            os.kill(pid, 0)
+            return True
+        except (ProcessLookupError, PermissionError, OSError):
+            return False
     try:
         with open(f"/proc/{pid}/status") as f:
             state = next(line for line in f if line.startswith("State:"))
@@ -160,7 +166,7 @@ def test_paths_with_spaces(spec, tmp_path):
     spaced.mkdir()
     cmd = fake_agent(spaced, 'call("answer", "--candidate", "x")\n')
     rec = launcher.launch(spec, 1, str(spaced / "A" / "seed 1"), run_id="A-1", agent_cmd=cmd)
-    assert rec["outcome"] == "completed" and rec["agent_dir"].endswith("seed 1/omni_agent")
+    assert rec["outcome"] == "completed" and rec["agent_dir"].endswith(os.path.join("seed 1", "omni_agent"))
 
 
 def test_agent_gets_the_filled_prompt_and_a_closed_stdin(spec, tmp_path):

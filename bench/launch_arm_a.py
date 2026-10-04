@@ -126,6 +126,21 @@ def agent_config(prompt: str, name: str) -> str:
 
 
 def _stop_group(proc: subprocess.Popen) -> None:
+    if os.name == "nt":
+        # Windows has no killpg/SIGKILL. taskkill /T terminates the launcher
+        # and its descendants, including Omnigent harness processes.
+        subprocess.run(
+            ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        return
     for sig, wait in ((signal.SIGTERM, 5), (signal.SIGKILL, 5)):
         try:
             os.killpg(proc.pid, sig)
@@ -182,7 +197,8 @@ def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None
         # Own process group, so a timeout also stops the harness processes the agent command starts.
         proc = subprocess.Popen(cmd, cwd=REPO_ROOT, env=env, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                text=True, start_new_session=True)
+                                text=True, start_new_session=(os.name != "nt"),
+                                creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0))
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
             record.update(returncode=proc.returncode, timed_out=False)
