@@ -38,3 +38,19 @@ Show Omnigent as the underlying runtime: identify the active harnesses, show spe
 5. Open the Runtime detail to show Omnigent handoffs and policy enforcement, then return to the research view.
 
 Avoid claiming scientific discovery or benchmark superiority from the UI. Those claims must come from the locked protocol and reproducible artifacts.
+
+## Lab Floor (implemented, v0)
+
+Static page, no build step. Read-only: it folds ledger events into the view and never keeps its own run state.
+
+```bash
+python3 -m http.server 8765        # from the repo root
+# open http://localhost:8765/ui/                       replays ui/fixtures/exo-demo.jsonl
+#      http://localhost:8765/ui/?src=../schemas/examples/sample-run.jsonl
+#      http://localhost:8765/ui/?at=16                 jump to event 16, paused
+#      http://localhost:8765/ui/?sse=<url>             live: EventSource, one event JSON per message (for Ish's SSE server)
+```
+
+- `ui/fixtures/make_exo_demo.py` writes the astronomy DEMO run (27 events) through the real `Ledger.append`, so it is schema-valid and hash-chained. Every payload has `"demo": true`; the question is marked not locked; ids, numbers and citations are placeholders; statuses stay distinct and no planet precision is shown.
+- Views: Lab Floor (rooms, mascots, approval card, event log, overview), Experiments (planner candidates, EIG/cost, preregistration check, runs, denials), Hypotheses, Literature, Ledger (hash-link check), Benchmarks (honest "no result yet"), Runtime (Omnigent harnesses and policy status).
+- The approval buttons are disabled: in replay the recorded decision follows, and in live mode approval happens in the Omnigent session (P6).

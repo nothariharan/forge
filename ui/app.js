@@ -1,0 +1,384 @@
+// FORGE lab UI. Read-only consumer of ledger events (schemas/event.schema.json).
+// Sources:  ?src=<path to exported .jsonl>   (default fixtures/exo-demo.jsonl, replayed)
+//           ?sse=<url>                         (live EventSource; each message is one event JSON)
+// All state below is derived by folding events; nothing is stored outside the event list.
+
+const AGENTS = {
+  librarian:    { label: "Librarian",    color: "#f28c38", home: "library",    acc: "flower" },
+  referee:      { label: "Referee",      color: "#4a90e2", home: "library",    acc: "cap" },
+  hypothesizer: { label: "Hypothesizer", color: "#9b6cf0", home: "whiteboard", acc: "" },
+  planner:      { label: "Planner",      color: "#f27bb4", home: "whiteboard", acc: "bow" },
+  experimenter: { label: "Experimenter", color: "#8ccf3f", home: "compute",    acc: "" },
+  analyst:      { label: "Analyst",      color: "#f2c43a", home: "meeting",    acc: "glasses" },
+  safety:       { label: "Safety",       color: "#ef5b4f", home: "safety",     acc: "" },
+};
+const SYSTEM_COLOR = "#8a8378";
+
+// Room anchor points in % of the floor (x, y). Index picks a slot so mascots don't overlap.
+const ROOMS = {
+  library:    [[14, 26], [24, 30]],
+  whiteboard: [[44, 26], [56, 30]],
+  compute:    [[78, 28], [88, 30]],
+  safety:     [[15, 84], [24, 86]],
+  meeting:    [[42, 84], [50, 87], [58, 84], [46, 92]],
+  pi:         [[80, 84]],
+  corridor:   [[30, 50], [50, 50], [70, 50]],
+};
+
+// Where an agent goes for each event type (defaults to its home room).
+const MOVE = {
+  NOVELTY_VERDICT: "library", EXPERIMENT_SELECTED: "whiteboard", PREDICTION_COMMITTED: "whiteboard",
+  RUN_STARTED: "compute", RUN_FINISHED: "compute", FINDING: "meeting", SURPRISE: "meeting",
+  REPLAN: "meeting", CONSENSUS: "meeting", POLICY_DENIED: "safety", GATE_OPENED: "pi",
+};
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const hhmmss = (ts) => (ts || "").slice(11, 19);
+const agentOf = (name) => AGENTS[name] || { label: name[0].toUpperCase() + name.slice(1), color: SYSTEM_COLOR };
+
+let events = [];
+let pos = 0;           // number of events applied
+let timer = null;
+let live = false;
+
+// ---------- one-line summaries ----------
+function summary(e) {
+  const p = e.payload || {};
+  switch (e.type) {
+    case "RUN_CREATED": return `Run created: ${p.question}`;
+    case "EVIDENCE_ADDED": return `Evidence: ${(p.claims || []).map((c) => c.ref).join(", ")}`;
+    case "HYPOTHESIS_PROPOSED": return `Created ${p.hid}: "${p.claim}"`;
+    case "NOVELTY_VERDICT": return `${p.hid} novelty: ${p.label}`;
+    case "PREDICTION_COMMITTED": return `Prediction committed for ${p.eid || p.hid}: ${p.metric} ~ ${p.mean} ± ${p.sd}`;
+    case "EXPERIMENT_SELECTED": return `Selected ${p.chosen} (budget left ${p.budget_left ?? "?"})`;
+    case "RUN_STARTED": return `Running ${p.eid}…`;
+    case "RUN_FINISHED": return `${p.eid} ${p.status}: ${Object.entries(p.metrics || {}).map(([k, v]) => `${k}=${v}`).join(", ")}`;
+    case "FINDING": return `${p.eid} effect ${p.effect} [${(p.ci || []).join(", ")}] ${p.verdict}`;
+    case "CONSENSUS": return `${p.eid} consensus ${p.agreement} (${p.accepted ? "accepted" : "rejected"})`;
+    case "SURPRISE": return `Surprise ${p.surprise_score} > ${p.threshold} on ${p.eid}`;
+    case "REPLAN": return `Replan: ${p.reason}`;
+    case "POLICY_DENIED": return `${p.policy_id} denied ${p.target_agent}: ${p.reason}`;
+    case "GATE_OPENED": return `Approval requested: ${p.action}`;
+    case "GATE_RESOLVED": return `${p.gate_id} ${p.status}: ${p.action}`;
+    case "RUN_COMPLETED": return `Run ${p.status}. ${p.summary || ""}`;
+    case "ERROR": return `Error: ${p.message}`;
+    default: return e.type;
+  }
+}
+function bubbleText(e) {
+  const p = e.payload || {};
+  switch (e.type) {
+    case "EVIDENCE_ADDED": return ["Searching literature…", (p.claims || [])[0]?.ref];
+    case "HYPOTHESIS_PROPOSED": return [p.hid, "New hypothesis"];
+    case "NOVELTY_VERDICT": return [p.hid, `Novelty: ${p.label}`];
+    case "PREDICTION_COMMITTED": return [p.eid || p.hid, "Prediction committed"];
+    case "EXPERIMENT_SELECTED": return [p.chosen, "Selected experiment"];
+    case "RUN_STARTED": return [p.eid, "Running experiment…"];
+    case "RUN_FINISHED": return [p.eid, "Results ready"];
+    case "FINDING": return [p.eid, p.verdict];
+    case "REPLAN": return ["Replan", `Reopened ${(p.reopened || []).join(", ")}`];
+    case "CONSENSUS": return [p.eid, `Agreement ${p.agreement}`];
+    case "POLICY_DENIED": return [`${p.policy_id} denied`, p.target_agent];
+    case "GATE_OPENED": return ["Agent knock", p.action];
+    default: return null;
+  }
+}
+
+// ---------- fold events into state ----------
+function fold(list) {
+  const s = {
+    run: null, done: null, budget: null, budgetLeft: null, dataVer: null,
+    hyps: {}, hypOrder: [], novelty: {}, preds: {}, selections: [], runs: {}, findings: {}, surprises: [],
+    replans: [], claims: [], denials: [], gates: {}, errors: [],
+    agents: {}, lastByAgent: {}, place: {},
+  };
+  for (const e of list) {
+    const p = e.payload || {};
+    s.lastByAgent[e.agent] = e;
+    if (AGENTS[e.agent]) s.place[e.agent] = MOVE[e.type] || AGENTS[e.agent].home;
+    if (e.type === "GATE_RESOLVED") s.place.safety = "safety";
+    if (e.type === "RUN_COMPLETED") Object.keys(AGENTS).forEach((n) => { s.place[n] = "meeting"; });
+    switch (e.type) {
+      case "RUN_CREATED": s.run = e; s.budget = p.budget ?? null; break;
+      case "EVIDENCE_ADDED": (p.claims || []).forEach((c) => s.claims.push({ ...c, seq: e.seq })); break;
+      case "HYPOTHESIS_PROPOSED": if (!s.hyps[p.hid]) s.hypOrder.push(p.hid); s.hyps[p.hid] = p; break;
+      case "NOVELTY_VERDICT": s.novelty[p.hid] = p; break;
+      case "PREDICTION_COMMITTED": s.preds[p.eid || p.hid] = { ...p, seq: e.seq }; break;
+      case "EXPERIMENT_SELECTED": s.selections.push({ ...p, seq: e.seq }); s.budgetLeft = p.budget_left ?? s.budgetLeft; break;
+      case "RUN_STARTED": s.runs[p.eid] = { ...p, state: "running", startSeq: e.seq }; s.dataVer = p.data_ver; break;
+      case "RUN_FINISHED": s.runs[p.eid] = { ...(s.runs[p.eid] || {}), ...p, state: p.status === "ok" ? "done" : "failed" }; break;
+      case "FINDING": s.findings[p.eid] = p; break;
+      case "SURPRISE": s.surprises.push(p); break;
+      case "REPLAN": s.replans.push(p); break;
+      case "POLICY_DENIED": s.denials.push({ ...p, seq: e.seq }); break;
+      case "GATE_OPENED": case "GATE_RESOLVED": s.gates[p.gate_id] = { ...p, seq: e.seq }; break;
+      case "RUN_COMPLETED": s.done = e; break;
+      case "ERROR": s.errors.push(e); break;
+    }
+  }
+  return s;
+}
+
+function hypStatus(s, hid) {
+  const eids = Object.values(s.runs).filter((r) => r.hid === hid).map((r) => r.eid);
+  const f = eids.map((id) => s.findings[id]).filter(Boolean).pop();
+  if (f) return f.verdict;
+  if (eids.some((id) => s.runs[id].state === "running")) return "TESTING";
+  if (s.replans.some((r) => (r.reopened || []).includes(hid))) return "REOPENED";
+  return "PROPOSED";
+}
+const VERDICT_BADGE = { SUPPORTS: "ok", REFUTES: "bad", INCONCLUSIVE: "warn", TESTING: "info", REOPENED: "info", PROPOSED: "grey",
+  NOVEL: "ok", KNOWN: "warn", CONTRADICTED: "bad", UNCERTAIN: "grey" };
+const badge = (t) => `<span class="badge ${VERDICT_BADGE[t] || "grey"}">${esc(t)}</span>`;
+
+// ---------- mascots ----------
+function mascotSVG(name) {
+  const a = agentOf(name);
+  const acc = {
+    flower: `<circle cx="36" cy="8" r="5" fill="#fff"/><circle cx="36" cy="8" r="2.4" fill="#f6c343"/>`,
+    cap: `<path d="M10 16c2-10 30-10 32 0z" fill="#2f6fbf"/><rect x="26" y="13" width="18" height="4" rx="2" fill="#2f6fbf"/>`,
+    bow: `<path d="M32 6l8-4v10zM32 6l-8-4v10z" fill="#e2468f"/><circle cx="32" cy="7" r="2.5" fill="#e2468f"/>`,
+    glasses: `<circle cx="20" cy="26" r="6" fill="none" stroke="#3a2f20" stroke-width="2"/><circle cx="34" cy="26" r="6" fill="none" stroke="#3a2f20" stroke-width="2"/><path d="M26 26h2" stroke="#3a2f20" stroke-width="2"/>`,
+  }[a.acc] || "";
+  return `<svg viewBox="0 0 54 54" aria-hidden="true">
+    <ellipse cx="27" cy="50" rx="15" ry="3.5" fill="rgba(60,40,20,.15)"/>
+    <path d="M27 6c13 0 21 9 21 22 0 12-8 19-21 19S6 40 6 28C6 15 14 6 27 6z" fill="${a.color}"/>
+    <path d="M14 18c3-6 9-8 14-8" stroke="rgba(255,255,255,.55)" stroke-width="3" stroke-linecap="round" fill="none"/>
+    <ellipse cx="20" cy="26" rx="2.6" ry="3.4" fill="#2b2118"/><ellipse cx="34" cy="26" rx="2.6" ry="3.4" fill="#2b2118"/>
+    <circle cx="15" cy="32" r="2.6" fill="rgba(255,120,120,.45)"/><circle cx="39" cy="32" r="2.6" fill="rgba(255,120,120,.45)"/>
+    <path d="M23 33q4 4 8 0" stroke="#2b2118" stroke-width="2" fill="none" stroke-linecap="round"/>${acc}
+  </svg>`;
+}
+function buildMascots() {
+  const box = $("#mascots");
+  box.innerHTML = Object.keys(AGENTS).map((n) =>
+    `<div class="mascot" id="m-${n}" style="left:50%;top:50%">${mascotSVG(n)}<span class="tag">${AGENTS[n].label}</span></div>`).join("");
+}
+function placeMascots(s, current) {
+  const used = {};
+  for (const n of Object.keys(AGENTS)) {
+    const room = s.place[n] || AGENTS[n].home;
+    const slots = ROOMS[room];
+    const i = (used[room] = (used[room] ?? -1) + 1) % slots.length;
+    const [x, y] = slots[i];
+    const el = $(`#m-${n}`);
+    el.style.left = `${x}%`; el.style.top = `${y}%`;
+    el.classList.toggle("active", current && current.agent === n);
+  }
+}
+function renderAlerts(s, current) {
+  const out = [];
+  if (current) {
+    const bt = bubbleText(current);
+    const el = $(`#m-${current.agent}`);
+    if (bt && el) out.push(`<div class="bubble" style="left:${el.style.left};top:${el.style.top}"><b>${esc(bt[0])}</b>${esc(bt[1] || "")}</div>`);
+  }
+  const pending = Object.values(s.gates).filter((g) => g.status === "pending").pop();
+  if (pending) {
+    out.push(`<div class="alert danger" style="left:3%;top:73%"><b>⚠ Requires human approval</b>Action: ${esc(pending.action)}<br>Policy: ${esc(pending.policy || "P6")} · risk ${esc(pending.risk)}</div>`);
+    out.push(`<div class="alert" style="left:69%;top:63%"><b>Agent knock</b>${esc(pending.action)} needs your approval.
+      <div class="btns"><button class="approve" disabled>Approve</button><button class="reject" disabled>Reject</button></div>
+      <div class="note">${live ? "Approve in the Omnigent session (P6 card)." : "Replay: the recorded decision follows."}</div></div>`);
+  }
+  const lastDenial = current && current.type === "POLICY_DENIED" ? current.payload : null;
+  if (lastDenial) out.push(`<div class="alert danger" style="left:3%;top:73%"><b>${esc(lastDenial.policy_id)} denied</b>${esc(lastDenial.reason)}</div>`);
+  if (current && current.type === "SURPRISE") out.push(`<div class="alert danger" style="left:36%;top:73%"><b>⚠ Surprising result!</b>score ${current.payload.surprise_score} &gt; ${current.payload.threshold}. Replanning…</div>`);
+  $("#alerts").innerHTML = out.join("");
+}
+
+// ---------- panels ----------
+function renderTop(s) {
+  const running = s.run && !s.done;
+  $("#status-dot").className = "dot " + (running ? "running" : s.done ? "done" : "");
+  $("#status-text").textContent = !s.run ? "Waiting" : running ? "Running" : `Run ${s.done.payload.status}`;
+  const nExp = Object.keys(s.runs).length;
+  $("#context").textContent = s.run ? `${s.run.run_id} · ${nExp} experiment${nExp === 1 ? "" : "s"}` : "";
+  const last = events[pos - 1];
+  $("#clock").textContent = last ? hhmmss(last.ts) : "--:--";
+  const demo = s.run && (s.run.payload.mode === "demo" || s.run.payload.mode === "fake" || s.run.payload.demo);
+  $("#demo-badge").hidden = !demo;
+}
+function renderRun(s) {
+  if (!s.run) { $("#run").innerHTML = `<p class="muted">No run yet.</p>`; return; }
+  const sel = s.selections[s.selections.length - 1];
+  const chosen = sel && (sel.candidates || []).find((c) => c.eid === sel.chosen);
+  const hid = (chosen && chosen.hid) || s.hypOrder[s.hypOrder.length - 1];
+  const h = s.hyps[hid];
+  const runList = Object.values(s.runs);
+  const r = runList[runList.length - 1];
+  const p = s.run.payload;
+  $("#run").innerHTML = `
+    <div class="run-head">⚗ ${esc(hid || "No hypothesis")} ${hid ? badge(hypStatus(s, hid)) : ""}</div>
+    <div class="run-q">${esc(h ? h.claim : p.question)}</div>
+    <dl class="kv">
+      <dt>Experiment</dt><dd>${r ? `${esc(r.eid)} ${badge(r.state === "running" ? "TESTING" : r.state === "done" ? "done" : r.state)}` : "none"}</dd>
+      <dt>Dataset</dt><dd>${esc(p.dataset || s.dataVer || "n/a")}</dd>
+      <dt>Budget</dt><dd>${s.budgetLeft != null ? `${s.budgetLeft} left of ${s.budget}` : s.budget ?? "n/a"}</dd>
+      <dt>Approvals</dt><dd>${Object.values(s.gates).map((g) => `${esc(g.gate_id)} ${badge(g.status)}`).join(" ") || "none"}</dd>
+      ${p.cohorts ? `<dt>Cohorts</dt><dd>resolved: ${esc(p.cohorts.resolved.join(" + "))}<br>unresolved: ${esc(p.cohorts.unresolved.join(", "))}<br>excluded: ${esc((p.cohorts.excluded || []).join(", "))}</dd>` : ""}
+    </dl>
+    <div class="note-box"><b>Question</b><br>${esc(p.question)}</div>`;
+}
+function renderAgents(s) {
+  $("#agents").innerHTML = Object.keys(AGENTS).map((n) => {
+    const e = s.lastByAgent[n];
+    return `<div class="agent-row"><i style="background:${AGENTS[n].color}"></i><span>${AGENTS[n].label}</span><span title="${esc(e ? summary(e) : "")}">${esc(e ? summary(e) : "Idle")}</span></div>`;
+  }).join("");
+}
+function renderRecent() {
+  const last = events.slice(0, pos).slice(-6).reverse();
+  $("#recent").innerHTML = last.map((e) => `<div class="ev"><i style="background:${agentOf(e.agent).color}"></i><span class="mono muted">${hhmmss(e.ts)}</span><span>${esc(e.type.replace(/_/g, " ").toLowerCase())}<small>${esc(summary(e)).slice(0, 90)}</small></span></div>`).join("") || `<p class="muted">Nothing yet.</p>`;
+}
+function renderLog() {
+  const box = $("#log");
+  box.innerHTML = events.slice(0, pos).map((e) => {
+    const a = agentOf(e.agent);
+    return `<div><span class="t">${hhmmss(e.ts)}</span><span style="color:${a.color}">[${esc(a.label)}]</span><span>${esc(summary(e))}</span></div>`;
+  }).join("");
+  box.scrollTop = box.scrollHeight;
+}
+function renderMinimap(s) {
+  const order = ["library", "whiteboard", "compute", "safety", "meeting", "pi"];
+  $("#minimap").innerHTML = order.map((room) =>
+    `<div title="${room}">${Object.keys(AGENTS).filter((n) => (s.place[n] || AGENTS[n].home) === room).map((n) => `<i style="background:${AGENTS[n].color}" title="${AGENTS[n].label}"></i>`).join("")}</div>`).join("");
+}
+
+// ---------- pages ----------
+function renderPages(s) {
+  $("#hyp").innerHTML = s.hypOrder.length ? `<table><tr><th>ID</th><th>Claim</th><th>Prediction</th><th>Falsifier</th><th>Prior</th><th>Novelty</th><th>Status</th></tr>${
+    s.hypOrder.map((id) => { const h = s.hyps[id]; const n = s.novelty[id];
+      return `<tr><td class="mono">${esc(id)}</td><td>${esc(h.claim)} <span class="badge grey">AI-generated</span></td><td>${esc(h.prediction)}</td><td>${esc(h.falsifier)}</td><td>${esc(h.prior)}</td><td>${n ? badge(n.label) : "–"}</td><td>${badge(hypStatus(s, id))}</td></tr>`; }).join("")}</table>` : `<p class="muted">No hypotheses yet.</p>`;
+
+  $("#exp").innerHTML = s.selections.map((sel) => `
+    <h3>Decision at seq ${sel.seq} · budget left ${esc(sel.budget_left)}</h3>
+    <table><tr><th>ID</th><th>Hypothesis</th><th>Design</th><th>EIG</th><th>Cost</th><th>EIG / cost</th><th>Status</th></tr>
+    ${(sel.candidates || []).map((c) => { const r = s.runs[c.eid]; const pre = s.preds[c.eid];
+      const status = c.eid === sel.chosen ? (r ? r.state : "selected") : "not chosen";
+      return `<tr class="${c.eid === sel.chosen ? "chosen" : ""}"><td class="mono">${esc(c.eid)}</td><td class="mono">${esc(c.hid)}</td><td>${esc(c.design)}</td><td>${esc(c.eig)}</td><td>${esc(c.est_cost)}</td><td>${c.eig && c.est_cost ? (c.eig / c.est_cost).toFixed(3) : "–"}</td><td>${esc(status)}${pre && r && pre.seq < r.startSeq ? ' <span class="badge ok">preregistered</span>' : ""}</td></tr>`; }).join("")}
+    </table>${sel.rationale ? `<div class="note-box">Planner: ${esc(sel.rationale)}</div>` : ""}`).join("")
+    + (Object.keys(s.runs).length ? `<h3>Runs</h3><table><tr><th>ID</th><th>Data</th><th>Seed</th><th>Code</th><th>Status</th><th>Metrics</th><th>Finding</th></tr>${Object.values(s.runs).map((r) => { const f = s.findings[r.eid];
+      return `<tr><td class="mono">${esc(r.eid)}</td><td>${esc(r.data_ver)}</td><td>${esc(r.seed)}</td><td class="mono">${esc(r.code_hash)}</td><td>${esc(r.status || r.state)}</td><td class="mono">${esc(Object.entries(r.metrics || {}).map(([k, v]) => `${k}=${v}`).join(" "))}</td><td>${f ? `${badge(f.verdict)} ${esc(f.effect)} [${esc((f.ci || []).join(", "))}]` : "–"}</td></tr>`; }).join("")}</table>` : "")
+    + s.denials.map((d) => `<div class="note-box bad"><b>${esc(d.policy_id)} denied ${esc(d.target_agent)}</b> · ${esc(d.reason)}</div>`).join("")
+    || `<p class="muted">No experiments selected yet.</p>`;
+
+  $("#lit").innerHTML = s.claims.length ? s.claims.map((c, i) => `<div class="note-box"><b>${i + 1}. ${esc(c.ref)}</b><br>${esc(c.text)}<br><span class="muted">“${esc(c.quote_span)}”</span></div>`).join("")
+    + `<div class="note-box">Citation resolution and quote support are checked by <code>tools/citation_check.py</code>; agent-reported verification is never trusted on its own.</div>`
+    + s.denials.filter((d) => d.policy_id === "P1").map((d) => `<div class="note-box bad"><b>P1 citation policy</b> · ${esc(d.reason)}</div>`).join("")
+    : `<p class="muted">No evidence yet.</p>`;
+
+  const shown = events.slice(0, pos);
+  const brokenAt = shown.findIndex((e, i) => i > 0 && e.prev_hash !== shown[i - 1].hash);
+  $("#led").innerHTML = `<div class="note-box ${brokenAt === -1 ? "ok" : "bad"}">${brokenAt === -1 ? `Hash links consistent for ${shown.length} events (prev_hash matches the previous hash).` : `Link broken at seq ${shown[brokenAt].seq}.`} Full recompute: <code>python -m cli.verify &lt;run_id&gt;</code></div>
+    <table><tr><th>seq</th><th>time</th><th>agent</th><th>type</th><th>AI</th><th>hash</th><th>prev</th></tr>${shown.map((e) => `<tr><td>${e.seq}</td><td class="mono">${hhmmss(e.ts)}</td><td>${esc(e.agent)}</td><td class="mono">${esc(e.type)}</td><td>${e.ai_generated ? "yes" : ""}</td><td class="mono">${esc((e.hash || "").slice(0, 10))}</td><td class="mono">${esc((e.prev_hash || "").slice(0, 10))}</td></tr>`).join("")}</table>`;
+
+  $("#bench").innerHTML = `<div class="note-box">No single-agent vs FORGE result yet. The benchmark protocol is unlocked until the science question is locked, so no speedup is claimed here.</div>
+    <p class="muted">When the matched comparison runs, this page will read the report written by <code>bench/report.py</code> from raw artifacts.</p>`;
+
+  $("#rt").innerHTML = `
+    <p>Omnigent composes and governs the agents; FORGE adds the research workflow and this ledger. Config: <code>omnigent/forge/</code> (Omnigent 0.16.0).</p>
+    <table><tr><th>Agent</th><th>Harness</th><th>Live in Omnigent?</th></tr>
+      <tr><td>Director</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
+      <tr><td>Librarian</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
+      <tr><td>Hypothesizer</td><td>codex</td><td><span class="badge ok">yes</span></td></tr>
+      <tr><td>Experimenter</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
+      <tr><td>Referee · Planner · Analyst · Safety</td><td>–</td><td><span class="badge warn">not yet (replay only)</span></td></tr>
+    </table>
+    <h3 style="margin-top:18px">Policies</h3>
+    <table><tr><th>Policy</th><th>Enforcement</th><th>Status</th></tr>
+      <tr><td>P2 dispatch budget</td><td>Omnigent CEL policy on sys_session_send</td><td><span class="badge ok">enforced · tested live</span></td></tr>
+      <tr><td>Handoff gate</td><td>tools/forge_emit.py + Omnigent tool_result/tool_call policies</td><td><span class="badge ok">enforced · tested live</span></td></tr>
+      <tr><td>P5 shell allowlist</td><td>Omnigent CEL policy on sys_os_shell</td><td><span class="badge ok">enforced · tested live</span></td></tr>
+      <tr><td>P6 human approval</td><td>Omnigent ASK on experimenter shell</td><td><span class="badge warn">written · UI card not yet confirmed</span></td></tr>
+      <tr><td>P1 citations</td><td>tools/citation_check.py</td><td><span class="badge grey">tool, not an Omnigent policy yet</span></td></tr>
+    </table>`;
+}
+
+
+// ---------- room furniture (decorative) ----------
+const plant = (x, y, k = 1) => `<g transform="translate(${x} ${y}) scale(${k})"><rect x="-9" y="6" width="18" height="16" rx="3" fill="#c98a5b"/><path d="M0 8C-14 0-16-14-4-18 0-10 0-4 0 8zM0 8C14 0 16-14 4-18 0-10 0-4 0 8zM0 8C-4-6 4-20 0-26 6-14 4-4 0 8z" fill="#5fae5a"/></g>`;
+const desk = (x, y, w = 70) => `<g transform="translate(${x} ${y})"><rect width="${w}" height="26" rx="4" fill="#c7996b"/><rect y="22" width="${w}" height="6" rx="2" fill="#a97c52"/></g>`;
+const monitor = (x, y) => `<g transform="translate(${x} ${y})"><rect width="30" height="20" rx="3" fill="#3d4654"/><rect x="3" y="3" width="24" height="14" rx="1" fill="#8fc3f0"/><rect x="12" y="20" width="6" height="5" fill="#3d4654"/></g>`;
+const FURNITURE = {
+  library: () => { const books = ["#e07a5f", "#3d85c6", "#f2cc8f", "#81b29a", "#9b6cf0", "#e2468f"];
+    let sh = `<rect x="200" y="46" width="88" height="96" rx="4" fill="#8b5e3c"/>`;
+    for (let r = 0; r < 3; r++) for (let i = 0; i < 9; i++) sh += `<rect x="${205 + i * 9}" y="${52 + r * 30}" width="7" height="24" rx="1" fill="${books[(i + r) % 6]}"/>`;
+    return sh + desk(60, 110, 90) + `<rect x="70" y="102" width="22" height="10" rx="2" fill="#f2cc8f"/><rect x="120" y="100" width="18" height="12" rx="2" fill="#e07a5f"/>` + plant(26, 118, 1.1) + plant(270, 138, .8); },
+  whiteboard: () => { let wb = `<rect x="150" y="40" width="130" height="78" rx="5" fill="#fbfbf8" stroke="#c9c2b6" stroke-width="3"/>`;
+    const notes = ["#f9e27d", "#f7a8c4", "#a8d8f0", "#b9e3a3"];
+    for (let i = 0; i < 8; i++) wb += `<rect x="${160 + (i % 4) * 29}" y="${50 + Math.floor(i / 4) * 30}" width="20" height="18" rx="2" fill="${notes[i % 4]}"/>`;
+    return wb + `<path d="M170 105l20-8 18 6 22-12 22 4" stroke="#e2574c" stroke-width="2" fill="none"/>` + plant(30, 120) + plant(270, 140, .8); },
+  compute: () => { let racks = "";
+    for (let i = 0; i < 3; i++) { racks += `<rect x="${206 + i * 28}" y="40" width="24" height="70" rx="3" fill="#4a5262"/>`;
+      for (let j = 0; j < 6; j++) racks += `<rect x="${210 + i * 28}" y="${46 + j * 10}" width="16" height="5" rx="1" fill="#2f3542"/><circle cx="${223 + i * 28}" cy="${48.5 + j * 10}" r="1.4" fill="${j % 2 ? "#7ee081" : "#f2c43a"}"/>`; }
+    return racks + desk(40, 112, 80) + monitor(50, 92) + monitor(86, 92) + desk(140, 120, 60) + monitor(155, 100) + plant(22, 122, .9); },
+  safety: () => desk(150, 104, 90) + monitor(175, 84) + `<path d="M248 50l22 38h-44z" fill="#f2c43a"/><rect x="246" y="62" width="4" height="14" fill="#3a2f20"/><circle cx="248" cy="81" r="2" fill="#3a2f20"/>` + plant(30, 120) + plant(274, 138, .8),
+  meeting: () => `<ellipse cx="150" cy="118" rx="80" ry="24" fill="#c7996b"/><ellipse cx="150" cy="114" rx="80" ry="24" fill="#d8ad80"/>`
+    + [90, 130, 170, 210].map((x) => `<rect x="${x - 8}" y="100" width="16" height="10" rx="2" fill="#fff" opacity=".9"/>`).join("")
+    + `<rect x="226" y="40" width="60" height="44" rx="4" fill="#fff" stroke="#c9c2b6" stroke-width="2"/><path d="M234 76l10-10 10 4 10-14 14 6" stroke="#3b82c4" stroke-width="2" fill="none"/>` + plant(28, 124),
+  pi: () => desk(150, 104, 100) + monitor(185, 84) + `<rect x="250" y="34" width="34" height="74" rx="3" fill="#b07d52"/><circle cx="278" cy="72" r="2.5" fill="#f2cc8f"/>` + plant(30, 122) + plant(140, 132, .8),
+};
+function buildFurniture() {
+  document.querySelectorAll(".room").forEach((room) => {
+    const f = FURNITURE[room.dataset.room];
+    if (f) room.querySelector(".props").innerHTML = `<svg viewBox="0 0 300 160" preserveAspectRatio="xMidYMid slice" style="inset:0;width:100%;height:100%">${f()}</svg>`;
+  });
+}
+
+// ---------- render + replay ----------
+function render() {
+  const s = fold(events.slice(0, pos));
+  const current = events[pos - 1];
+  renderTop(s); placeMascots(s, current); renderAlerts(s, current); renderRun(s);
+  renderAgents(s); renderRecent(); renderLog(); renderMinimap(s); renderPages(s);
+  $("#scrub").max = events.length; $("#scrub").value = pos; $("#pos").textContent = `${pos} / ${events.length}`;
+}
+function step() {
+  if (pos >= events.length) { stop(); return; }
+  pos += 1; render();
+}
+function play() {
+  if (pos >= events.length) pos = 0;
+  $("#play").textContent = "❚❚";
+  timer = setInterval(step, 2200 / Number($("#speed").value));
+}
+function stop() { clearInterval(timer); timer = null; $("#play").textContent = "▶"; }
+
+async function loadJsonl(src) {
+  const text = await (await fetch(src)).text();
+  return text.split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l)).sort((a, b) => a.seq - b.seq);
+}
+function connectSSE(url) {
+  live = true;
+  $("#source").textContent = `live: ${url}`;
+  const es = new EventSource(url);
+  es.onmessage = (m) => {
+    const e = JSON.parse(m.data);
+    if (events.some((x) => x.run_id === e.run_id && x.seq === e.seq)) return;
+    events.push(e); events.sort((a, b) => a.seq - b.seq);
+    if (pos === events.length - 1) pos = events.length;
+    render();
+  };
+}
+
+function initNav() {
+  document.querySelectorAll("#nav button").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("#nav button").forEach((x) => x.classList.toggle("active", x === b));
+    document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${b.dataset.view}`));
+  }));
+}
+
+(async function main() {
+  buildFurniture(); buildMascots(); initNav();
+  $("#play").addEventListener("click", () => (timer ? stop() : play()));
+  $("#speed").addEventListener("change", () => { if (timer) { stop(); play(); } });
+  $("#scrub").addEventListener("input", (e) => { stop(); pos = Number(e.target.value); render(); });
+  const q = new URLSearchParams(location.search);
+  if (q.get("sse")) { connectSSE(q.get("sse")); render(); return; }
+  const src = q.get("src") || "fixtures/exo-demo.jsonl";
+  $("#source").textContent = `replay: ${src}`;
+  try { events = await loadJsonl(src); } catch (err) { $("#status-text").textContent = `Could not load ${src}`; return; }
+  pos = q.has("at") ? Number(q.get("at")) : 0;
+  render();
+  if (!q.has("at")) play();
+})();
