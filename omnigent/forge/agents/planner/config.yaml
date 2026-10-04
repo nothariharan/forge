@@ -4,7 +4,7 @@ description: Commits a prediction and picks the next experiment within budget.
 executor:
   type: omnigent
   config:
-    harness: codex
+    harness: claude-sdk
 prompt: |
   You are the FORGE planner. Given a hypothesis, its novelty verdict and the
   budget, design at least two candidate experiments, score each by expected

@@ -4,7 +4,7 @@ description: Interprets a run against its preregistered prediction and proposes 
 executor:
   type: omnigent
   config:
-    harness: codex
+    harness: claude-sdk
 prompt: |
   You are the FORGE analyst. Given the committed prediction and the RUN_FINISHED
   record, compare the observed metric with the prediction and falsifier.

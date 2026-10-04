@@ -49,3 +49,7 @@ Continue with Omnigent? **Yes.** Multi-harness handoff and engine-enforced denia
 - The handoff gate caught a schema violation in a live run (`seed: '0-4'`) and the engine blocked the next dispatch (live-exo-7).
 - Full loop in live-exo-8: librarian → hypothesizer → referee → planner (PREDICTION_COMMITTED before RUN_STARTED) → safety gate → human approval in the lab UI → experimenter (real T1 script on the NASA archive) → analyst FINDING + REPLAN → RUN_COMPLETED.
 - P2 now caps 60 dispatches and 10 experiments per run; RUN_COMPLETED carries `candidate` for bench scoring.
+
+## Harness choice for the benchmark (2026-10-04, 16:00)
+
+All seven specialists and the director now run on `claude-sdk`. Earlier live runs (live-exo-3 to live-exo-8) used `codex` for the hypothesizer, planner and analyst; that showed Omnigent mixing harnesses, but it would confound the matched benchmark (arm A is a single claude-sdk agent; `bench/launch_arm_b.py` pins the same `ANTHROPIC_MODEL` for both arms) and codex is not installed on every teammate's machine. Raised by Ish.

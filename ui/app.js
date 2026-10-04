@@ -137,8 +137,8 @@ const VERDICT_BADGE = { SUPPORTS: "ok", REFUTES: "bad", INCONCLUSIVE: "warn", TE
 const badge = (t) => `<span class="badge ${VERDICT_BADGE[t] || "grey"}">${esc(t)}</span>`;
 
 // Harness each agent is configured with in omnigent/forge (config, not ledger data).
-const HARNESS = { director: "claude-sdk", librarian: "claude-sdk", hypothesizer: "codex", referee: "claude-sdk",
-  planner: "codex", safety: "claude-sdk", experimenter: "claude-sdk", analyst: "codex" };
+const HARNESS = { director: "claude-sdk", librarian: "claude-sdk", hypothesizer: "claude-sdk", referee: "claude-sdk",
+  planner: "claude-sdk", safety: "claude-sdk", experimenter: "claude-sdk", analyst: "claude-sdk" };
 let pinned = null;
 const clip = (t, n) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
 function showAgentCard(name, el) {
@@ -327,14 +327,14 @@ function renderPages(s) {
     <p class="muted">When the matched comparison runs, this page will read the report written by <code>bench/report.py</code> from raw artifacts.</p>`;
 
   $("#rt").innerHTML = `
-    <p>Omnigent composes and governs the agents; FORGE adds the research workflow and this ledger. Config: <code>omnigent/forge/</code> (Omnigent 0.16.0).</p>
+    <p>Omnigent composes and governs the agents; FORGE adds the research workflow and this ledger. Config: <code>omnigent/forge/</code> (Omnigent 0.16.0). Every agent runs on the claude-sdk harness so the benchmark's arm B uses the same model as the single-agent arm A (pinned with <code>ANTHROPIC_MODEL</code>).</p>
     <table><tr><th>Agent</th><th>Harness</th><th>Live in Omnigent?</th></tr>
       <tr><td>Director</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
       <tr><td>Librarian</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
-      <tr><td>Hypothesizer</td><td>codex</td><td><span class="badge ok">yes</span></td></tr>
+      <tr><td>Hypothesizer</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
       <tr><td>Experimenter</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
       <tr><td>Referee · Safety</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
-      <tr><td>Planner · Analyst</td><td>codex</td><td><span class="badge ok">yes</span></td></tr>
+      <tr><td>Planner · Analyst</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
     </table>
     <h3 style="margin-top:18px">Agent roster</h3>
     <p class="muted">Omnigent decides which sub-agents to summon. Any agent name that appears in the ledger gets a mascot: matched to one of these archetypes by name, or a generic dot if nothing matches.</p>
