@@ -450,7 +450,7 @@ function highlightLedger(seqs) {
   });
 }
 async function runTour() {
-  stop(); pos = 0; render(); showView("floor");
+  stop(); pos = 0; $("#speed").value = "1"; render(); showView("floor");   // tour always plays at 1x
   const ev = 2200;
   const idx = (type) => events.findIndex((e) => e.type === type) + 1;   // 1-based position
   caption("FORGE turns a research question into a reviewable experiment loop, built on Omnigent.");
