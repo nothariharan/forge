@@ -249,6 +249,10 @@ function renderTop(s) {
   $("#clock").textContent = last ? hhmmss(last.ts) : "--:--";
   const demo = s.run && (s.run.payload.mode === "demo" || s.run.payload.mode === "fake" || s.run.payload.demo);
   $("#demo-badge").hidden = !demo;
+  // A recorded real run played back from its exported ledger is labelled as a replay.
+  const replayOfLive = !live && s.run && s.run.payload.mode === "live";
+  $("#replay-badge").hidden = !replayOfLive;
+  if (replayOfLive) $("#replay-badge").textContent = `REPLAY of live Omnigent run ${s.run.run_id}`;
 }
 function renderRun(s) {
   if (!s.run) { $("#run").innerHTML = `<p class="muted">No run yet.</p>`; return; }
