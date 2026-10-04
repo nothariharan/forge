@@ -109,7 +109,8 @@ def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None
         record["note"] = "dry run: episode initialised; FORGE not started"
     else:
         env = {**os.environ, "FORGE_LEDGER_DB": ledger_path, "FORGE_EPISODE_DIR": os.path.abspath(episode_dir),
-               "FORGE_GATE_MODE": "auto"}  # no human in the matched benchmark; logged as harness approval
+               "FORGE_GATE_MODE": "auto",  # no human in the matched benchmark; logged as harness approval
+               **shared.model_env(model)}
         record.update(shared.run_agent(cmd, env, float(spec["wall_clock_minutes"]) * 60 + shared.GRACE_SECONDS,
                                        episode_dir))
         if not any(e["type"] == "RUN_COMPLETED" for e in ledger.read(run_id)):

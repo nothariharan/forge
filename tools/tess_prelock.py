@@ -89,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         "sensitivity_nonlinear_resolution": oracle["sensitivity_nonlinear_resolution"],
         "best": oracle["best"], "within_threshold": oracle["within_threshold"],
         "checks": checks(oracle),
+        "packages": tb.package_versions(),
         "next": "Record the sha256 and these checks in the bench/PROTOCOL_TESS.md change log, commit the spec pin, "
                 "then lock jointly if checks.lockable is true.",
     }
