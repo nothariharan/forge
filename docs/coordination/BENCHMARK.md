@@ -107,7 +107,13 @@ Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/ar
 - The baseline config has no `ASK` policies: a headless run cannot answer an approval prompt and would die.
 - Run `omni setup` once per machine first; the `claude-sdk` harness needs a Claude credential.
 
-**Not verified here:** a real `omni run` of a generated config. `omni` is not installed in the environment this was built in. The first real episode on a machine with `omni setup` done is the check.
+**Verified end to end by Ish (2026-10-04):** stub episode with real `omni`: completed in 32 s, 9 events, chain verifies, 2 valid experiments, 0 preregistration violations. Fixed after that run:
+- the agent's `final_report.md` landed in the repo root, so it is now moved into the episode;
+- `aborted` episodes now record why (`failure_reason`), because `omni` can exit 0 after an auth error.
+
+Setup gotchas are in `bench/README.md`.
+
+**Previously not verified here:** a real `omni run` of a generated config. `omni` is not installed in the environment this was built in. The first real episode on a machine with `omni setup` done is the check.
 
 `bench/baseline_prompt.md` was reviewed independently by Hari (2026-10-04): balanced for a solo arm, no oracle hints, question/budget/tools/scoring laid out fairly. **Not freeze-ready:** it still assumes an OpenML task and a single candidate recommendation, so it stays a draft until the science question is locked and the prompt is adapted to it.
 

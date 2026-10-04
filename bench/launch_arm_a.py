@@ -47,6 +47,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -187,6 +188,44 @@ def run_agent(cmd: list[str], env: dict, timeout: float, episode_dir: str) -> di
     return record
 
 
+TAIL_LINES = 15
+REASON_CHARS = 800
+
+
+def _tail(path: str, n: int = TAIL_LINES) -> str:
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return "".join(f.readlines()[-n:]).strip()
+    except FileNotFoundError:
+        return ""
+
+
+def failure_reason(record: dict, episode_dir: str) -> str:
+    """Why an episode ended without an answer. omni can exit 0 after the agent died (e.g. an auth
+    error), so the exit code alone is not enough; include the end of the agent's output."""
+    if record.get("timed_out"):
+        head = "agent was stopped at the wall-clock budget without submitting an answer"
+    elif record.get("returncode") == 0:
+        head = "agent exited with code 0 but submitted no answer"
+    else:
+        head = f"agent exited with code {record.get('returncode')} without submitting an answer"
+    tail = _tail(os.path.join(episode_dir, "agent_stderr.log")) or _tail(os.path.join(episode_dir, "agent_stdout.log"))
+    reason = f"{head}. Last output: {tail}" if tail else f"{head}. No output from the agent."
+    return reason[:REASON_CHARS]
+
+
+def collect_stray_report(episode_dir: str, since: float) -> Optional[str]:
+    """Move a final_report.md the agent wrote into the repo root during this episode into the episode."""
+    stray = os.path.join(REPO_ROOT, "final_report.md")
+    if not os.path.exists(stray) or os.path.getmtime(stray) < since:
+        return None
+    dest = os.path.join(episode_dir, "final_report.md")
+    if os.path.exists(dest):
+        dest = os.path.join(episode_dir, "final_report.stray.md")
+    shutil.move(stray, dest)
+    return os.path.relpath(dest, episode_dir)
+
+
 def _has_answer(ep: arm_a.Episode) -> bool:
     return any(e["type"] == "RUN_COMPLETED" for e in ep.events())
 
@@ -220,12 +259,16 @@ def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None
         record["note"] = "dry run: episode initialised and config written; agent not started"
     else:
         env = {**os.environ, "FORGE_EPISODE_DIR": os.path.abspath(episode_dir)}
+        started = time.time()
         record.update(run_agent(cmd, env, float(spec["wall_clock_minutes"]) * 60 + GRACE_SECONDS, episode_dir))
+        stray = collect_stray_report(episode_dir, started)
+        if stray:
+            record["stray_report_moved"] = stray
         if not _has_answer(ep):
             deadline_passed = record["timed_out"] or arm_a._past_deadline(ep.manifest())
             status = "budget_exhausted" if deadline_passed else "aborted"
-            arm_a.main(["--episode", episode_dir, "close", "--status", status,
-                        "--summary", f"agent ended without an answer (returncode={record['returncode']})"])
+            record["failure_reason"] = failure_reason(record, episode_dir)
+            arm_a.main(["--episode", episode_dir, "close", "--status", status, "--summary", record["failure_reason"]])
         record["outcome"] = next(e["payload"].get("status") for e in ep.events() if e["type"] == "RUN_COMPLETED")
 
     with open(os.path.join(episode_dir, "launcher.json"), "w", encoding="utf-8") as f:
