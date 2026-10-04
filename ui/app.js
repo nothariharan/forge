@@ -140,13 +140,14 @@ const badge = (t) => `<span class="badge ${VERDICT_BADGE[t] || "grey"}">${esc(t)
 const HARNESS = { director: "claude-sdk", librarian: "claude-sdk", hypothesizer: "codex", referee: "claude-sdk",
   planner: "codex", safety: "claude-sdk", experimenter: "claude-sdk", analyst: "codex" };
 let pinned = null;
+const clip = (t, n) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
 function showAgentCard(name, el) {
   const a = resolveAgent(name);
   const mine = events.slice(0, pos).filter((e) => e.agent === name || (name === "human" && e.type === "GATE_RESOLVED"));
   const last = mine[mine.length - 1];
   const card = $("#agent-card");
   card.innerHTML = `<div class="ac-head"><span class="ac-icon">${mascotSVG(name)}</span><div><b>${esc(a.label)}</b><small>${esc(a.role)}</small></div></div>
-    <dl class="kv"><dt>Doing</dt><dd>${esc(last ? summary(last) : name === "human" ? "Watching; approves P6 gates" : "Idle")}</dd>
+    <dl class="kv"><dt>Doing</dt><dd>${esc(clip(last ? summary(last) : name === "human" ? "Watching; approves P6 gates" : "Idle", 150))}</dd>
     ${HARNESS[name] ? `<dt>Harness</dt><dd>${HARNESS[name]} <span class="muted">(Omnigent)</span></dd>` : ""}
     <dt>Events</dt><dd>${mine.length}</dd></dl>
     ${mine.length ? `<div class="ac-recent">${mine.slice(-3).reverse().map((e) => `<div><span class="mono muted">#${e.seq}</span> ${esc(e.type)}</div>`).join("")}</div>` : ""}
