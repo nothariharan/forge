@@ -52,14 +52,29 @@ def _section(prompt: str, heading: str) -> str:
     return prompt[start:nxt if nxt != -1 else len(prompt)].strip()
 
 
-def task_message(spec: dict, run_id: str) -> str:
-    """FORGE's task: the arm A prompt's shared sections, verbatim, plus how to record the answer."""
+def run_section(spec: dict, seed: Optional[int]) -> str:
+    """How FORGE runs one experiment: the same runner arm A calls through `bench/arm_a.py run`."""
+    if not spec.get("runner_command"):
+        return ""
+    cmd = spec["runner_command"].replace("{SEED}", str(seed) if seed is not None else "<seed>")
+    return (
+        "### Running an experiment\n\n"
+        f"Each experiment is one run of this command (the experimenter runs it behind the P6 gate); the seed is fixed:\n\n"
+        f"    {cmd}\n\n"
+        "It prints JSON; its `metrics` object holds the metric. Label each experiment with the candidate id "
+        "`<model>_<estimator>_g<gamma>` and put it in the RUN_STARTED and RUN_FINISHED payloads as \"candidate\".\n\n"
+    )
+
+
+def task_message(spec: dict, run_id: str, seed: Optional[int] = None) -> str:
+    """FORGE's task: the arm A prompt's shared sections, verbatim, plus how to run an experiment and record the answer."""
     filled = shared.fill_prompt(spec)
     body = "\n\n".join(_section(filled, h) for h in SHARED_SECTIONS)
     return (
         f"Run id: {run_id}\n\n"
         "Investigate the research question below with the FORGE team and record every handoff in the ledger.\n\n"
         f"{body}\n\n"
+        f"{run_section(spec, seed)}"
         "### Final answer\n\n"
         "End the run by recording RUN_COMPLETED with "
         '{"status": "completed", "summary": "<one paragraph>", "candidate": "<id of the candidate you recommend>"}. '
@@ -78,7 +93,7 @@ def _past_deadline(manifest: dict) -> bool:
 def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None, model: Optional[str] = None,
            agent_cmd: str = DEFAULT_AGENT_CMD, dry_run: bool = False) -> dict:
     run_id = run_id or f"B-seed{seed}-{int(time.time())}"
-    prompt = task_message(spec, run_id)  # fails before anything is created if a placeholder is missing
+    prompt = task_message(spec, run_id, seed)  # fails before anything is created if a placeholder is missing
     if os.path.exists(os.path.join(episode_dir, "manifest.json")):
         raise SystemExit(f"episode already started at {episode_dir}")
     os.makedirs(episode_dir, exist_ok=True)

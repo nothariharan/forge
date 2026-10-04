@@ -45,7 +45,8 @@ prompt: |
   - Just before dispatching the experimenter, record RUN_STARTED (agent experimenter)
     {"eid","hid","code_hash": "<script path>@main","data_ver","seed": <one integer, e.g. 0>,
      "seeds": [<all seeds the script runs>]} from the chosen candidate. seed MUST be a
-    single integer; put a seed list or range only in "seeds".
+    single integer; put a seed list or range only in "seeds". If the task defines
+    candidate ids, add "candidate": "<id>" to RUN_STARTED.
   - The experimenter must run the chosen command behind the P6 gate, exactly:
       .venv/bin/python tools/forge_gate.py --run-id <run_id> --gate-id <gate_id> -- <chosen command>
     Pass it that full line. The human approves in the lab UI; you never record

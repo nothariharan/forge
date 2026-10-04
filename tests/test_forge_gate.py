@@ -81,3 +81,20 @@ def test_auto_mode_honours_an_existing_human_deny(tmp_path, monkeypatch):
     rc = forge_gate.main(["--run-id", "r", "--gate-id", "G1", "--db", str(tmp_path / "l.db"), "--timeout", "1",
                           "--", ".venv/bin/python", "tools/tess_resolution_shift.py"])
     assert rc == 3 and ran == []
+
+
+@pytest.mark.parametrize("flag", ["--oracle", "--oracle=out.json", "--fetch"])
+def test_runner_flags_that_leak_or_fetch_are_refused(tmp_path, flag):
+    _ledger(tmp_path)
+    rc = forge_gate.main(["--run-id", "r", "--gate-id", "G1", "--db", str(tmp_path / "l.db"), "--",
+                          ".venv/bin/python", "tools/tess_bias_run.py", flag])
+    assert rc == 5
+
+
+def test_benchmark_runner_is_allowed_behind_the_gate(tmp_path, monkeypatch):
+    _ledger(tmp_path)
+    monkeypatch.setenv("FORGE_GATE_MODE", "auto")
+    monkeypatch.setattr(forge_gate.subprocess, "run", lambda *a, **k: type("R", (), {"returncode": 0})())
+    rc = forge_gate.main(["--run-id", "r", "--gate-id", "G1", "--db", str(tmp_path / "l.db"), "--timeout", "2", "--",
+                          ".venv/bin/python", "tools/tess_bias_run.py", "--model", "lr", "--estimator", "iw", "--seed", "1"])
+    assert rc == 0
