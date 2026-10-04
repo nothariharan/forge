@@ -201,5 +201,6 @@ def test_arm_b_is_told_how_to_run_the_shared_runner():
     import launch_arm_b
     spec_ = json.load(open(run_lite_seed.DEFAULT_SPEC))
     msg = launch_arm_b.task_message(spec_, "B-1", seed=2)
-    assert "### Running an experiment" in msg
+    assert "### Running an experiment" in msg and "### How to run this episode" in msg
+    assert "skip the librarian and the referee" in msg  # no literature tool: no empty evidence packet
     assert ".venv/bin/python tools/tess_bias_run.py --model <lr|hgb> --estimator <naive|iw|iw_clip> --gamma <0|1|2> --seed 2" in msg

@@ -66,6 +66,19 @@ def run_section(spec: dict, seed: Optional[int]) -> str:
     )
 
 
+def loop_section(spec: dict) -> str:
+    """Benchmark mode: run the whole loop; without a literature tool, skip the evidence steps instead of
+    blocking on an empty evidence packet (the schema needs at least one sourced claim)."""
+    text = ("### How to run this episode\n\n"
+            "Run the full loop (planner, safety, experimenter, analyst, repeated) until the question is answered "
+            "or the budget runs out, then record RUN_COMPLETED. Nobody will reply during the episode.\n")
+    if str(spec.get("literature_tools", "")).lower().startswith("no literature tool"):
+        text += ("No literature tool is provided in this episode, so skip the librarian and the referee: record no "
+                 "EVIDENCE_ADDED or NOVELTY_VERDICT, give the hypothesizer the research question and task text "
+                 "above as its input, and tell the planner the novelty check was not run.\n")
+    return text + "\n"
+
+
 def task_message(spec: dict, run_id: str, seed: Optional[int] = None) -> str:
     """FORGE's task: the arm A prompt's shared sections, verbatim, plus how to run an experiment and record the answer."""
     filled = shared.fill_prompt(spec)
@@ -74,6 +87,7 @@ def task_message(spec: dict, run_id: str, seed: Optional[int] = None) -> str:
         f"Run id: {run_id}\n\n"
         "Investigate the research question below with the FORGE team and record every handoff in the ledger.\n\n"
         f"{body}\n\n"
+        f"{loop_section(spec)}"
         f"{run_section(spec, seed)}"
         "### Final answer\n\n"
         "End the run by recording RUN_COMPLETED with "
