@@ -21,6 +21,8 @@ event schema owner):
     PREDICTION_COMMITTED  payload.eid
     RUN_STARTED           payload.eid, payload.hid, payload.candidate (optional)
     RUN_FINISHED          payload.eid, payload.status ("ok" | ...), payload.metrics {name: value}
+                          (a run with only RUN_FINISHED still counts as an attempt; then hid and
+                          candidate are read from RUN_FINISHED and the prediction must precede it)
     HYPOTHESIS_PROPOSED   payload.hid
     REPLAN                payload.trigger_eid (the result that caused the replan)
     GATE_OPENED/RESOLVED  payload.gate_id
@@ -118,9 +120,13 @@ def episode_metrics(episode_dir: str, oracle: Optional[dict]) -> dict:
             committed.add(p["eid"])
         elif t == "RUN_STARTED" and p.get("eid"):
             started[p["eid"]] = p
-            prereg_ok[p["eid"]] = p["eid"] in committed
+            prereg_ok.setdefault(p["eid"], p["eid"] in committed)
         elif t == "RUN_FINISHED" and p.get("eid"):
             finished[p["eid"]] = p
+            # A producer that logs only RUN_FINISHED still has its run counted; the prediction must
+            # then precede the result instead of the start (whichever event comes first is used).
+            prereg_ok.setdefault(p["eid"], p["eid"] in committed)
+            started.setdefault(p["eid"], p)
         elif t == "HYPOTHESIS_PROPOSED" and p.get("hid"):
             hypotheses_proposed.add(p["hid"])
         elif t == "REPLAN" and p.get("trigger_eid"):

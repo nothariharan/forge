@@ -153,6 +153,40 @@ def _stop_group(proc: subprocess.Popen) -> None:
             continue
 
 
+def build_cmd(agent_cmd: str, subs: dict, prompt: str) -> tuple[list[str], list[str]]:
+    """Split the command, then substitute, so values with spaces stay one argument.
+    Returns (command, command as recorded with the prompt replaced by a pointer to prompt.md)."""
+    cmd = []
+    for part in shlex.split(agent_cmd):
+        for key, value in subs.items():
+            part = part.replace(key, value)
+        cmd.append(part)
+    return cmd, ["<prompt.md>" if part == prompt else part for part in cmd]
+
+
+def run_agent(cmd: list[str], env: dict, timeout: float, episode_dir: str) -> dict:
+    """Run the agent command with stdin closed and a hard timeout; save its output. Used by both arms."""
+    record = {"started_at": _now()}
+    # Own process group, so a timeout also stops the harness processes the agent command starts.
+    proc = subprocess.Popen(cmd, cwd=REPO_ROOT, env=env, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, start_new_session=(os.name != "nt"),
+                            creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0))
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+        record.update(returncode=proc.returncode, timed_out=False)
+    except subprocess.TimeoutExpired:
+        _stop_group(proc)
+        stdout, stderr = proc.communicate()
+        record.update(returncode=None, timed_out=True)
+    record["finished_at"] = _now()
+    with open(os.path.join(episode_dir, "agent_stdout.log"), "w", encoding="utf-8") as f:
+        f.write(stdout)
+    with open(os.path.join(episode_dir, "agent_stderr.log"), "w", encoding="utf-8") as f:
+        f.write(stderr)
+    return record
+
+
 def _has_answer(ep: arm_a.Episode) -> bool:
     return any(e["type"] == "RUN_COMPLETED" for e in ep.events())
 
@@ -179,39 +213,14 @@ def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None
         f.write(agent_config(ROLE_PROMPT, f"forge-arm-a-seed{seed}"))
 
     prompt_file = os.path.join(os.path.abspath(episode_dir), "prompt.md")
-    subs = {"{agent_dir}": agent_dir, "{prompt}": prompt, "{prompt_file}": prompt_file}
-    cmd = []
-    for part in shlex.split(agent_cmd):  # substitute after splitting, so values with spaces stay one argument
-        for key, value in subs.items():
-            part = part.replace(key, value)
-        cmd.append(part)
-    shown = ["<prompt.md>" if part == prompt else part for part in cmd]  # the prompt itself is saved in prompt.md
+    cmd, shown = build_cmd(agent_cmd, {"{agent_dir}": agent_dir, "{prompt}": prompt, "{prompt_file}": prompt_file}, prompt)
     record = {"run_id": run_id, "seed": seed, "command": shown, "agent_dir": agent_dir, "dry_run": dry_run}
     ep = arm_a.Episode(episode_dir)
     if dry_run:
         record["note"] = "dry run: episode initialised and config written; agent not started"
     else:
         env = {**os.environ, "FORGE_EPISODE_DIR": os.path.abspath(episode_dir)}
-        timeout = float(spec["wall_clock_minutes"]) * 60 + GRACE_SECONDS
-        record["started_at"] = _now()
-        # Own process group, so a timeout also stops the harness processes the agent command starts.
-        proc = subprocess.Popen(cmd, cwd=REPO_ROOT, env=env, stdin=subprocess.DEVNULL,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                text=True, start_new_session=(os.name != "nt"),
-                                creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0))
-        try:
-            stdout, stderr = proc.communicate(timeout=timeout)
-            record.update(returncode=proc.returncode, timed_out=False)
-        except subprocess.TimeoutExpired:
-            _stop_group(proc)
-            stdout, stderr = proc.communicate()
-            record.update(returncode=None, timed_out=True)
-        record["finished_at"] = _now()
-        with open(os.path.join(episode_dir, "agent_stdout.log"), "w", encoding="utf-8") as f:
-            f.write(stdout)
-        with open(os.path.join(episode_dir, "agent_stderr.log"), "w", encoding="utf-8") as f:
-            f.write(stderr)
-
+        record.update(run_agent(cmd, env, float(spec["wall_clock_minutes"]) * 60 + GRACE_SECONDS, episode_dir))
         if not _has_answer(ep):
             deadline_passed = record["timed_out"] or arm_a._past_deadline(ep.manifest())
             status = "budget_exhausted" if deadline_passed else "aborted"
