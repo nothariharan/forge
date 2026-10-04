@@ -1,7 +1,7 @@
 # Benchmark lane: status and interfaces
 
 - **Owner:** Akshat
-- **Branch:** task branches from `main` (latest: `bench/run-bench`)
+- **Branch:** task branches from `main` (latest: `bench/tess-protocol`)
 - **Status:** protocol draft v0.1, citation checker, report generator, oracle sweep and arm A tools ready; arm A writes through the shared ledger. The science question is not locked (see `BENCHMARK_TESS_GATE_REVIEW.md`), so the protocol and baseline prompt stay drafts. No matched A-vs-B benchmark has been run.
 
 ## Done
@@ -71,6 +71,17 @@ For the comparison to be fair and scorable, FORGE's events need:
 | Token / USD usage per episode (`usage.json`) | Cost metrics (S9); without it they read n/a for both arms | Not available for either arm yet. Does Omnigent expose usage? |
 
 `bench/report.py` now counts a run seen only as `RUN_FINISHED` as an attempt, using it for the preregistration check, so FORGE runs are counted even without `RUN_STARTED`.
+
+### TESS protocol proposal (for Hari)
+
+`bench/PROTOCOL_TESS.md` turns the TESS resolution-bias direction into a runnable protocol:
+- **Split:** a semi-synthetic resolution split inside the labeled CP vs FP+FA cohort replaces the impossible temporal split.
+- **Estimands:** the AUC overstatement Δ as the science estimand, and decision correctness on the best accuracy estimator as the benchmark metric.
+- **Oracle:** 6 candidates (2 models × 3 estimators).
+- **Planner choice:** T2a (gap test) vs T2b (estimator comparison).
+- **Claims:** the exact claims it can support.
+
+Status: proposed, waiting on joint review before lock.
 
 ### Science contract (for Hari)
 
