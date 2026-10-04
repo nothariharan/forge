@@ -21,14 +21,18 @@ The episode folder comes from --episode or $FORGE_EPISODE_DIR.
     python bench/arm_a.py decide --after E1 --decision "..." [--changed --reopen H1]
     python bench/arm_a.py answer --candidate lr_mode --report final_report.md
 
-Payloads follow the per-event schemas in schemas/*.json (core/schemas.py), so
-arm A events are accepted by the shared ledger. A decision that leaves the
-plan unchanged is not a ledger event (FINDING needs an effect and CI); it goes
-to decisions.jsonl in the episode folder.
+Events go through the shared ledger (core/ledger.py, Ledger.append): the same
+payload validation, seq/prev_hash assignment and hash format as FORGE's own
+agents. An invalid payload is rejected before anything is written. After every
+append the run is re-exported to events.jsonl in the episode folder, which is
+what bench/report.py reads, so both arms are scored from identical files.
 
-Hashing follows the design doc: hash = sha256(prev_hash + canonical_json(event
-without hash)). Swap in core/ledger.py once it is merged so both arms share
-one implementation.
+By default each episode has its own ledger database (<episode>/ledger.db), so
+an episode folder is self-contained. Pass --ledger to init (for example
+results/ledger.db) to write into a shared ledger that the UI and CLI read.
+
+A decision that leaves the plan unchanged is not a ledger event (FINDING needs
+an effect and CI); it goes to decisions.jsonl in the episode folder.
 """
 
 from __future__ import annotations
@@ -47,20 +51,19 @@ import traceback
 from datetime import datetime, timezone
 from typing import Optional
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+BENCH_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(BENCH_DIR)
+sys.path[:0] = [BENCH_DIR, REPO_ROOT]
 
 from oracle import resolve_runner  # noqa: E402
 
-SCHEMA_VERSION = "1.0"
+from core.ledger import Ledger, ValidationError  # noqa: E402
+
 AGENT = "baseline"
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-
-
-def _canonical(obj: dict) -> str:
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 class Episode:
@@ -75,29 +78,24 @@ class Episode:
         with open(self.manifest_path, encoding="utf-8") as f:
             return json.load(f)
 
-    def events(self) -> list[dict]:
-        if not os.path.exists(self.events_path):
-            return []
-        with open(self.events_path, encoding="utf-8") as f:
-            return [json.loads(line) for line in f if line.strip()]
+    def ledger(self, manifest: Optional[dict] = None) -> Ledger:
+        m = manifest or self.manifest()
+        return Ledger(m.get("ledger_path") or os.path.join(self.path, "ledger.db"))
 
-    def emit(self, type_: str, payload: dict, ai_generated: bool, agent: str = AGENT) -> dict:
-        events = self.events()
-        prev = events[-1]["hash"] if events else "GENESIS"
-        event = {
-            "schema_version": SCHEMA_VERSION,
-            "seq": len(events) + 1,
-            "ts": _now(),
-            "run_id": self.manifest()["run_id"],
-            "agent": agent,
-            "type": type_,
-            "payload": payload,
-            "ai_generated": ai_generated,
-            "prev_hash": prev,
-        }
-        event["hash"] = hashlib.sha256((prev + _canonical(event)).encode()).hexdigest()
-        with open(self.events_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(event, ensure_ascii=False) + "\n")
+    def events(self) -> list[dict]:
+        m = self.manifest()
+        return self.ledger(m).read(m["run_id"])
+
+    def emit(self, type_: str, payload: dict, ai_generated: bool, agent: str = AGENT,
+             refs: Optional[dict] = None) -> dict:
+        m = self.manifest()
+        ledger = self.ledger(m)
+        try:
+            event = ledger.append(m["run_id"], agent, type_, payload, refs=refs, ai_generated=ai_generated)
+        except ValidationError as exc:
+            # Nothing was written; tell the agent what to fix.
+            raise SystemExit(f"rejected by the ledger: {exc}")
+        ledger.export_jsonl(m["run_id"], self.events_path)
         return event
 
 
@@ -110,7 +108,7 @@ def _git_commit() -> Optional[str]:
 
 
 def cmd_init(ep: Episode, a) -> None:
-    if os.path.exists(ep.events_path):
+    if os.path.exists(ep.manifest_path):
         raise SystemExit(f"episode already started at {ep.path}")
     os.makedirs(ep.path, exist_ok=True)
     manifest = {
@@ -122,10 +120,13 @@ def cmd_init(ep: Episode, a) -> None:
         "metric_name": a.metric,
         "runner": a.runner,
         "data_ver": a.data_ver,
+        "ledger_path": os.path.abspath(a.ledger) if a.ledger else None,
         "model": a.model,
         "git_commit": _git_commit(),
         "started_at": _now(),
     }
+    if ep.ledger(manifest).read(manifest["run_id"]):
+        raise SystemExit(f"run {manifest['run_id']} already exists in the ledger; pick another --run-id")
     with open(ep.manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
     ep.emit("RUN_CREATED", {"question": a.question, "arm": a.arm, "seed": a.seed, "task_id": a.task_id}, False, agent="system")
@@ -136,7 +137,8 @@ def cmd_hypothesis(ep: Episode, a) -> None:
     if not 0 <= a.prior <= 1:
         raise SystemExit("--prior must be between 0 and 1")
     ep.emit("HYPOTHESIS_PROPOSED", {"hid": a.hid, "claim": a.claim, "prediction": a.prediction,
-                                    "falsifier": a.falsifier, "prior": a.prior, "label": "AI-generated"}, True)
+                                    "falsifier": a.falsifier, "prior": a.prior, "label": "AI-generated"}, True,
+            refs={"hid": a.hid})
     print(f"recorded hypothesis {a.hid}")
 
 
@@ -145,7 +147,7 @@ def cmd_predict(ep: Episode, a) -> None:
         raise SystemExit("--sd must be greater than 0: a prediction is a distribution, not a point value")
     metric = ep.manifest()["metric_name"]
     ep.emit("PREDICTION_COMMITTED", {"eid": a.eid, "hid": a.hid, "metric": metric, "mean": a.mean, "sd": a.sd,
-                                     "falsifier": a.falsifier}, True)
+                                     "falsifier": a.falsifier}, True, refs={"hid": a.hid, "eid": a.eid})
     print(f"committed prediction for {a.eid}")
 
 
@@ -170,7 +172,7 @@ def cmd_run(ep: Episode, a) -> None:
     ident = {"eid": a.eid, "hid": a.hid, "code_hash": _code_hash(m["runner"]), "data_ver": m["data_ver"], "seed": m["seed"]}
     committed = any(e["type"] == "PREDICTION_COMMITTED" and e["payload"].get("eid") == a.eid for e in ep.events())
     ep.emit("RUN_STARTED", {**ident, "candidate": a.candidate, "params": params, "prediction_committed": committed},
-            False, agent="harness")
+            False, agent="harness", refs={"hid": a.hid, "eid": a.eid})
     t0 = time.monotonic()
     record = {**ident, "candidate": a.candidate, "params": params}
     try:
@@ -187,14 +189,15 @@ def cmd_run(ep: Episode, a) -> None:
     finished = {**ident, "status": status, "metrics": _numeric_metrics(metrics), "wall_seconds": record["wall_seconds"]}
     if record.get("error"):
         finished["error"] = record["error"]
-    ep.emit("RUN_FINISHED", finished, False, agent="harness")
+    ep.emit("RUN_FINISHED", finished, False, agent="harness", refs={"hid": a.hid, "eid": a.eid})
     print(json.dumps({"eid": a.eid, "status": status, "metrics": metrics, "error": record.get("error")}, default=str))
 
 
 def cmd_decide(ep: Episode, a) -> None:
     # A changed plan counts as a result-driven replan (metric S8).
     if a.changed:
-        ep.emit("REPLAN", {"trigger_eid": a.after, "reason": a.decision, "reopened": a.reopen or []}, True)
+        ep.emit("REPLAN", {"trigger_eid": a.after, "reason": a.decision, "reopened": a.reopen or []}, True,
+                refs={"eid": a.after})
     else:
         with open(os.path.join(ep.path, "decisions.jsonl"), "a", encoding="utf-8") as f:
             f.write(json.dumps({"ts": _now(), "after": a.after, "decision": a.decision, "plan_changed": False}) + "\n")
@@ -229,6 +232,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--data-ver", required=True, help="dataset identifier and version, e.g. openml:1590@2")
     s.add_argument("--model", help="model ID used by the agent")
     s.add_argument("--run-id")
+    s.add_argument("--ledger", help="shared ledger database (default: <episode>/ledger.db)")
 
     s = sub.add_parser("hypothesis")
     s.add_argument("--hid", required=True)

@@ -1,8 +1,8 @@
 # Benchmark lane: status and interfaces
 
 - **Owner:** Akshat
-- **Branch:** `work/benchmark`
-- **Status:** protocol draft v0.1, citation checker, and report generator ready. The one-fold Adult run in `SCIENCE_CONTRACT.md` is feasibility-only, not benchmark evidence. No matched A-vs-B benchmark has been run.
+- **Branch:** task branches from `main` (latest: `bench/arm-a-ledger-append`)
+- **Status:** protocol draft v0.1, citation checker, report generator, oracle sweep and arm A tools ready; arm A writes through the shared ledger. The science question is not locked (see `BENCHMARK_TESS_GATE_REVIEW.md`), so the protocol and baseline prompt stay drafts. No matched A-vs-B benchmark has been run.
 
 ## Done
 
@@ -46,7 +46,9 @@ Also used: `RUN_CREATED` and `RUN_COMPLETED` timestamps mark the timed window.
 | `RUN_COMPLETED` | arm A adds `status: "completed"`. |
 | `quote_span` vs `quote` | `tools/citation_check.py` accepts both, and `text` as the claim, so evidence claims can be passed in unchanged. |
 
-`tests/test_arm_a.py::test_payloads_pass_shared_payload_schemas` validates every Arm A event with `core.schemas`; it is active after PR #4 merged.
+`tests/test_arm_a.py::test_payloads_pass_shared_payload_schemas` validates every Arm A event with `core.schemas`.
+
+**Arm A now writes through `Ledger.append` (2026-10-04).** Each command appends via `core/ledger.py`, so validation, seq/prev_hash assignment and hashing are the same code FORGE uses; an invalid payload is rejected before anything is written. After every append the run is re-exported to the episode's `events.jsonl`, which `bench/report.py` reads. Each episode has its own `<episode>/ledger.db` by default; `init --ledger results/ledger.db` writes into a shared ledger instead, so the UI/CLI can follow a baseline run. Arm A also fills the optional `refs` field (`hid`, `eid`). Checked: an episode verifies with `python -m cli.verify --db <episode>/ledger.db <run_id>`.
 
 ### Science contract (for Hari)
 
@@ -54,7 +56,9 @@ The open questions are listed in `bench/PROTOCOL.md` section 13. First review wh
 
 ### Baseline arm (for Akshat)
 
-Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/arm_a.py` already writes events in the shared schema format. It still needs to switch to `core/ledger.py` and have a launcher compatible with the Omnigent run setup.
+Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/arm_a.py` writes through `core/ledger.py`. Still to do: a launcher compatible with the Omnigent run setup.
+
+`bench/baseline_prompt.md` was reviewed independently by Hari (2026-10-04): balanced for a solo arm, no oracle hints, question/budget/tools/scoring laid out fairly. **Not freeze-ready:** it still assumes an OpenML task and a single candidate recommendation, so it stays a draft until the science question is locked and the prompt is adapted to it.
 
 ## Blockers
 
@@ -62,7 +66,7 @@ Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/ar
 
 ## Next actions
 
-1. Review the candidate's prior art and scientific value against the official Track 03 brief; recommend whether to retain it or replace it.
+1. ~~Prior-art and value review~~ done for Adult, Kepler and TESS (`BENCHMARK_REVIEW_EXOPLANET.md`, `BENCHMARK_TESS_GATE_REVIEW.md`); waiting on Hari's TESS cross-match and Referee search.
 2. With Hari, lock the question and protocol TBDs, including the bottleneck/denominator, candidate tests, budgets, primary metric, seeds and stopping rule.
-3. Migrate Arm A to `Ledger.append`; finish the single-agent launcher and get an independent review of `bench/baseline_prompt.md` before freezing the protocol.
+3. ~~Migrate Arm A to `Ledger.append`~~ done; ~~independent prompt review~~ done (Hari). Still to do: the single-agent launcher, and adapting the prompt to the locked question.
 4. Validate the full OpenML runner before writing/running an oracle sweep. Then complete the matched comparison, uncertainty/cost analysis, citation/novelty checks, and next-experiment write-up.
