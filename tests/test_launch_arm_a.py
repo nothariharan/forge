@@ -25,7 +25,7 @@ def spec(tmp_path, monkeypatch):
     return {
         "question": "Does X beat Y?", "task_description": "stub task", "task_id": 1, "data_ver": "stub@1",
         "metric": "roc_auc", "direction": "higher", "practical_threshold": 0.003, "candidate_space": "x, y",
-        "wall_clock_minutes": 5, "max_experiments": 2, "usd_cap": "$1", "literature_tools": "none",
+        "wall_clock_minutes": 5, "max_experiments": 2, "usd_cap": "$1", "literature_tools": "none", "answer_options": "x, y",
         "runner": "stub_runner:run",
     }
 
@@ -44,7 +44,7 @@ def fake_agent(tmp_path, body: str) -> str:
 
 def test_fill_prompt_fills_every_placeholder_and_refuses_gaps(spec):
     prompt = launcher.fill_prompt(spec)
-    assert "Does X beat Y?" in prompt and "OpenML task 1" in prompt and "{" not in prompt.split("Tools")[0]
+    assert "Does X beat Y?" in prompt and "task id `1`" in prompt and "exactly one of: x, y" in prompt
     assert not launcher.PLACEHOLDER_RE.search(prompt)
     with pytest.raises(SystemExit, match="LITERATURE_TOOLS"):
         launcher.fill_prompt({k: v for k, v in spec.items() if k != "literature_tools"})
