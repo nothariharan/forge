@@ -41,6 +41,7 @@ import argparse
 import hashlib
 import importlib
 import json
+import math
 import numbers
 import os
 import shutil
@@ -162,9 +163,25 @@ def _code_hash(runner_ref: str) -> str:
         return "sha256:" + hashlib.sha256(f.read()).hexdigest()
 
 
+def _is_number(v) -> bool:
+    return isinstance(v, numbers.Real) and not isinstance(v, bool) and math.isfinite(v)
+
+
 def _numeric_metrics(metrics: dict) -> dict:
-    # The event schema allows numbers only; lists such as per-fold scores stay in run_records.jsonl.
-    return {k: v for k, v in metrics.items() if isinstance(v, numbers.Real) and not isinstance(v, bool)}
+    # The event schema allows finite numbers only (the ledger rejects NaN/inf); lists such as
+    # per-fold scores and non-finite values stay in run_records.jsonl.
+    return {k: v for k, v in metrics.items() if _is_number(v)}
+
+
+def _json_safe(obj):
+    """Non-finite floats become strings, so run_records.jsonl stays strict JSON."""
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return str(obj)
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    return obj
 
 
 def _check_open(ep: Episode, m: dict) -> None:
@@ -198,19 +215,28 @@ def cmd_run(ep: Episode, a) -> None:
     try:
         result = runner(m["task_id"], params, m["seed"])
         metrics = (result or {}).get("metrics", {})
-        status = "ok" if metrics.get(m["metric_name"]) is not None else "missing_metric"
+        value = metrics.get(m["metric_name"])
+        status = "ok" if _is_number(value) else ("missing_metric" if value is None else "non_finite_metric")
         record.update(status=status, metrics=metrics, raw=result)
     except Exception as exc:
         status, metrics = "error", {}
         record.update(status=status, metrics={}, error=f"{type(exc).__name__}: {exc}", traceback=traceback.format_exc(limit=5))
     record["wall_seconds"] = round(time.monotonic() - t0, 3)
     with open(os.path.join(ep.path, "run_records.jsonl"), "a", encoding="utf-8") as f:
-        f.write(json.dumps(record, default=str) + "\n")
+        f.write(json.dumps(_json_safe(record), default=str, allow_nan=False) + "\n")
     finished = {**ident, "status": status, "metrics": _numeric_metrics(metrics), "wall_seconds": record["wall_seconds"]}
     if record.get("error"):
         finished["error"] = record["error"]
-    ep.emit("RUN_FINISHED", finished, False, agent="harness", refs={"hid": a.hid, "eid": a.eid})
-    print(json.dumps({"eid": a.eid, "status": status, "metrics": metrics, "error": record.get("error")}, default=str))
+    refs = {"hid": a.hid, "eid": a.eid}
+    try:
+        ep.emit("RUN_FINISHED", finished, False, agent="harness", refs=refs)
+    except SystemExit as exc:
+        # RUN_STARTED is already in the ledger, so the run must still be closed.
+        status = "error"
+        ep.emit("RUN_FINISHED", {**ident, "status": status, "metrics": {}, "wall_seconds": record["wall_seconds"],
+                                 "error": f"result could not be recorded: {exc}"}, False, agent="harness", refs=refs)
+    print(json.dumps(_json_safe({"eid": a.eid, "status": status, "metrics": metrics, "error": record.get("error")}),
+                     default=str))
 
 
 def cmd_decide(ep: Episode, a) -> None:

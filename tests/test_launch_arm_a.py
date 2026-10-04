@@ -1,5 +1,6 @@
 import json
 import os
+import shlex
 import sys
 import textwrap
 import time
@@ -38,7 +39,7 @@ def fake_agent(tmp_path, body: str) -> str:
         def call(*args):
             return subprocess.run(A + list(args), capture_output=True, text=True)
     """) + textwrap.dedent(body))
-    return f"{sys.executable} {script} {{agent_dir}}"
+    return f"{shlex.quote(sys.executable)} {shlex.quote(str(script))} {{agent_dir}}"
 
 
 def test_fill_prompt_fills_every_placeholder_and_refuses_gaps(spec):
@@ -150,3 +151,11 @@ def _running(pid: int) -> bool:
         return "zombie" not in state
     except FileNotFoundError:
         return False
+
+
+def test_paths_with_spaces(spec, tmp_path):
+    spaced = tmp_path / "dir with space"
+    spaced.mkdir()
+    cmd = fake_agent(spaced, 'call("answer", "--candidate", "x")\n')
+    rec = launcher.launch(spec, 1, str(spaced / "A" / "seed 1"), run_id="A-1", agent_cmd=cmd)
+    assert rec["outcome"] == "completed" and rec["agent_dir"].endswith("seed 1/omni_agent")
