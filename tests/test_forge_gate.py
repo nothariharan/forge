@@ -37,6 +37,14 @@ def test_unapproved_command_is_refused(tmp_path):
     assert rc == 5
 
 
+def test_tess_runner_is_approved_but_not_its_fetch_or_oracle(tmp_path):
+    assert "tools/tess_bias_run.py" in forge_gate.APPROVED_TOOLS
+    for flag in ("--fetch", "--oracle"):
+        rc = forge_gate.main(["--run-id", "r", "--gate-id", "G1", "--db", str(tmp_path / "l.db"), "--",
+                              "python", "tools/tess_bias_run.py", flag])
+        assert rc == 5
+
+
 def test_denied_gate_never_runs_command(tmp_path, monkeypatch):
     led = _ledger(tmp_path)
     resolve(led, "r", "G1", approve=False, via="cli")

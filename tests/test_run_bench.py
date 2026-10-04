@@ -94,6 +94,15 @@ def test_arm_b_without_completion_is_closed(spec, tmp_path):
     assert json.loads((ep / "manifest.json").read_text())["budget_end_ts"]
 
 
+def test_aborted_run_with_a_placeholder_candidate_is_not_scored(spec, tmp_path):
+    body = FAKE_B.split("    for eid")[0] + (
+        '    L.append(run_id, "system", "RUN_COMPLETED", {"status": "aborted", "summary": "no evidence", "candidate": "x"})\n')
+    ep = tmp_path / "B" / "seed-1"
+    rec = launch_arm_b.launch(spec, 1, str(ep), run_id="B-1", agent_cmd=script(tmp_path, "ab.py", body) + " -p {prompt}")
+    assert rec["outcome"] == "aborted" and not (ep / "answer.json").exists()
+    assert report.episode_metrics(str(ep), {"best": "x", "within_threshold": ["x"]})["correct"] is not True
+
+
 def test_run_order_alternates():
     assert run_bench.run_order([1, 2, 3], ["A", "B"]) == [(1, "A"), (1, "B"), (2, "B"), (2, "A"), (3, "A"), (3, "B")]
 

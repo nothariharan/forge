@@ -38,6 +38,7 @@ import json
 import os
 import re
 import sys
+import warnings
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -435,7 +436,14 @@ def fetch(out: Path, timeout: int = 600) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+COMPACT_KEYS = ("metrics", "replicates", "replicates_valid", "data_sha256", "model", "estimator", "gamma", "seed")
+
+
 def main(argv: list[str] | None = None) -> int:
+    # numpy on macOS (Accelerate BLAS) emits spurious "... encountered in matmul" RuntimeWarnings from
+    # scikit-learn even on clean data; outputs stay finite. Hundreds of them per run bury the result for an
+    # agent reading this command's output, so the CLI silences only those messages.
+    warnings.filterwarnings("ignore", message=r".*encountered in matmul", category=RuntimeWarning)
     p = argparse.ArgumentParser(description="TESS resolution-bias semi-synthetic runner.")
     p.add_argument("--fetch", action="store_true", help="download the TOI table to FORGE_TESS_CSV and print its hash")
     p.add_argument("--model", default="lr", choices=MODELS)
@@ -444,6 +452,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--replicates", type=int, default=DEFAULT_REPLICATES)
     p.add_argument("--oracle", metavar="OUT", help="build the pooled oracle over seeds 1-5 and write it to OUT")
+    p.add_argument("--output", metavar="PATH", help="also write the full result (every replicate) as JSON to PATH")
     a = p.parse_args(argv)
     if a.oracle:
         out = build_oracle(replicates=a.replicates)
@@ -459,7 +468,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     out = run(TASK_ID, {"model": a.model, "estimator": a.estimator, "gamma": a.gamma, "replicates": a.replicates},
               a.seed)
-    print(json.dumps(out, indent=2))
+    if a.output:
+        Path(a.output).parent.mkdir(parents=True, exist_ok=True)
+        Path(a.output).write_text(json.dumps(out, indent=2) + "\n")
+    # Print only what an agent needs: the full result lists every replicate and is far too long to read.
+    print(json.dumps({k: out[k] for k in COMPACT_KEYS if k in out}, indent=2))
     return 0
 
 

@@ -179,7 +179,9 @@ def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None
                 json.dump(manifest, f, indent=2)
         completed = next(e for e in ledger.read(run_id) if e["type"] == "RUN_COMPLETED")
         record["outcome"] = completed["payload"].get("status")
-        if completed["payload"].get("candidate") is not None:
+        # Only a completed run submits an answer. An aborted run's candidate is a placeholder and must not be
+        # scored (failures count as incorrect).
+        if completed["payload"].get("status") == "completed" and completed["payload"].get("candidate") is not None:
             with open(os.path.join(episode_dir, "answer.json"), "w", encoding="utf-8") as f:
                 json.dump({"candidate": completed["payload"]["candidate"], "submitted_at": completed["ts"]}, f, indent=2)
 

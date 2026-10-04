@@ -77,7 +77,7 @@ Only `question` is required.
 
 ### EVIDENCE_ADDED (`evidence.json`)
 `ref` is a DOI or arXiv id. `quote_span` is the verbatim quote that supports the claim
-(`tools/citation_check.py` calls the same thing `quote` in its own input file).
+(`tools/citation_check.py` calls the same thing `quote` in its own input file). `claims` may be empty (`{"claims": []}`): an honest "no evidence found" when no literature tool is available.
 ```json
 {"claims": [{"text": "Missingness indicators can help when missingness is informative.", "ref": "arXiv:0000.00001", "quote_span": "adding an indicator lets the model use informative missingness"}]}
 ```

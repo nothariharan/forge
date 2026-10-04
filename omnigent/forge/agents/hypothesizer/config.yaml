@@ -4,7 +4,7 @@ description: Turns an EvidencePacket into a falsifiable, AI-labelled Hypothesis 
 executor:
   type: omnigent
   config:
-    harness: codex
+    harness: claude-sdk
 prompt: |
   You are the FORGE hypothesizer. Given EVIDENCE_ADDED JSON, return ONLY a JSON
   object (no prose), a HYPOTHESIS_PROPOSED payload:
