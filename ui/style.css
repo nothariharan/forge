@@ -262,3 +262,16 @@ a.ref:hover { text-decoration: underline; }
 .approval-banner .approve { background: var(--ok); color: #fff; } .approval-banner .reject { background: #fff; color: var(--ink); }
 @keyframes pulse-banner { to { box-shadow: 0 0 0 6px rgba(217, 59, 59, .15); } }
 @media (prefers-reduced-motion: reduce) { .approval-banner { animation: none; } }
+
+/* ---- agent popover (hover to see, click to pin) ---- */
+.mascot { pointer-events: auto; cursor: pointer; }
+.mascot:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 50%; }
+.agent-card { position: absolute; z-index: 8; width: 260px; transform: translateX(-50%); background: #fff; border-radius: 12px; padding: 12px 14px; box-shadow: 0 10px 28px rgba(60, 40, 20, .2); font-size: 12.5px; }
+.agent-card .ac-head { display: flex; gap: 10px; align-items: center; }
+.agent-card .ac-icon svg { width: 36px; height: 36px; display: block; }
+.agent-card b { display: block; font-size: 14px; } .agent-card small { color: var(--muted); }
+.agent-card .kv { grid-template-columns: 62px 1fr; margin-top: 8px; }
+.agent-card .ac-recent { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; display: grid; gap: 2px; }
+.agent-card .ac-hint { margin-top: 6px; font-size: 11px; }
+/* long ids and paths wrap instead of being cut off */
+.note-box, .run-q, .kv dd, .agent-card dd, .log span { overflow-wrap: anywhere; }

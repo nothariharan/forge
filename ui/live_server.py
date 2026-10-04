@@ -52,6 +52,13 @@ class Handler(SimpleHTTPRequestHandler):
         # The only write the UI may make: a human decision on a P6 gate.
         if urlparse(self.path).path != "/api/approve":
             return self.send_error(404)
+        # Only this page may approve: a JSON body forces a CORS preflight (never
+        # answered here) and the Origin, when sent, must be this server.
+        origin = self.headers.get("Origin")
+        host = self.headers.get("Host", "")
+        if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json" or (
+                origin is not None and origin not in (f"http://{host}", f"https://{host}")):
+            return self.send_error(403, "approval must come from the lab UI")
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
             e = resolve(self.ledger, body["run_id"], body["gate_id"], body.get("decision") == "approve", via="lab-ui")

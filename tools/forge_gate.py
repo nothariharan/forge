@@ -12,8 +12,12 @@ FORGE_GATE_MODE=auto (set by bench/launch_arm_b.py) approves immediately and
 records the approval as agent "harness", so benchmark runs never wait on a
 human and never pretend one approved.
 
+Only GATE_RESOLVED written by agent "human" counts (or "harness" in auto mode);
+tools/forge_emit.py refuses to let agents write either.
+
 Exit codes: the wrapped command's own code once approved; 3 if the human
-denied it; 4 on timeout; 5 if the wrapped command is not an approved tool.
+denied it; 4 on timeout; 5 if the wrapped command is not an approved tool;
+6 if the gate was never opened.
 
 Why not Omnigent's own ASK: sub-agents run headless, and the root session's
 ASK needs an attached interactive client; in scripted runs neither can be
@@ -36,13 +40,17 @@ from core.ledger import Ledger  # noqa: E402
 APPROVED_TOOLS = ("tools/tess_resolution_shift.py",)
 
 
-def wait_for_decision(ledger: Ledger, run_id: str, gate_id: str, timeout: float, poll: float = 1.0) -> str | None:
+def wait_for_decision(ledger: Ledger, run_id: str, gate_id: str, timeout: float, poll: float = 1.0,
+                      trusted: tuple[str, ...] = ("human",)) -> str | None:
+    """Return the first decision on gate_id written by a trusted agent. Resolutions
+    from anyone else (e.g. an agent forging one) are ignored."""
     deadline = time.monotonic() + timeout
     after = 0
     while time.monotonic() < deadline:
         for e in ledger.read(run_id, after_seq=after):
             after = e["seq"]
-            if e["type"] == "GATE_RESOLVED" and e["payload"].get("gate_id") == gate_id:
+            if (e["type"] == "GATE_RESOLVED" and e["payload"].get("gate_id") == gate_id
+                    and e["agent"] in trusted):
                 return e["payload"].get("status")
         time.sleep(poll)
     return None
@@ -67,17 +75,20 @@ def main(argv: list[str] | None = None) -> int:
         return 5
 
     ledger = Ledger(args.db) if args.db else Ledger()
-    if os.environ.get("FORGE_GATE_MODE") == "auto":
+    auto = os.environ.get("FORGE_GATE_MODE") == "auto"
+    events = ledger.read(args.run_id)
+    if not any(e["type"] == "GATE_OPENED" and e["payload"].get("gate_id") == args.gate_id for e in events):
+        print(f"FORGE_GATE_REFUSED: gate {args.gate_id} was never opened in run {args.run_id}")
+        return 6
+    already = any(e["type"] == "GATE_RESOLVED" and e["payload"].get("gate_id") == args.gate_id for e in events)
+    if auto and not already:
         # Matched benchmark (arm B): no human in the loop, same as arm A. Logged as
-        # the harness, never as a human approval.
+        # the harness, never as a human approval. An existing decision is honoured.
         from cli.approve import resolve
-        try:
-            resolve(ledger, args.run_id, args.gate_id, approve=True, via="benchmark-auto (FORGE_GATE_MODE=auto, no human)", agent="harness")
-        except SystemExit as why:  # gate never opened, or already resolved
-            print(f"FORGE_GATE_AUTO: {why}; running without a recorded gate", flush=True)
-            return subprocess.run(command, cwd=ROOT).returncode
+        resolve(ledger, args.run_id, args.gate_id, approve=True, via="benchmark-auto (FORGE_GATE_MODE=auto, no human)", agent="harness")
+    trusted = ("human", "harness") if auto else ("human",)
     print(f"FORGE_GATE_WAITING run={args.run_id} gate={args.gate_id}: approve in the lab UI or `python -m cli.approve {args.run_id} {args.gate_id}`", flush=True)
-    decision = wait_for_decision(ledger, args.run_id, args.gate_id, args.timeout)
+    decision = wait_for_decision(ledger, args.run_id, args.gate_id, args.timeout, trusted=trusted)
     if decision is None:
         print(f"FORGE_GATE_TIMEOUT after {args.timeout:.0f}s")
         return 4

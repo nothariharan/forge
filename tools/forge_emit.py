@@ -31,6 +31,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from core.ledger import Ledger, ValidationError  # noqa: E402
 
 RAW_LIMIT = 2000
+# Identities and events that only the harness or a human may write. Agents use
+# this tool, so it must never let them speak as a human or resolve a gate.
+RESERVED_AGENTS = {"human", "harness", "system"}
+RESERVED_TYPES = {"GATE_RESOLVED"}
 
 
 def _reject(ledger: Ledger, args: argparse.Namespace, raw: str, why: str) -> int:
@@ -62,6 +66,9 @@ def main(argv: list[str] | None = None) -> int:
 
     raw = Path(args.payload[1:]).read_text() if args.payload.startswith("@") else args.payload
     ledger = Ledger(args.db) if args.db else Ledger()
+
+    if args.agent in RESERVED_AGENTS or args.type in RESERVED_TYPES:
+        return _reject(ledger, args, raw, f"reserved: agents may not write as {args.agent!r} or emit {args.type}")
 
     try:
         payload = json.loads(raw)

@@ -136,6 +136,40 @@ const VERDICT_BADGE = { SUPPORTS: "ok", REFUTES: "bad", INCONCLUSIVE: "warn", TE
   NOVEL: "ok", KNOWN: "warn", CONTRADICTED: "bad", UNCERTAIN: "grey" };
 const badge = (t) => `<span class="badge ${VERDICT_BADGE[t] || "grey"}">${esc(t)}</span>`;
 
+// Harness each agent is configured with in omnigent/forge (config, not ledger data).
+const HARNESS = { director: "claude-sdk", librarian: "claude-sdk", hypothesizer: "codex", referee: "claude-sdk",
+  planner: "codex", safety: "claude-sdk", experimenter: "claude-sdk", analyst: "codex" };
+let pinned = null;
+function showAgentCard(name, el) {
+  const a = resolveAgent(name);
+  const mine = events.slice(0, pos).filter((e) => e.agent === name || (name === "human" && e.type === "GATE_RESOLVED"));
+  const last = mine[mine.length - 1];
+  const card = $("#agent-card");
+  card.innerHTML = `<div class="ac-head"><span class="ac-icon">${mascotSVG(name)}</span><div><b>${esc(a.label)}</b><small>${esc(a.role)}</small></div></div>
+    <dl class="kv"><dt>Doing</dt><dd>${esc(last ? summary(last) : name === "human" ? "Watching; approves P6 gates" : "Idle")}</dd>
+    ${HARNESS[name] ? `<dt>Harness</dt><dd>${HARNESS[name]} <span class="muted">(Omnigent)</span></dd>` : ""}
+    <dt>Events</dt><dd>${mine.length}</dd></dl>
+    ${mine.length ? `<div class="ac-recent">${mine.slice(-3).reverse().map((e) => `<div><span class="mono muted">#${e.seq}</span> ${esc(e.type)}</div>`).join("")}</div>` : ""}
+    ${pinned ? '<div class="muted ac-hint">click anywhere to close</div>' : '<div class="muted ac-hint">click to pin</div>'}`;
+  const fr = $("#floor").getBoundingClientRect(); const r = el.getBoundingClientRect();
+  card.style.left = `${Math.min(r.left - fr.left + r.width / 2, fr.width - 270)}px`;
+  card.style.top = `${r.top - fr.top + r.height + 6}px`;
+  card.hidden = false;
+}
+document.addEventListener("mouseover", (ev) => {
+  const m = ev.target.closest(".mascot"); if (!m || pinned) return;
+  showAgentCard(m.dataset.agent, m);
+});
+document.addEventListener("mouseout", (ev) => {
+  const m = ev.target.closest(".mascot"); if (!m || pinned || m.contains(ev.relatedTarget)) return;
+  $("#agent-card").hidden = true;
+});
+document.addEventListener("click", (ev) => {
+  const m = ev.target.closest(".mascot");
+  if (m) { pinned = m.dataset.agent; showAgentCard(pinned, m); return; }
+  if (!ev.target.closest("#agent-card")) { pinned = null; $("#agent-card").hidden = true; }
+});
+
 // ---------- mascots ----------
 function ensureMascot(name) {
   const id = `m-${name.replace(/[^a-z0-9_-]/gi, "_")}`;
@@ -144,6 +178,7 @@ function ensureMascot(name) {
     const a = resolveAgent(name);
     el = document.createElement("div");
     el.className = `mascot type-${a.type}`; el.id = id; el.style.left = "50%"; el.style.top = "50%";
+    el.dataset.agent = name; el.tabIndex = 0;
     el.title = `${a.label}: ${a.role}`;
     el.innerHTML = `${mascotSVG(name)}<span class="tag">${esc(a.label)}</span>`;
     $("#mascots").appendChild(el);
@@ -398,6 +433,7 @@ function renderHud(s, list) {
 function render() {
   const s = fold(events.slice(0, pos));
   const current = events[pos - 1];
+  if (pinned && mascotEl(pinned)) showAgentCard(pinned, mascotEl(pinned));
   renderTop(s); renderBanner(s); renderHud(s, events.slice(0, pos)); placeMascots(s, current); renderAlerts(s, current); renderRun(s);
   renderAgents(s); renderRecent(); renderLog(); renderMinimap(s); renderPages(s);
   $("#scrub").max = events.length; $("#scrub").value = pos; $("#pos").textContent = `${pos} / ${events.length}`;
