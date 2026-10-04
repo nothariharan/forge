@@ -12,6 +12,15 @@ No benchmark results are present yet.
 - **Citations:** `python3 tools/citation_check.py <refs.json | report.md> -o citations.json` (needs `requests` and internet access).
 - **Tests:** `python3 -m pytest -q tests/`
 
+## Running with Omnigent (setup notes)
+
+Verified end to end by Ish on 2026-10-04: a stub episode completed in 32 s with a hypothesis, 2 preregistered runs and an answer. It produced 9 events, the chain verified, and `report.py` counted 2 valid experiments and 0 preregistration violations.
+
+- Run `omni setup` once and set **Subscription** as the default credential.
+- A custom `ANTHROPIC_BASE_URL` in `~/.claude/settings.json` overrides Omnigent's credential. Remove it, or the agent can fail to authenticate.
+- When the agent dies (for example with an auth error), `omni` can still exit 0. The launcher then records the episode as `aborted`, with the reason and the end of the agent's output in `launcher.json` (`failure_reason`) and in the `RUN_COMPLETED` summary.
+- The agent's report belongs in `$FORGE_EPISODE_DIR/final_report.md`. A report written to the repo root is moved into the episode, so episodes don't overwrite each other.
+
 ## Planned arms
 - A: single-agent baseline.
 - B: FORGE multi-agent harness under the same task and documented budget.
