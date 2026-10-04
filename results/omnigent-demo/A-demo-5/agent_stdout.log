@@ -1,0 +1,12 @@
+Yes — candidate y scored higher than x on the stub runner, and I submitted y as the final answer.
+
+| Experiment | Candidate | roc_auc |
+|---|---|---|
+| E1 | x | 0.90 |
+| E2 | y | 0.91 |
+
+The difference is 0.010, above the 0.003 threshold for a practical difference. Both runs completed without error, and the prediction and falsifier for each were committed before it ran.
+
+This is one run per candidate on a single fixed seed, so there is no estimate of run-to-run noise. The conclusion is my own (AI-generated) and preliminary. No sources are cited because no literature tool was available.
+
+The report is at `/tmp/armA/ep5/final_report.md`. Both experiment runs in the budget are used.
