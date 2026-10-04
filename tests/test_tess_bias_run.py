@@ -165,3 +165,43 @@ def test_oracle_small_gap_means_no_correction(fixture_env, monkeypatch):
     o = tb.build_oracle(seeds=(1,), replicates=10)
     assert o["best"] == tb.NO_CORRECTION and o["within_threshold"] == ["hgb_naive", "lr_naive", "no_correction"]
     assert not o["control_within_bound"]  # the control gap of 0.011 breaks the 0.01 bound and is reported
+
+
+# ---------------------------------------------------------------- spec + prompt + arm A integration
+
+import json  # noqa: E402
+
+sys.path.insert(0, os.path.join(HERE, "..", "bench"))
+import arm_a  # noqa: E402
+import launch_arm_a  # noqa: E402
+import launch_arm_b  # noqa: E402
+import report  # noqa: E402
+
+SPEC = os.path.join(HERE, "..", "bench", "specs", "tess_resolution_bias.json")
+
+
+def test_tess_spec_fills_both_prompts():
+    spec = launch_arm_a.load_spec(SPEC)
+    prompt = launch_arm_a.fill_prompt(spec)
+    assert not launch_arm_a.PLACEHOLDER_RE.search(prompt) and "OpenML" not in prompt
+    assert "no_correction" in prompt and "hgb_iw_clip" in prompt and "not accuracy on real unresolved" in prompt
+    msg = launch_arm_b.task_message(spec, "B-1")
+    assert "no_correction" in msg and "### Tools" not in msg  # both arms get the same task and answer options
+    options = [o.split(" ")[0].strip(",") for o in spec["answer_options"].split(", ")]
+    assert set(options) == set(tb.candidates())  # the allowed answers are exactly the oracle's candidates
+
+
+def test_arm_a_episode_with_the_real_runner_on_the_fixture(fixture_env, tmp_path):
+    spec = launch_arm_a.load_spec(SPEC)
+    ep = tmp_path / "A" / "seed-1"
+    launch_arm_a.launch(spec, 1, str(ep), run_id="A-tess-1", dry_run=True)
+    run = ["--episode", str(ep)]
+    arm_a.main(run + ["predict", "--eid", "E1", "--hid", "H1", "--mean", "0.0", "--sd", "0.02", "--falsifier", "gap >= 0.02"])
+    arm_a.main(run + ["run", "--eid", "E1", "--hid", "H1", "--candidate", "lr_naive_g1",
+                      "--params", json.dumps({"model": "lr", "estimator": "naive", "gamma": 1, "replicates": 3})])
+    arm_a.main(run + ["answer", "--candidate", "no_correction"])
+    finished = [e for e in arm_a.Episode(str(ep)).events() if e["type"] == "RUN_FINISHED"][0]["payload"]
+    assert finished["status"] == "ok" and "gap" in finished["metrics"] and "true_auc" in finished["metrics"]
+    oracle = {"best": "no_correction", "within_threshold": ["hgb_naive", "lr_naive", "no_correction"]}
+    m = report.episode_metrics(str(ep), oracle)
+    assert m["valid_experiments"] == 1 and m["prereg_violations"] == 0 and m["correct"] is True

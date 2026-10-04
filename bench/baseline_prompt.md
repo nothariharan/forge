@@ -1,6 +1,6 @@
-# Arm A baseline prompt (draft v0.1)
+# Arm A baseline prompt (draft v0.2)
 
-**Status:** draft. Reviewed independently by Hari (2026-10-04): balanced for a solo arm, no oracle hints. Not freeze-ready, because it still assumes an OpenML task and a single candidate recommendation; it will be adapted to the locked science question and frozen with the protocol (`bench/PROTOCOL.md` section 12). Placeholders in `{BRACES}` are filled from the locked science contract by the arm A runner; the filled prompt is saved in each episode folder.
+**Status:** draft v0.2. Reviewed independently by Hari (2026-10-04): balanced for a solo arm, no oracle hints. v0.2 removes the OpenML-specific wording and adds `{ANSWER_OPTIONS}`, so the agent answers with one of the oracle's allowed recommendations (`bench/PROTOCOL_TESS.md` section 6). Task-specific text lives in the spec (`bench/specs/tess_resolution_bias.json`), not here. It is frozen with the protocol (`bench/PROTOCOL.md` section 12). Placeholders in `{BRACES}` are filled from the locked science contract by the arm A runner; the filled prompt is saved in each episode folder.
 
 ## Fairness rules for this prompt
 
@@ -21,9 +21,10 @@ You are a research scientist working alone on one computational research questio
 
 ### Task and metric
 
-- Dataset / task: {TASK_DESCRIPTION} (OpenML task {TASK_ID})
-- Metric: `{METRIC}`, {DIRECTION} is better. A difference smaller than {PRACTICAL_THRESHOLD} counts as no practical difference.
-- Candidate space you may test: {CANDIDATE_SPACE}
+- Task: {TASK_DESCRIPTION} (task id `{TASK_ID}`)
+- Metric each experiment reports: `{METRIC}` ({DIRECTION}). Practical threshold: {PRACTICAL_THRESHOLD}.
+- Experiments you may run (parameters for the run command): {CANDIDATE_SPACE}
+- Your final answer must be exactly one of: {ANSWER_OPTIONS}
 
 ### Budget
 
@@ -45,7 +46,7 @@ Run these from the repository root. The episode folder is already set in `$FORGE
   `python bench/arm_a.py decide --after E1 --decision "<what you will do next and why>" [--changed --reopen H1]`
 - Literature: {LITERATURE_TOOLS}
 - Submit your final answer once, at the end. Write your report to `$FORGE_EPISODE_DIR/final_report.md` (inside the episode folder, not the repository root), then:
-  `python bench/arm_a.py answer --candidate <id> --report "$FORGE_EPISODE_DIR/final_report.md"`
+  `python bench/arm_a.py answer --candidate <one of the allowed answers> --report "$FORGE_EPISODE_DIR/final_report.md"`
 
 ### Research rules
 
@@ -57,7 +58,7 @@ Run these from the repository root. The episode folder is already set in `$FORGE
 
 ### Final report (`$FORGE_EPISODE_DIR/final_report.md`)
 
-1. Final answer: the candidate you recommend and why.
+1. Final answer: the option you recommend (one of the allowed answers) and why, with the measured values behind it.
 2. Evidence: the experiments you ran (IDs, results) and the sources you used, each with an identifier and quote.
 3. How results changed your decisions along the way.
 4. Uncertainty and limitations.

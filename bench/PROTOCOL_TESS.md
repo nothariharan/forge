@@ -1,6 +1,6 @@
 # Protocol: TESS resolution-bias audit (proposed, v0.2)
 
-- **Status:** **PROPOSED v0.3 for joint review. Not locked.** Runner built and validated on synthetic fixtures only (section 11). Nothing here is run as benchmark evidence until Hari and Akshat mark it locked in the change log.
+- **Status:** **PROPOSED v0.3.1 for joint review. Not locked.** Runner built and validated on synthetic fixtures only (section 11). Nothing here is run as benchmark evidence until Hari and Akshat mark it locked in the change log.
 - **Owner:** Akshat (benchmark + rigor), science review: Hari.
 - **Date:** 2026-10-04.
 - **Instantiates:** `bench/PROTOCOL.md` (arms, metrics, analysis, failure rules, artifacts apply unchanged unless stated here).
@@ -93,7 +93,7 @@ The benchmark question both arms answer: **should resolved-set AUC be corrected 
 | Estimator | Estimate of deployment AUC |
 |---|---|
 | `naive` | grouped CV AUC within R\* |
-| `iw` | grouped CV AUC within R\*, importance-weighted with w = p/(1−p), where p comes from a domain classifier trained to tell U\* features from R\* features (in reality: unresolved vs resolved features, which are observable), self-normalized |
+| `iw` | grouped CV AUC within R\*, importance-weighted with w = p/(1−p), where p comes from a domain classifier trained to tell U\* features from R\* features (in reality: unresolved vs resolved features, which are observable), self-normalized. This is importance-weighted cross-validation (IWCV, Sugiyama, Krauledat & Müller 2007), an existing method |
 | `iw_clip` | as `iw`, with weights clipped at their 95th percentile |
 
 Vetting models: `lr` (logistic regression, as T1) and `hgb` (`HistGradientBoostingClassifier`, default settings, `random_state` = replicate seed).
@@ -151,10 +151,12 @@ T2a goes first: it is a third of the cost and decides whether T2b is worth runni
 
 If the run goes as planned, these are the strongest statements allowed. Fill in the measured values and do not strengthen the wording:
 
-1. **Science (simulation):** "On the 2026-10-04 TESS TOI snapshot, under a semi-synthetic resolution mechanism fitted to current catalog fields, evaluating a vetting classifier only on resolved TOIs overstated its AUC on a deployment-like population by Δ = __ (95% replicate interval __–__). The `__` estimator recovered that AUC within __ on average. This is a simulation under a covariate-shift assumption, not a measurement of accuracy on real unresolved candidates."
+1. **Science (simulation):** "On the TESS TOI snapshot of __ (sha256 __), under a semi-synthetic resolution mechanism fitted to current catalog fields, evaluating a vetting classifier only on resolved TOIs overstated its AUC on a deployment-like population by Δ = __ (95% interval over 100 simulated splits __–__). [If Δ ≥ 0.02:] An existing correction, importance-weighted cross-validation (Sugiyama et al. 2007), recovered that AUC within __ on average. [If Δ < 0.02:] Under this mechanism the overstatement was below the 0.02 practical threshold; because the resolution model is linear, this does not show that the real selection is harmless. This quantifies, in simulation, a selection effect that prior work describes qualitatively (`docs/coordination/REFEREE_RESOLUTION_BIAS.md`). It is not a measurement of accuracy on real unresolved candidates." Pick one bracketed branch to match the result.
 2. **Benchmark:** "On this task, FORGE reached the oracle-correct recommendation in __/5 episodes vs __/5 for a single agent with the same model, tools and budget, taking __× the time (95% CI __–__) at __× the cost." If FORGE is slower or worse, that is the claim. If the correct answer is "no correction", also say that correctness alone separates the arms weakly (section 6).
 
-**Not supported, whatever the numbers:**
+**Not supported, whatever the numbers** (the Referee search found the method known and the phenomenon described qualitatively; only the quantification was not found, at listing level):
+- that the correction method is new (IWCV is Sugiyama et al. 2007);
+- "first" or "novel" wording about the bias itself;
 - accuracy on real unresolved TOIs;
 - triage-time (historical) shift;
 - any planet discovery or validation;
@@ -163,12 +165,14 @@ If the run goes as planned, these are the strongest statements allowed. Fill in 
 
 ## 10. Open items before lock
 
-1. **Hari:** review sections 4–7; agree γ, ρ, the threshold and the estimator set.
-2. **Science lane:** `tools/tess_bias_run.py` per the contract above, with cached-snapshot loading and the γ = 0 control. Akshat can write it if that helps; data fetching is blocked in his environment, so it would be tested on a fixture.
-3. **Pre-lock oracle check:** run the 6-candidate sweep once and confirm the top set holds 2 or fewer candidates.
-4. **Referee search** on the resolution-bias question itself (positive-unlabeled learning, selection bias in vetting labels). This is required before any novelty wording, not before the benchmark.
-5. **Adapt `bench/baseline_prompt.md`** to this task: an estimator recommendation instead of an OpenML candidate. Then freeze it with this protocol.
-6. **Orchestration:** the arm B contract items in `docs/coordination/BENCHMARK.md`.
+1. ~~**Hari:** review sections 4–7~~ done. γ 0/1/2, ρ = 0.30 and the 0.02 threshold stay provisional until lock.
+2. ~~**Runner**~~ done: `tools/tess_bias_run.py`, validated on fixtures (section 11).
+3. **Pre-lock oracle check on the real snapshot:** Hari runs `--fetch`, records the hash in the change log and in `bench/specs/tess_resolution_bias.json` (`data_ver`), re-runs T1 on that file, then runs `--oracle`. Lock only if it returns one decision and the γ = 0 control holds.
+4. ~~**Referee search**~~ done: `docs/coordination/REFEREE_RESOLUTION_BIAS.md`. Verdict: partial overlap; claim wording in section 9 updated. A full-text / citation-chaining pass is optional.
+5. ~~**Adapt the baseline prompt**~~ done (v0.2): no OpenML wording, `{ANSWER_OPTIONS}` = the oracle's 7 candidates. Task text is in `bench/specs/tess_resolution_bias.json`. The episode metric is `gap`, which every run reports. Freeze with this protocol.
+6. **Provisional spec values to settle before lock:** the USD cap, and literature access. Both arms must get the same; the spec currently gives no literature tool, which only matches arm B if FORGE's Librarian is also offline for the benchmark.
+7. **Arm B smoke run with real Omnigent (Ish + Saksham):** one FORGE episode on the fixture or the pinned snapshot via `bench/launch_arm_b.py`, checking it records the arm B contract items in `docs/coordination/BENCHMARK.md` (`candidate` in `RUN_COMPLETED`, `PREDICTION_COMMITTED` with `eid`, experiment cap).
+8. **No speedup or comparison claim** until both arms have comparable real episodes under the locked protocol.
 
 ## 11. Runner validation on synthetic fixtures (v0.3)
 
@@ -193,4 +197,5 @@ Other observations:
 | Date | Change | By |
 |---|---|---|
 | 2026-10-04 | v0.2 proposed: TESS resolution-bias instantiation | Akshat |
+| 2026-10-04 | v0.3.1: Referee search done (partial overlap: IWCV method known, phenomenon described qualitatively, quantification not found); claim wording and the not-supported list updated; baseline prompt v0.2 and `bench/specs/tess_resolution_bias.json` added; open items refreshed | Akshat |
 | 2026-10-04 | v0.3: snapshot pinned at first fetch (T1's raw CSV was not saved); true AUC from the same fold models as the naive estimate; section 4.1 on replicates vs seeds; oracle replaced by a decision rule after the fixture showed a 5-of-6 tie; linear-resolution-model limitation; fixture validation (section 11). γ 0/1/2, ρ = 0.30 and the 0.02 threshold stay provisional (Hari, review of sections 4–7) | Akshat |
