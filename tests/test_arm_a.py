@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import sys
@@ -12,6 +11,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import arm_a  # noqa: E402
 import report  # noqa: E402
+from core import schemas as core_schemas  # noqa: E402
+from core.ledger import Ledger, first_bad_seq  # noqa: E402
 
 SCHEMA = json.load(open(os.path.join(os.path.dirname(__file__), "..", "schemas", "event.schema.json")))
 
@@ -51,13 +52,12 @@ def test_full_episode_is_schema_shaped_hash_chained_and_scorable(episode, tmp_pa
 
     events = _events(episode)
     allowed = set(SCHEMA["properties"]["type"]["enum"])
-    prev = "GENESIS"
     for i, e in enumerate(events, start=1):
         assert set(SCHEMA["required"]) <= set(e) and set(e) <= set(SCHEMA["properties"])
-        assert e["type"] in allowed and e["seq"] == i and e["prev_hash"] == prev
-        body = {k: v for k, v in e.items() if k != "hash"}
-        assert e["hash"] == hashlib.sha256((prev + arm_a._canonical(body)).encode()).hexdigest()
-        prev = e["hash"]
+        assert e["type"] in allowed and e["seq"] == i
+    assert events[0]["prev_hash"] == "GENESIS" and first_bad_seq(events) is None
+    assert Ledger(episode / "ledger.db").verify("A-1") == (True, None)
+    assert Ledger(episode / "ledger.db").read("A-1") == events  # events.jsonl is the ledger export
     assert [e["type"] for e in events if e["ai_generated"]] == [
         "HYPOTHESIS_PROPOSED", "PREDICTION_COMMITTED", "REPLAN", "RUN_COMPLETED"]
 
@@ -99,8 +99,6 @@ def test_requires_episode_dir(monkeypatch):
 
 
 def test_payloads_pass_shared_payload_schemas(episode, tmp_path):
-    """Runs once core/schemas.py (PR #4) is on the branch; skipped before that."""
-    core_schemas = pytest.importorskip("core.schemas")
     arm_a.main(["hypothesis", "--hid", "H1", "--claim", "c", "--prediction", "p", "--falsifier", "f", "--prior", "0.5"])
     arm_a.main(["predict", "--eid", "E1", "--hid", "H1", "--mean", "0.8", "--sd", "0.01", "--falsifier", "f"])
     arm_a.main(["run", "--eid", "E1", "--hid", "H1", "--candidate", "lr", "--params", '{"model": "lr"}'])
@@ -110,3 +108,80 @@ def test_payloads_pass_shared_payload_schemas(episode, tmp_path):
     for e in _events(episode):
         core_schemas.validate(e["type"], e["payload"])
         core_schemas.validate_envelope(e)
+
+
+def test_refs_link_experiments_to_hypotheses(episode):
+    arm_a.main(["hypothesis", "--hid", "H1", "--claim", "c", "--prediction", "p", "--falsifier", "f", "--prior", "0.5"])
+    arm_a.main(["predict", "--eid", "E1", "--hid", "H1", "--mean", "0.8", "--sd", "0.01", "--falsifier", "f"])
+    arm_a.main(["run", "--eid", "E1", "--hid", "H1", "--candidate", "lr", "--params", '{"model": "lr"}'])
+    arm_a.main(["decide", "--after", "E1", "--decision", "switch", "--changed"])
+    refs = {e["type"]: e.get("refs") for e in _events(episode)}
+    assert refs["RUN_CREATED"] is None
+    assert refs["HYPOTHESIS_PROPOSED"] == {"hid": "H1"}
+    assert refs["PREDICTION_COMMITTED"] == refs["RUN_STARTED"] == refs["RUN_FINISHED"] == {"hid": "H1", "eid": "E1"}
+    assert refs["REPLAN"] == {"eid": "E1"}
+
+
+def test_invalid_payload_is_rejected_and_nothing_is_written(episode):
+    before = _events(episode)
+    with pytest.raises(SystemExit, match="rejected by the ledger"):
+        arm_a.main(["hypothesis", "--hid", "H1", "--claim", "", "--prediction", "p", "--falsifier", "f", "--prior", "0.5"])
+    assert _events(episode) == before
+    assert Ledger(episode / "ledger.db").read("A-1") == before
+
+
+def test_shared_ledger_holds_several_episodes(tmp_path, monkeypatch):
+    (tmp_path / "stub_mod.py").write_text("def run(t, p, s):\n    return {'metrics': {'auc': 0.7}}\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    shared = tmp_path / "shared.db"
+    for seed in (1, 2):
+        ep = tmp_path / "A" / f"seed-{seed}"
+        arm_a.main(["--episode", str(ep), "init", "--seed", str(seed), "--question", "Q", "--metric", "auc",
+                    "--runner", "stub_mod:run", "--task-id", "1", "--data-ver", "v1", "--run-id", f"A-{seed}",
+                    "--ledger", str(shared)])
+        arm_a.main(["--episode", str(ep), "run", "--eid", "E1", "--hid", "H1", "--candidate", "c", "--params", "{}"])
+        assert not (ep / "ledger.db").exists()
+    ledger = Ledger(shared)
+    assert ledger.runs() == ["A-1", "A-2"]
+    assert all(ledger.verify(r) == (True, None) for r in ledger.runs())
+    with pytest.raises(SystemExit, match="already exists in the ledger"):
+        arm_a.main(["--episode", str(tmp_path / "other"), "init", "--seed", "1", "--question", "Q", "--metric", "auc",
+                    "--runner", "stub_mod:run", "--task-id", "1", "--data-ver", "v1", "--run-id", "A-1",
+                    "--ledger", str(shared)])
+
+
+@pytest.fixture
+def nan_episode(tmp_path, monkeypatch):
+    (tmp_path / "nan_mod.py").write_text(
+        "def run(t, p, s):\n"
+        "    return {'metrics': {'auc': float(p.get('auc', 'nan')), 'aux': float('inf'), 'folds': [0.8, float('nan')]}}\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    ep = tmp_path / "ep"
+    arm_a.main(["--episode", str(ep), "init", "--seed", "1", "--question", "Q", "--metric", "auc",
+                "--runner", "nan_mod:run", "--task-id", "1", "--data-ver", "v1", "--run-id", "A-nan"])
+    return ep
+
+
+def test_non_finite_metrics_still_close_the_run(nan_episode):
+    ep = nan_episode
+    arm_a.main(["--episode", str(ep), "run", "--eid", "E1", "--hid", "H1", "--candidate", "x", "--params", "{}"])
+    arm_a.main(["--episode", str(ep), "predict", "--eid", "E2", "--hid", "H1", "--mean", "0.8", "--sd", "0.01", "--falsifier", "f"])
+    arm_a.main(["--episode", str(ep), "run", "--eid", "E2", "--hid", "H1", "--candidate", "y", "--params", '{"auc": 0.8}'])
+    finished = [e["payload"] for e in _events(ep) if e["type"] == "RUN_FINISHED"]
+    assert [p["status"] for p in finished] == ["non_finite_metric", "ok"]
+    assert finished[0]["metrics"] == {} and finished[1]["metrics"] == {"auc": 0.8}  # inf and NaN dropped
+    records = [json.loads(l) for l in open(ep / "run_records.jsonl")]  # strict JSON, values kept as text
+    assert records[0]["metrics"] == {"auc": "nan", "aux": "inf", "folds": [0.8, "nan"]}
+    assert Ledger(ep / "ledger.db").verify("A-nan") == (True, None)
+    m = report.episode_metrics(str(ep), None)
+    assert m["attempts"] == 2 and m["valid_experiments"] == 1
+
+
+def test_run_is_closed_even_if_the_result_event_is_rejected(nan_episode, monkeypatch):
+    monkeypatch.setattr(arm_a, "_numeric_metrics", lambda metrics: {"auc": float("nan")})  # force a ledger rejection
+    arm_a.main(["--episode", str(nan_episode), "run", "--eid", "E1", "--hid", "H1", "--candidate", "x", "--params", "{}"])
+    types = [e["type"] for e in _events(nan_episode)]
+    assert types == ["RUN_CREATED", "RUN_STARTED", "RUN_FINISHED"]
+    finished = _events(nan_episode)[-1]["payload"]
+    assert finished["status"] == "error" and "could not be recorded" in finished["error"]

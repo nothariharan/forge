@@ -34,6 +34,7 @@ import argparse
 import hashlib
 import importlib
 import json
+import math
 import os
 import statistics
 import subprocess
@@ -104,6 +105,20 @@ def _load_done(runs_path: str, digest: str) -> dict[tuple[str, int], dict]:
     return done
 
 
+def _finite_number(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def _json_safe(obj):
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return str(obj)
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    return obj
+
+
 def sweep(spec: dict, out_dir: str, runner: Optional[Callable] = None, log=print) -> list[dict]:
     """Run all (candidate, seed) pairs not already recorded. Returns all records."""
     os.makedirs(out_dir, exist_ok=True)
@@ -125,13 +140,20 @@ def sweep(spec: dict, out_dir: str, runner: Optional[Callable] = None, log=print
                 try:
                     result = runner(spec["task_id"], cand.get("params", {}), seed)
                     value = (result or {}).get("metrics", {}).get(metric)
-                    rec.update(status="ok" if value is not None else "missing_metric", value=value, raw=result)
+                    if value is None:
+                        status = "missing_metric"
+                    elif not _finite_number(value):
+                        # A NaN would poison the candidate mean; record the run as failed instead.
+                        status, value = "non_finite_metric", str(value)
+                    else:
+                        status = "ok"
+                    rec.update(status=status, value=value, raw=result)
                 except Exception as exc:
                     rec.update(status="error", value=None, error=f"{type(exc).__name__}: {exc}",
                                traceback=traceback.format_exc(limit=5))
                 rec["wall_seconds"] = round(time.monotonic() - t0, 3)
                 rec["finished_at"] = _now()
-                f.write(json.dumps(rec, default=str) + "\n")
+                f.write(json.dumps(_json_safe(rec), default=str, allow_nan=False) + "\n")
                 f.flush()
                 done[key] = rec
                 log(f"[{len(done)}/{total}] {cand['id']} seed={seed} {rec['status']} {metric}={rec['value']}")

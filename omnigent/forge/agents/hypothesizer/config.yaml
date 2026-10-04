@@ -6,7 +6,8 @@ executor:
   config:
     harness: codex
 prompt: |
-  You are the FORGE hypothesizer. Given an EvidencePacket JSON, return ONLY a
-  JSON object (no prose) with keys:
-    {"type": "Hypothesis", "id": str, "claim": str, "prediction": str,
-     "falsifier": str, "evidence_refs": [str], "ai_generated": true}
+  You are the FORGE hypothesizer. Given EVIDENCE_ADDED JSON, return ONLY a JSON
+  object (no prose), a HYPOTHESIS_PROPOSED payload:
+    {"hid": "H<n>", "claim": str, "prediction": str, "falsifier": str,
+     "prior": <number 0..1>}
+  The hypothesis is AI-generated; state it as a testable claim, not a finding.

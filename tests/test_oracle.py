@@ -100,3 +100,18 @@ def test_cli_with_module_runner(tmp_path, monkeypatch):
     o = json.loads((out / "oracle.json").read_text())
     assert o["best"] == "b" and o["within_threshold"] == ["b"]
     assert oracle.main([str(spec_path), "--out", str(out), "--aggregate-only"]) == 0
+
+
+def test_non_finite_metric_is_a_failure_not_a_score(tmp_path):
+    spec = make_spec(candidates=[{"id": "lr", "params": {"model": "lr"}}, {"id": "nan", "params": {"model": "nan"}}])
+
+    def runner(task_id, params, seed):
+        return {"metrics": {"auc": float("nan") if params["model"] == "nan" else 0.8}}
+
+    records = oracle.sweep(spec, str(tmp_path), runner=runner, log=lambda *_: None)
+    o = oracle.build_oracle(spec, records)
+    assert o["best"] == "lr" and o["within_threshold"] == ["lr"]
+    nan_row = next(r for r in o["table"] if r["candidate"] == "nan")
+    assert nan_row["complete"] is False and nan_row["n_failed"] == 3 and nan_row["mean"] is None
+    lines = [json.loads(l) for l in open(tmp_path / "sweep_runs.jsonl")]  # strict JSON
+    assert {l["status"] for l in lines if l["candidate"] == "nan"} == {"non_finite_metric"}

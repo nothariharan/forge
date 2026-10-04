@@ -1,6 +1,6 @@
 # Arm A baseline prompt (draft v0.1)
 
-**Status:** draft for review. Per `bench/PROTOCOL.md` section 12, someone outside the benchmark lane reviews this prompt before any comparative run, and it is frozen with the protocol. Placeholders in `{BRACES}` are filled from the locked science contract by the arm A runner; the filled prompt is saved in each episode folder.
+**Status:** draft. Reviewed independently by Hari (2026-10-04): balanced for a solo arm, no oracle hints. Not freeze-ready, because it still assumes an OpenML task and a single candidate recommendation; it will be adapted to the locked science question and frozen with the protocol (`bench/PROTOCOL.md` section 12). Placeholders in `{BRACES}` are filled from the locked science contract by the arm A runner; the filled prompt is saved in each episode folder.
 
 ## Fairness rules for this prompt
 
