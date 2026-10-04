@@ -76,9 +76,11 @@ def collect(out_root: str, oracle: Optional[dict]) -> tuple[dict[str, list[dict]
         seed = int(name.split("-", 1)[1])
         summary = _load(os.path.join(seed_dir, "summary.json")) or {}
         command = _load(os.path.join(seed_dir, "command.json")) or {}
+        import run_lite_seed  # the same scan the runner uses, re-run so older runs get the full file list
         seeds.append({"seed": seed, "command": command.get("command"), "setup": command.get("lock"),
-                      "data_ver": command.get("data_ver"), "oracle_mentions": {
-                          a: e.get("oracle_mentions") for a, e in summary.get("episodes", {}).items()},
+                      "data_ver": command.get("data_ver"), "hidden": command.get("hidden_during_episodes"),
+                      "oracle_mentions": {a: run_lite_seed.leak_check(os.path.join(seed_dir, a), f"lite-{a}-{seed}")
+                                          for a in summary.get("episodes", {})},
                       "outcomes": {a: e.get("outcome") for a, e in summary.get("episodes", {}).items()}})
         for arm in ("A", "B"):
             # A launch that crashed before the episode existed still scores as a failed attempt.
@@ -87,6 +89,14 @@ def collect(out_root: str, oracle: Optional[dict]) -> tuple[dict[str, list[dict]
             m["outcome"] = summary.get("episodes", {}).get(arm, {}).get("outcome")
             arms.setdefault(arm, []).append(m)
     return arms, seeds
+
+
+def hidden_line(seeds: list[dict]) -> str:
+    hidden = sorted({p for s in seeds for p in (s.get("hidden") or [])})
+    if hidden:
+        return f"moved out of reach while agents ran ({', '.join(hidden)})."
+    return ("not hidden; it was kept outside the repository, but agents ran without a sandbox and could in "
+            "principle have read it.")
 
 
 def render(cmp: dict, oracle: Optional[dict], prelock: Optional[dict], seeds: list[dict]) -> str:
@@ -103,8 +113,9 @@ def render(cmp: dict, oracle: Optional[dict], prelock: Optional[dict], seeds: li
             "- Failed, timed-out and budget_exhausted episodes are included; nothing was re-run.",
             "- Literature tooling was not provided to either arm; this compares the protocol (committed "
             "predictions, budget, ledger, approval gate), not citation quality.", "",
-            "- Arm B's P6 gate is auto-approved by the harness (no human in either arm); the ground-truth files "
-            "were moved out of the repository while agents ran, and agent output is scanned for oracle mentions.", "",
+            "- Arm B's P6 gate is auto-approved by the harness (no human in either arm).",
+            f"- Ground truth during the episodes: {hidden_line(seeds)} Agent logs, events and arm B handoff files "
+            "are scanned for oracle mentions.", "",
             "## Episodes", "", "| Seed | A outcome | B outcome | Oracle mentions in agent output | Command |",
             "|---|---|---|---|---|"]
     for s in seeds:

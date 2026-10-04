@@ -99,8 +99,10 @@ def episode_metrics(episode_dir: str, oracle: Optional[dict]) -> dict:
 
     # Timed window: RUN_CREATED to RUN_COMPLETED, else to the budget cutoff, else to the last event.
     start = next((e["ts"] for e in events if e["type"] == "RUN_CREATED"), None)
-    end = next((e["ts"] for e in events if e["type"] == "RUN_COMPLETED"), None)
-    completed = end is not None
+    closing = next((e for e in events if e["type"] == "RUN_COMPLETED"), None)
+    end = closing["ts"] if closing else None
+    # Completed means the agent finished; a harness close for budget_exhausted / aborted is not completion.
+    completed = closing is not None and closing["payload"].get("status", "completed") == "completed"
     end = end or manifest.get("budget_end_ts") or (events[-1]["ts"] if events else None)
     wall = (_ts(end) - _ts(start)).total_seconds() if start and end else None
     hours = wall / 3600 if wall else None

@@ -18,6 +18,7 @@
         "head_commit": "1cde3962a059dab4463aa6ca1b8f4a04a12fd53c"
       },
       "data_ver": "synthetic-fixture@bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+      "hidden": [],
       "oracle_mentions": {
         "A": [],
         "B": []
@@ -39,6 +40,7 @@
         "head_commit": "1cde3962a059dab4463aa6ca1b8f4a04a12fd53c"
       },
       "data_ver": "synthetic-fixture@bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+      "hidden": [],
       "oracle_mentions": {
         "B": [],
         "A": []
@@ -60,6 +62,7 @@
         "head_commit": "1cde3962a059dab4463aa6ca1b8f4a04a12fd53c"
       },
       "data_ver": "synthetic-fixture@bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+      "hidden": [],
       "oracle_mentions": {
         "A": [],
         "B": []
@@ -479,7 +482,7 @@
       },
       "B": {
         "episodes": 3,
-        "completed": 3,
+        "completed": 1,
         "unresolvable_refs": [
           0,
           0,

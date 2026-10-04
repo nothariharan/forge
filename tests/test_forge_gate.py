@@ -83,7 +83,8 @@ def test_auto_mode_honours_an_existing_human_deny(tmp_path, monkeypatch):
     assert rc == 3 and ran == []
 
 
-@pytest.mark.parametrize("flag", ["--oracle", "--oracle=out.json", "--fetch"])
+@pytest.mark.parametrize("flag", ["--oracle", "--oracle=out.json", "--fetch", "--orac", "--ora=x.json", "--fet",
+                                  "--replicates"])
 def test_runner_flags_that_leak_or_fetch_are_refused(tmp_path, flag):
     _ledger(tmp_path)
     rc = forge_gate.main(["--run-id", "r", "--gate-id", "G1", "--db", str(tmp_path / "l.db"), "--",
@@ -98,3 +99,17 @@ def test_benchmark_runner_is_allowed_behind_the_gate(tmp_path, monkeypatch):
     rc = forge_gate.main(["--run-id", "r", "--gate-id", "G1", "--db", str(tmp_path / "l.db"), "--timeout", "2", "--",
                           ".venv/bin/python", "tools/tess_bias_run.py", "--model", "lr", "--estimator", "iw", "--seed", "1"])
     assert rc == 0
+
+
+@pytest.mark.parametrize("cmd", [["find", "tools/tess_bias_run.py", "-exec", "cat", "x", "{}", "+"],
+                                 ["/bin/sh", "tools/tess_bias_run.py"]])
+def test_only_the_repo_python_may_run_behind_the_gate(tmp_path, cmd):
+    _ledger(tmp_path)
+    rc = forge_gate.main(["--run-id", "r", "--gate-id", "G1", "--db", str(tmp_path / "l.db"), "--", *cmd])
+    assert rc == 5
+
+
+def test_runner_rejects_abbreviated_flags():
+    from tools import tess_bias_run
+    with pytest.raises(SystemExit):
+        tess_bias_run.main(["--orac", "x.json"])

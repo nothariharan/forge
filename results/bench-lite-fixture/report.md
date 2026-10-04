@@ -8,7 +8,8 @@
 - Failed, timed-out and budget_exhausted episodes are included; nothing was re-run.
 - Literature tooling was not provided to either arm; this compares the protocol (committed predictions, budget, ledger, approval gate), not citation quality.
 
-- Arm B's P6 gate is auto-approved by the harness (no human in either arm); the ground-truth files were moved out of the repository while agents ran, and agent output is scanned for oracle mentions.
+- Arm B's P6 gate is auto-approved by the harness (no human in either arm).
+- Ground truth during the episodes: not hidden; it was kept outside the repository, but agents ran without a sandbox and could in principle have read it. Agent logs, events and arm B handoff files are scanned for oracle mentions.
 
 ## Episodes
 
@@ -53,7 +54,7 @@ Paired seeds: [1, 2, 3] (N=3). Intervals are 95%. Paired bootstrap over seeds (1
 | Arm | Episodes (completed) | Unresolvable refs | Unsupported quotes | Invalid attempts | Correct answers | Reached top candidate |
 |---|---|---|---|---|---|---|
 | A | 3 (3) | n/a | n/a | 5/12 [0.193, 0.68] | 3/3 [0.292, 1] | 3/3 [0.292, 1] |
-| B | 3 (3) | n/a | n/a | 3/4 [0.301, 0.954] | 1/3 [0.0084, 0.906] | 1/3 [0.0084, 0.906] |
+| B | 3 (1) | n/a | n/a | 3/4 [0.301, 0.954] | 1/3 [0.0084, 0.906] | 1/3 [0.0084, 0.906] |
 
 ## Notes
 

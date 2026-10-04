@@ -152,3 +152,10 @@ def test_reached_top_matches_labels_with_a_setting_suffix(tmp_path):
     _write_episode(tmp_path, "A", 1, events)
     m = report.episode_metrics(str(tmp_path / "A" / "seed-1"), {"best": "no_correction", "within_threshold": ["no_correction", "lr_naive"]})
     assert m["reached_top"] is True and m["experiments_to_top"] == 2
+
+
+def test_a_budget_close_is_not_completion(tmp_path):
+    events = [("00:00", "RUN_CREATED", {}), ("10:00", "RUN_COMPLETED", {"status": "budget_exhausted"}, "harness")]
+    _write_episode(tmp_path, "B", 1, events)
+    m = report.episode_metrics(str(tmp_path / "B" / "seed-1"), None)
+    assert m["completed"] is False and m["timed_wall_seconds"] == 600

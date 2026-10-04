@@ -261,14 +261,15 @@ One smoke-scale run of the lite protocol ([`bench/PROTOCOL_TESS.md`](bench/PROTO
 | Wall time per episode (s) | 347, 293, 295 | 387, 630, 630 (two hit the budget) |
 | Cost | n/a | n/a |
 
-**What this supports:** on this fixture and setup, the single-agent baseline did better than FORGE. FORGE did keep the protocol: every experiment it ran had a prediction committed first, every gate decision is in the ledger, and nothing was re-run.
+**What this supports:** on this fixture and setup, the single-agent baseline did better than FORGE. FORGE did keep the protocol: every experiment it ran had a prediction committed first, every gate decision is in the ledger, and no episode was re-run.
 
 **What it does not support:** any claim that FORGE is faster, more accurate or "X times better", and any claim about TESS. With n=3 the intervals are wide (FORGE correctness 1/3, 95% CI [0.008, 0.906]).
 
 **Why FORGE fell short here:**
-- The three seeds ran at once on one machine, so the slow gradient-boosting experiments stalled in both arms.
-- The baseline dropped them and switched to logistic regression.
-- FORGE committed to one slow experiment and waited out its budget in two of three seeds. It has no way to abandon a slow run yet, and it spends about 2 minutes on hypothesis, prediction and gate before its first experiment.
+- In 2 of 3 seeds, FORGE's planner started with a slow gradient-boosting experiment. It ran for over 8 minutes without finishing, and FORGE had no result or answer when the budget ran out.
+- The baseline started several runs, answered after 5–6 minutes from the fast ones, and left the slow ones running.
+- FORGE spends about 2 minutes on hypothesis, prediction and gate before its first experiment. It has no per-experiment time limit, and its experimenter's shell timeout behaved inconsistently (cut off at about 90 s in one seed, over 8 minutes in the others).
+- The three seeds ran at once on one machine, so every experiment was slower, and the baseline's leftover runs likely slowed FORGE further.
 
 **Next:** rerun the seeds one after another, give FORGE a per-experiment timeout, and run the real TESS snapshot once it is pinned. The challenge brief asks teams to report the improvement they actually observe, so this result stays in the README whichever way the next run goes.
 

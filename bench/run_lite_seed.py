@@ -32,6 +32,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import time
 import traceback
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -57,7 +58,7 @@ FIXTURE_FRAMING = ("synthetic TESS-like fixture (tests/tess_fixture.py), NOT the
                    "lite benchmark protocol, FORGE vs a single-agent baseline; no claim about TESS")
 # Ground truth the agents must not see while an episode runs (both arms run inside the repository).
 HIDDEN_DURING_EPISODES = (os.path.join(REPO_ROOT, "results", "tess_prelock"),)
-LEAK_MARKERS = ("--oracle", "tess_prelock", "oracle.json")
+LEAK_MARKERS = ("--orac", "build_oracle", "tess_prelock", "oracle.json", "git show")
 VENV_BIN = os.path.join(REPO_ROOT, ".venv", "bin")
 
 
@@ -67,9 +68,13 @@ def framing(spec: dict) -> str:
 
 @contextmanager
 def hidden(paths=None):
-    """Move ground-truth files out of the repository while the episodes run, then restore them."""
+    """Move ground-truth files out of the repository while the episodes run, then restore them.
+
+    Yields a dict that records what was hidden, where it was stashed (printed, so it can be recovered by hand
+    after a SIGKILL) and anything an agent recreated at a hidden path, which is moved aside, never overwritten."""
     paths = HIDDEN_DURING_EPISODES if paths is None else paths
     stash = tempfile.mkdtemp(prefix="forge-hidden-")
+    state = {"hidden": [], "stash": stash, "recreated": []}
     moved = []
     try:
         for i, path in enumerate(paths):
@@ -77,21 +82,50 @@ def hidden(paths=None):
                 dest = os.path.join(stash, str(i))
                 shutil.move(path, dest)
                 moved.append((dest, path))
-        yield [p for _, p in moved]
+                state["hidden"].append(path)
+        if moved:
+            print(f"ground truth stashed in {stash} until the episodes end", file=sys.stderr)
+        yield state
     finally:
         for dest, path in moved:
+            if os.path.exists(path):  # an agent recreated it during the episode: keep it aside for inspection
+                aside = f"{path}.agent-created-{int(time.time())}"
+                shutil.move(path, aside)
+                state["recreated"].append(aside)
             shutil.move(dest, path)
         shutil.rmtree(stash, ignore_errors=True)
 
 
-def leak_check(episode_dir: str) -> list[str]:
-    """Agent output that mentions the oracle or its files (a sign the ground truth was looked up)."""
+def paths_to_hide(oracle_path: str, out_root: str) -> list[str]:
+    """The default ground-truth folder plus wherever this run's oracle lives (its folder, unless that folder
+    also holds the results or the repository itself, in which case only the oracle file)."""
+    paths = list(HIDDEN_DURING_EPISODES)
+    oracle_dir = os.path.dirname(os.path.abspath(oracle_path))
+    out = os.path.abspath(out_root)
+    if oracle_dir in (REPO_ROOT, os.path.dirname(REPO_ROOT)) or out == oracle_dir or out.startswith(oracle_dir + os.sep):
+        target = os.path.abspath(oracle_path)
+    else:
+        target = oracle_dir
+    if not any(target == p or target.startswith(p + os.sep) for p in paths):
+        paths.append(target)
+    return paths
+
+
+def leak_scan_files(episode_dir: str, run_id: str) -> list[str]:
+    """Everything an agent's actions are visible in: agent logs, the episode's events, and arm B's handoff files."""
+    files = [os.path.join(episode_dir, n) for n in ("agent_stdout.log", "agent_stderr.log", "events.jsonl")]
+    handoffs = os.path.join(REPO_ROOT, "results", "handoffs")
+    if os.path.isdir(handoffs):
+        files += sorted(os.path.join(handoffs, n) for n in os.listdir(handoffs) if n.startswith(f"{run_id}-"))
+    return [f for f in files if os.path.exists(f)]
+
+
+def leak_check(episode_dir: str, run_id: str = "") -> list[str]:
+    """Agent output that mentions the oracle, its files or ways to compute it (a sign the ground truth was looked up)."""
     hits = []
-    for name in ("agent_stdout.log", "agent_stderr.log"):
-        path = os.path.join(episode_dir, name)
-        if os.path.exists(path):
-            text = open(path, encoding="utf-8", errors="replace").read()
-            hits += [f"{name}: {m}" for m in LEAK_MARKERS if m in text]
+    for path in leak_scan_files(episode_dir, run_id):
+        text = open(path, encoding="utf-8", errors="replace").read()
+        hits += [f"{os.path.basename(path)}: {m}" for m in LEAK_MARKERS if m in text]
     return hits
 
 
@@ -204,6 +238,9 @@ def run_seed(seed: int, spec: dict, out_root: str = DEFAULT_OUT, oracle_path: st
     lock = json.load(open(lock_path)) if os.path.exists(lock_path) else {}
     setup = check_lock(lock, lock_path, sha, model)
     model = setup["model"]
+    if not os.path.exists(oracle_path):  # scoring silently against no ground truth is never allowed
+        raise SystemExit(f"no oracle at {oracle_path}: run the pre-lock first. If another seed is running on this "
+                         "machine it may have the ground truth hidden; run seeds sequentially or on separate machines.")
     seed_dir = os.path.join(out_root, f"seed-{seed}")
     if os.path.exists(seed_dir):
         raise SystemExit(f"{seed_dir} already exists; episodes are never re-run. Delete it only if no agent "
@@ -221,35 +258,40 @@ def run_seed(seed: int, spec: dict, out_root: str = DEFAULT_OUT, oracle_path: st
     with open(os.path.join(seed_dir, "command.json"), "w", encoding="utf-8") as f:
         json.dump(command, f, indent=2)
 
-    oracle = json.load(open(oracle_path)) if os.path.exists(oracle_path) else None
+    oracle = json.load(open(oracle_path))
     old_path = os.environ.get("PATH", "")
     if os.path.isdir(VENV_BIN):  # both arms' `python` / `.venv/bin/python` resolve to the same pinned environment
         os.environ["PATH"] = VENV_BIN + os.pathsep + old_path
     command["agent_python"] = shutil.which("python")
     episodes = {}
-    with hidden() as hidden_paths:
-        command["hidden_during_episodes"] = [os.path.relpath(p, REPO_ROOT) for p in hidden_paths]
-        for arm in arm_order(seed, list(arms)):
-            ep = os.path.join(seed_dir, arm)
-            entry = {"arm": arm, "started_at": _now()}
-            try:
-                if arm == "A":
-                    rec = launch_arm_a.launch(spec, seed, ep, run_id=f"lite-A-{seed}", model=model, agent_cmd=arm_a_cmd)
-                else:
-                    rec = launch_arm_b.launch(spec, seed, ep, run_id=f"lite-B-{seed}", model=model, agent_cmd=arm_b_cmd)
-                entry.update(outcome=rec.get("outcome"), failure_reason=rec.get("failure_reason"),
-                             timed_out=rec.get("timed_out"), returncode=rec.get("returncode"))
-            except (Exception, SystemExit) as exc:  # a crashed launch stays in the record, never dropped
-                entry.update(outcome="launch_failed", error=f"{type(exc).__name__}: {exc}",
-                             traceback=traceback.format_exc(limit=5))
-            entry["finished_at"] = _now()
-            episodes[arm] = entry
-            print(f"seed {seed} arm {arm}: {entry['outcome']}")
-    os.environ["PATH"] = old_path
+    try:
+        with hidden(paths_to_hide(oracle_path, out_root)) as hide:
+            command["hidden_during_episodes"] = list(hide["hidden"])
+            for arm in arm_order(seed, list(arms)):
+                ep = os.path.join(seed_dir, arm)
+                entry = {"arm": arm, "started_at": _now()}
+                try:
+                    if arm == "A":
+                        rec = launch_arm_a.launch(spec, seed, ep, run_id=f"lite-A-{seed}", model=model, agent_cmd=arm_a_cmd)
+                    else:
+                        rec = launch_arm_b.launch(spec, seed, ep, run_id=f"lite-B-{seed}", model=model, agent_cmd=arm_b_cmd)
+                    entry.update(outcome=rec.get("outcome"), failure_reason=rec.get("failure_reason"),
+                                 timed_out=rec.get("timed_out"), returncode=rec.get("returncode"))
+                except (Exception, SystemExit) as exc:  # a crashed launch stays in the record, never dropped
+                    entry.update(outcome="launch_failed", error=f"{type(exc).__name__}: {exc}",
+                                 traceback=traceback.format_exc(limit=5))
+                entry["finished_at"] = _now()
+                episodes[arm] = entry
+                print(f"seed {seed} arm {arm}: {entry['outcome']}")
+    finally:
+        os.environ["PATH"] = old_path
+    command["recreated_during_episodes"] = hide["recreated"]
     for arm, entry in episodes.items():  # scored after the ground truth is back in place
         ep = os.path.join(seed_dir, arm)
+        run_id = f"lite-{arm}-{seed}"
         entry["metrics"] = report.episode_metrics(ep, oracle)
-        entry["oracle_mentions"] = leak_check(ep)
+        entry["oracle_mentions"] = leak_check(ep, run_id)
+        entry["leak_scan_files"] = [os.path.relpath(f, REPO_ROOT) for f in leak_scan_files(ep, run_id)]
     with open(os.path.join(seed_dir, "command.json"), "w", encoding="utf-8") as f:
         json.dump(command, f, indent=2)
 

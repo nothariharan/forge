@@ -193,7 +193,7 @@ def test_ground_truth_is_hidden_while_agents_run(lite, tmp_path, monkeypatch):
 
 def test_oracle_mentions_are_flagged(tmp_path):
     (tmp_path / "agent_stdout.log").write_text("ran python tools/tess_bias_run.py --oracle out.json")
-    assert run_lite_seed.leak_check(str(tmp_path)) == ["agent_stdout.log: --oracle"]
+    assert run_lite_seed.leak_check(str(tmp_path)) == ["agent_stdout.log: --orac"]
     assert run_lite_seed.leak_check(str(tmp_path / "missing")) == []
 
 
@@ -217,3 +217,23 @@ def test_arm_b_runs_every_forge_agent_on_one_harness(tmp_path):
     assert harnesses == {"claude-sdk"}
     src = open(os.path.join(launch_arm_b.FORGE_DIR, "agents", "planner", "config.yaml")).read()
     assert all(v["to"] == "claude-sdk" for v in changed.values()) and "harness:" in src  # source config untouched
+
+
+def test_a_missing_oracle_stops_the_seed(lite, tmp_path):
+    spec_, out, oracle, cmds = lite
+    with pytest.raises(SystemExit, match="no oracle"):
+        run_lite_seed.run_seed(1, spec_, str(out), str(tmp_path / "missing.json"), **cmds)
+    assert not (out / "seed-1").exists()
+
+
+def test_the_oracle_folder_is_hidden_and_agent_copies_set_aside(tmp_path):
+    truth = tmp_path / "prelock"
+    truth.mkdir()
+    (truth / "oracle.json").write_text("{}")
+    paths = run_lite_seed.paths_to_hide(str(truth / "oracle.json"), str(tmp_path / "out"))
+    assert str(truth) in paths
+    with run_lite_seed.hidden([str(truth)]) as hide:
+        assert not truth.exists()
+        truth.mkdir()
+        (truth / "oracle.json").write_text('{"made": "by an agent"}')
+    assert (truth / "oracle.json").read_text() == "{}" and len(hide["recreated"]) == 1
