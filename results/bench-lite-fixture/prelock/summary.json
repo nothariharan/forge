@@ -1,0 +1,62 @@
+{
+  "status": "PRELOCK_RUN_SEMI_SYNTHETIC_SIMULATION_NOT_REAL_UNRESOLVED_ACCURACY",
+  "snapshot": {
+    "path": "results/bench-lite-fixture/data/toi_fixture.csv",
+    "sha256": "bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+    "recorded_at_utc": "2026-10-04T10:38:55.015912+00:00"
+  },
+  "t1_primary_auc": 0.752776788104598,
+  "t1_primary_ci95": [
+    0.7352713072934018,
+    0.7712617426076672
+  ],
+  "gap_gamma1_lr_naive": {
+    "mean": -0.0002331944669218955,
+    "se": 0.0028453668809111546,
+    "ci95": [
+      -0.005810113553507758,
+      0.005343724619663968
+    ],
+    "replicate_range95": [
+      -0.049685287823761096,
+      0.05041779599298594
+    ],
+    "n": 100
+  },
+  "control_gamma0_mean_gap": -0.002533644609844492,
+  "sensitivity_nonlinear_resolution": {
+    "resolution_model": "hgb",
+    "resolution_model_oof_auc": 0.7224980090129058,
+    "mean_gap": -0.007136949275470732,
+    "se": 0.0027569284554260797,
+    "ci95": [
+      -0.012540529048105847,
+      -0.0017333695028356163
+    ],
+    "n": 100,
+    "agrees_with_primary": true,
+    "note": "reported only; if it disagrees with the primary decision, the claim must say the linear mechanism may understate the selection effect"
+  },
+  "best": "no_correction",
+  "within_threshold": [
+    "hgb_naive",
+    "lr_naive",
+    "no_correction"
+  ],
+  "checks": {
+    "control_within_0.01": true,
+    "single_decision": true,
+    "decision": "not meaningfully overstated under this mechanism: report resolved-set AUC with its interval",
+    "decision_fragile": false,
+    "sensitivity_agrees": true,
+    "lockable": true
+  },
+  "packages": {
+    "python": "3.11.15",
+    "numpy": "2.2.6",
+    "scikit-learn": "1.6.1",
+    "scipy": "1.15.3",
+    "pandas": "2.2.3"
+  },
+  "next": "Record the sha256 and these checks in the bench/PROTOCOL_TESS.md change log, commit the spec pin, then lock jointly if checks.lockable is true."
+}
