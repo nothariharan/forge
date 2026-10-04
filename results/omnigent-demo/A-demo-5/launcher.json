@@ -1,0 +1,19 @@
+{
+  "run_id": "A-demo-5",
+  "seed": 1,
+  "command": [
+    "omni",
+    "run",
+    "/tmp/armA/ep5/omni_agent",
+    "--no-session",
+    "-p",
+    "<prompt.md>"
+  ],
+  "agent_dir": "/tmp/armA/ep5/omni_agent",
+  "dry_run": false,
+  "started_at": "2026-10-04T08:43:30Z",
+  "returncode": 0,
+  "timed_out": false,
+  "finished_at": "2026-10-04T08:44:05Z",
+  "outcome": "completed"
+}

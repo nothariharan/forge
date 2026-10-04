@@ -1,0 +1,2 @@
+{"ts": "2026-10-04T08:43:45.856954Z", "after": "E1", "decision": "x scored roc_auc 0.9, inside my predicted range; proceed as planned to run y (E2) for the direct comparison", "plan_changed": false}
+{"ts": "2026-10-04T08:43:56.225874Z", "after": "E2", "decision": "y scored 0.91 vs x 0.90 (diff 0.010 > 0.003 margin); H1 not falsified. Run budget exhausted, so submit y with single-seed caveat.", "plan_changed": false}
