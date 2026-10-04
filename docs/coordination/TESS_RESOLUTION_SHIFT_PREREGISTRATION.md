@@ -2,18 +2,18 @@
 
 **Owner:** Hari (science lead)
 **Date:** 2026-10-04
-**Status:** **EXECUTED. Prediction supported in the primary arm; falsifier not triggered. T2 is now worth running. This is a shift measurement, not a science claim and not benchmark evidence.**
+**Status:** **EXECUTED. The current-catalog fields distinguish resolved from unresolved TOIs in this run. This is not evidence that those fields were available at triage, not an accuracy-gap result, not a science claim, and not benchmark evidence. T2 remains conditional on feature-provenance and prior-art review.**
 **Authority:** [`SCIENCE_DECISION_PACKET.md`](SCIENCE_DECISION_PACKET.md) lock-gate items; [`BENCHMARK_TESS_GATE_REVIEW.md`](BENCHMARK_TESS_GATE_REVIEW.md) section 4 test T1.
 
 ## Why this test
 
 The TESS plain-classification target **failed the prior-art gate**. The residual candidate question is whether a vetting model's accuracy measured on resolved objects overstates its accuracy on the unresolved candidates it is actually used to triage.
 
-T1 is the falsifier for that question and is nearly free. It does not measure vetting accuracy at all. It measures whether resolved and unresolved objects are distinguishable from the same features, which is the condition under which resolved-set accuracy is a biased estimate for triage accuracy.
+T1 is a cheap descriptive check. It does not measure vetting accuracy. It tests whether current catalog values distinguish resolved from unresolved objects. The archive does not provide historical feature values at disposition time, so T1 cannot establish that these values were available at triage. A shift in current values alone neither proves nor rules out an accuracy gap.
 
 ## Question
 
-On NASA Exoplanet Archive TESS Objects of Interest, can a classifier distinguish **resolved** from **unresolved** objects using only the photometric and ephemeris features that are available when a candidate is triaged?
+In the current NASA Exoplanet Archive TESS Objects of Interest table, can a classifier distinguish **resolved** from **unresolved** objects using the available photometric and ephemeris columns?
 
 ## Population and labels
 
@@ -47,9 +47,9 @@ Primary arm excludes timestamps. A sensitivity arm adds them, to show how much o
 
 Out-of-fold AUC is **greater than 0.5**, and the 95% bootstrap interval **excludes 0.5**.
 
-## Falsifier
+## Planned decision rule
 
-The 95% bootstrap interval for the out-of-fold AUC **includes 0.5**. Then there is no detectable covariate shift, resolution and unresolved candidates are exchangeable given these features, the resolution-bias concern is not supported on this population, and T2 should **not** be run. This is a real, acceptable outcome and closes the direction.
+An upper 95% bootstrap bound **below 0.5** would support separation in the opposite direction and contradict the preregistered prediction that AUC exceeds 0.5. If the interval overlaps 0.5, the result is inconclusive; it does not establish exchangeability or rule out an accuracy gap.
 
 ## Stopping rule
 
@@ -86,12 +86,16 @@ Permutation control: mean **0.4973**, p95 0.5144, max 0.5257 over 200 permutatio
 
 ### Reading of the result
 
-The prediction was that out-of-fold AUC exceeds 0.5 with an interval excluding 0.5. That holds, so resolved and unresolved TOIs are **not exchangeable given the triage features**, and accuracy measured on resolved objects is not automatically an unbiased estimate of triage accuracy. T2 becomes worth running.
+The prediction was that out-of-fold AUC exceeds 0.5 with an interval excluding 0.5. That holds for the current catalog values. However, the table does not establish these fields' availability at original disposition time. This is current-snapshot separability, not a measured triage-time covariate shift and not an accuracy-gap result. T2 is not approved by this result alone.
 
 Two qualifications that must travel with this number:
 
-1. **Timestamps add only 0.038 AUC** (0.7616 → 0.7992). Most of the detectable shift is present in the photometric and ephemeris features alone, so it is not merely an artifact of resolved objects being older.
-2. **Shift is not an accuracy gap.** A detectable shift is necessary but not sufficient for a large accuracy difference. The magnitude of any triage-accuracy gap is T2's question and is still unmeasured. Do not quote 0.76 as an accuracy overstatement.
+1. **Timestamps add 0.038 AUC** (0.7616 → 0.7992) in the current snapshot. This does not resolve whether non-timestamp fields were updated after disposition.
+2. **Shift is not an accuracy gap.** A detectable difference in current catalog values neither measures nor guarantees an accuracy difference. Do not quote 0.76 as an accuracy overstatement.
+
+### Post-run methodological clarification (2026-10-04)
+
+The initial preregistration draft said that an interval including 0.5 would establish no shift and exchangeability. That inference is not justified: overlap with 0.5 is inconclusive, not evidence of equivalence. This clarification does not change the recorded result because the observed interval is wholly above 0.5. The current table also lacks historical feature values at disposition time, so the run must be described as current-catalog separability only. Neither this result nor a semi-synthetic follow-up establishes real unresolved-pool accuracy without additional assumptions and validation.
 
 ### Deviations and bugs found before the recorded run
 

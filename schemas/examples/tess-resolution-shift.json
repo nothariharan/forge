@@ -176,6 +176,7 @@
       "ci_below_half": false,
       "prediction_supported": true,
       "falsifier_triggered": false,
+      "inconclusive": false,
       "elapsed_seconds": 23.38
     },
     {
@@ -325,6 +326,7 @@
       "ci_below_half": false,
       "prediction_supported": true,
       "falsifier_triggered": false,
+      "inconclusive": false,
       "elapsed_seconds": 25.879
     },
     {
@@ -471,6 +473,7 @@
       "ci_below_half": false,
       "prediction_supported": true,
       "falsifier_triggered": false,
+      "inconclusive": false,
       "elapsed_seconds": 23.894
     }
   ],
@@ -488,14 +491,15 @@
     ],
     "shift_detected": true,
     "falsifier_triggered": false,
-    "conclusion": "Resolved and unresolved TOIs are distinguishable from triage features, so accuracy measured on resolved objects is not automatically an unbiased estimate of triage accuracy. T2 becomes worth running."
+    "inconclusive": false,
+    "conclusion": "In the current catalog snapshot, these fields distinguish resolved from unresolved TOIs. Historical availability at triage was not established, and this result does not measure a vetting-accuracy gap. Further feature-provenance and prior-art review is required before designing T2."
   },
   "interpretation_limits": [
     "This measures feature-distribution difference between resolved and unresolved TOIs.",
     "It does not measure planet-vetting accuracy and never trains a planet classifier.",
-    "A detectable shift is necessary but not sufficient for a large accuracy gap; the magnitude of any gap is T2's question and remains unmeasured.",
+    "A detectable shift is neither necessary nor sufficient for an accuracy gap; no vetting-accuracy gap was measured.",
     "Association is not causation. Shift may reflect how TFOPWG triages rather than how astronomers triage.",
-    "The falsifier requires the whole interval below 0.5, so under a true null it still fires about 2.5% of the time by chance. The permutation control, not the point estimate, is what rules out a broken pipeline.",
+    "Overlap between an interval and 0.5 is inconclusive, not evidence of equivalence. A detectable difference in current catalog values does not establish triage-time availability or a vetting-accuracy gap.",
     "Not benchmark evidence, not a novelty claim, and not a locked science contract."
   ]
 }

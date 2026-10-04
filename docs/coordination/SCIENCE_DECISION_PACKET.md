@@ -84,7 +84,7 @@ If (1) fails, close the exoplanet domain and reopen the shortlist outside astron
 
 [`BENCHMARK_TESS_GATE_REVIEW.md`](BENCHMARK_TESS_GATE_REVIEW.md) assigned the three run items below. All three are executed in [`tools/audit_tess_reference_standard.py`](../../tools/audit_tess_reference_standard.py), artifact [`schemas/examples/tess-reference-standard.json`](../../schemas/examples/tess-reference-standard.json).
 
-**1. Independent reference for positives — PASSES as a star-level upper bound.** `tid` → `pscomppars.tic_id`:
+**1. Host-level positive consistency check, not per-TOI validation.** `tid` → `pscomppars.tic_id`:
 
 | Disposition | TOIs | Host in `pscomppars` | Rate |
 |---|---:|---:|---:|
@@ -95,7 +95,7 @@ If (1) fails, close the exoplanet domain and reopen the shortlist outside astron
 | `APC` | 487 | 5 | 0.0103 |
 | `FA` | 100 | 3 | 0.0300 |
 
-Separation between `CP` and the `FP` control is **0.885**. Internal validation: **717 of 721** matched `CP` hosts have a TESS-era (≥2018) discovery year, so `CP` really does correspond to planets found by TESS follow-up. By contrast **420 of 587** `KP` hosts have a pre-TESS discovery year, confirming that `KP` is a previous-survey catalog lookup and should not be pooled with `CP`. `pscomppars` has no `toi` column, so the join is host-star level and every rate is an upper bound on planet-level confirmation; only 111 hosts carry more than one resolved candidate and only 12 mix a positive with a negative.
+Separation between `CP` and the `FP` control is **0.885**. Discovery-year patterns are consistent with the CP/KP distinction: 717 of 721 matched `CP` hosts have a discovery year of 2018 or later, while 420 of 587 `KP` hosts have an earlier year. This does not prove that the matched planet is the same TOI or that TESS made the discovery. `pscomppars` has no `toi` column, so the join is only host-star level and every rate is an upper bound on planet-level confirmation; only 111 hosts carry more than one resolved candidate and only 12 mix a positive with a negative.
 
 **Label decisions, now data-backed:** use `CP` as the positive class, exclude `KP`, and count **`FA` as a negative**. `FA`'s host-match rate (0.0300) sits with `FP` (0.0023) and nowhere near `CP` (0.8868), so `FA` is a resolved non-candidate and censoring it discards observed truth.
 
@@ -113,7 +113,7 @@ Can a classifier tell resolved from unresolved TOIs using only triage-time featu
 
 **Out-of-fold ROC AUC 0.7616, 95% cluster-bootstrap CI [0.7492, 0.7737].** The interval excludes 0.5, so the preregistered prediction holds and the falsifier did not trigger. Permutation control mean 0.4973, max 0.5257, so the pipeline does not manufacture AUC. Sensitivity arms agree: with numeric timestamp offsets 0.7992, with `FA` counted as resolved 0.7655.
 
-Resolved and unresolved candidates are therefore **not exchangeable given these features**, which is the condition under which accuracy quoted on resolved objects would be a biased estimate for triage accuracy. Two things this does **not** say: timestamps add only 0.038 AUC, so the shift is not merely an age artifact; and a detectable shift is not an accuracy gap, so **0.7616 must not be quoted as an accuracy overstatement**. The magnitude question is T2's, and it is unmeasured.
+The result says that **current catalog fields** distinguish current resolved and unresolved TOIs. Historical feature availability at original disposition time is not established, so this is not a triage-time shift measurement. It also does not measure an accuracy gap; **0.7616 must not be quoted as an accuracy overstatement**. Timestamps add 0.038 AUC in the current snapshot, but this does not resolve whether non-timestamp fields were updated after disposition. See the post-run correction in the preregistration.
 
 ## Limits of this resolution
 

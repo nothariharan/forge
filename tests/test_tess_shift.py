@@ -167,6 +167,8 @@ def test_run_arm_finds_no_shift_when_features_carry_no_signal():
     assert arm["n_rows"] == 400
     assert 0.3 < arm["oof_auc"] < 0.7
     assert arm["prediction_supported"] is False
+    assert arm["inconclusive"] is True
+    assert arm["falsifier_triggered"] is False
 
 
 def test_run_arm_detects_shift_when_feature_encodes_the_label():
@@ -224,6 +226,7 @@ def test_committed_artifact_matches_the_preregistered_verdict():
     assert len(primary["oof_auc_per_seed"]) == len(artifact["protocol"]["seeds"])
     assert artifact["verdict"]["shift_detected"] is True
     assert artifact["verdict"]["falsifier_triggered"] is False
+    assert artifact["verdict"]["inconclusive"] is False
     bootstrap = primary["cluster_bootstrap_auc"]
     assert bootstrap["ci95_low"] > 0.5
     null = artifact["permutation_null_primary_arm"]

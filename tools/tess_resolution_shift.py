@@ -1,13 +1,14 @@
-"""T1: can resolved and unresolved TESS objects be told apart from triage features?
+"""T1: can current TESS archive values distinguish resolved and unresolved TOIs?
 
 Executes the preregistered smoke test in
 ``docs/coordination/TESS_RESOLUTION_SHIFT_PREREGISTRATION.md``.
 
-This measures a property of the data, not the accuracy of a planet vetting
-model. It never trains a planet classifier. A detectable shift means the
-resolved set is not exchangeable with the unresolved pool given these features,
-which is the condition under which accuracy measured on resolved objects would
-be a biased estimate for triage accuracy.
+This measures a property of the current catalog snapshot, not the accuracy of
+a planet-vetting model. It never trains a planet classifier. The archive does
+not provide historical values for these features at disposition time, so this
+test cannot establish that they were available at triage. Distinguishability
+also does not establish an accuracy gap; that requires outcome labels or a
+clearly limited simulation.
 
 The preregistration fixes the model, split, metric, direction, falsifier and
 stopping rule. Do not add models or tune after seeing results; report an
@@ -338,6 +339,7 @@ def run_arm(
         "ci_below_half": bool(includes_zero),
         "prediction_supported": bool(excludes_zero),
         "falsifier_triggered": bool(includes_zero),
+        "inconclusive": not bool(excludes_zero or includes_zero),
         "elapsed_seconds": round(elapsed, 3),
     }
 
@@ -435,20 +437,23 @@ def main() -> None:
             ],
             "shift_detected": primary["prediction_supported"],
             "falsifier_triggered": primary["falsifier_triggered"],
+            "inconclusive": primary["inconclusive"],
             "conclusion": (
-                "Resolved and unresolved TOIs are distinguishable from triage features, so accuracy "
-                "measured on resolved objects is not automatically an unbiased estimate of triage "
-                "accuracy. T2 becomes worth running."
+                "In the current catalog snapshot, these fields distinguish resolved from unresolved "
+                "TOIs. Historical availability at triage was not established, and this result does "
+                "not measure a vetting-accuracy gap. Further feature-provenance and prior-art review "
+                "is required before designing T2."
                 if primary["prediction_supported"]
-                else "No detectable shift: the falsifier is met, so the resolution-bias concern is "
-                "not supported on this population and T2 should not be run."
+                else "The prediction of separation was not supported. If the interval overlaps 0.5, "
+                "the result is inconclusive; it does not establish exchangeability or rule out an "
+                "accuracy gap."
             ),
         },
         "interpretation_limits": [
             "This measures feature-distribution difference between resolved and unresolved TOIs.",
             "It does not measure planet-vetting accuracy and never trains a planet classifier.",
-            "A detectable shift is necessary but not sufficient for a large accuracy gap; the "
-            "magnitude of any gap is T2's question and remains unmeasured.",
+            "A detectable shift is neither necessary nor sufficient for an accuracy gap; no "
+            "vetting-accuracy gap was measured.",
             "Association is not causation. Shift may reflect how TFOPWG triages rather than how "
             "astronomers triage.",
             "The falsifier requires the whole interval below 0.5, so under a true null it still "
