@@ -1,7 +1,7 @@
 # Benchmark lane: status and interfaces
 
 - **Owner:** Akshat
-- **Branch:** task branches from `main` (latest: `bench/tess-protocol`)
+- **Branch:** task branches from `main` (latest: `science/tess-bias-runner`)
 - **Status:** protocol draft v0.1, citation checker, report generator, oracle sweep and arm A tools ready; arm A writes through the shared ledger. The science question is not locked (see `BENCHMARK_TESS_GATE_REVIEW.md`), so the protocol and baseline prompt stay drafts. No matched A-vs-B benchmark has been run.
 
 ## Done
@@ -62,22 +62,39 @@ The harness itself:
 
 For the comparison to be fair and scorable, FORGE's events need:
 
-| Need | Why | Status in `orch/ledger-handoff` |
-|---|---|---|
-| `RUN_COMPLETED` payload includes `"candidate": "<id>"` | That is FORGE's scored answer (saved as `answer.json`) | Director records `status` and `summary` only; please add `candidate` |
-| `PREDICTION_COMMITTED` with `eid` before each experiment | Otherwise every FORGE run counts as a preregistration violation (S7) and is not a valid experiment | Not recorded yet |
-| `RUN_FINISHED` with `eid`, `status`, `metrics` (and `candidate` if no `RUN_STARTED`) | Attempts and valid experiments are counted from it | Recorded by the experimenter |
-| Experiment cap = spec `max_experiments` | Matched budget; arm A's cap is enforced by `arm_a.py` | P2 caps all dispatches at 3, not experiments |
-| Token / USD usage per episode (`usage.json`) | Cost metrics (S9); without it they read n/a for both arms | Not available for either arm yet. Does Omnigent expose usage? |
+| Need | Why | Status on `main` (re-checked 2026-10-04, after #12 and #16) | Owner | Blocks the paired run? |
+|---|---|---|---|---|
+| `RUN_COMPLETED` payload includes `"candidate": "<id>"` | That is FORGE's scored answer (saved as `answer.json`) | **Missing**: the director records `status` and `summary` only | Saksham | **yes**: without it FORGE has no scored answer |
+| `PREDICTION_COMMITTED` with `eid` before each experiment | Otherwise every FORGE run counts as a preregistration violation (S7) and is not a valid experiment | **Missing** | Saksham | **yes**: FORGE would score 0 valid experiments |
+| `RUN_FINISHED` with `eid`, `status`, `metrics` (and `candidate` if no `RUN_STARTED`) | Attempts and valid experiments are counted from it | Recorded by the experimenter. The experimenter must call `tools/tess_bias_run.py` through the same runner as arm A | Saksham | yes, if the experimenter does not use the shared runner |
+| Experiment cap = spec `max_experiments` (10) | Matched budget; arm A's cap is enforced by `arm_a.py` | **Mismatched**: P2 caps all dispatches at 3, not experiments | Saksham | **yes**: unequal budgets |
+| Token / USD usage per episode (`usage.json`) | Cost metrics (S9) | Not available for either arm. Rule (PROTOCOL_TESS section 0): without it, cost reads n/a for both and no cost ratio is claimed | Ish / Saksham: check whether `omni` reports usage | no, but no cost claim without it |
 
 `bench/report.py` now counts a run seen only as `RUN_FINISHED` as an attempt, using it for the preregistration check, so FORGE runs are counted even without `RUN_STARTED`.
+
+### Paired-comparison readiness (updated 2026-10-04)
+
+Nothing below is done until checked off here with evidence (a PR, a run artifact or a log).
+
+| # | Step | Owner | State |
+|---|---|---|---|
+| 1 | Protocol choices decided, title and open items reconciled (`bench/PROTOCOL_TESS.md` v0.4 section 0) | Akshat | done in `science/tess-bias-runner` (PR #18) |
+| 2 | Baseline prompt matches the TESS task (no OpenML wording, 7 allowed answers) | Akshat | done in PR #18 (on `main` once #18 merges) |
+| 3 | Pre-lock run on a pinned real snapshot: `python tools/tess_prelock.py` (fetch, pin, T1 re-run on the same file, oracle + nonlinear sensitivity) | Hari, or anyone with archive access | **open**: archive blocked in Akshat's environment |
+| 4 | Joint lock entry in the protocol change log (hash, checks) | Hari + Akshat | open, after 3 |
+| 5 | FORGE event contract (table above): candidate, prediction linkage, experiment cap | Saksham | **open** |
+| 6 | Arm B end to end: one real FORGE episode through Omnigent via `bench/launch_arm_b.py`, producing scorable events (valid experiments > 0, an answer) | Ish + Saksham | **open**: Arm A's stub run checked the launcher only |
+| 7 | Usage capture decision (cost n/a vs. real tokens / USD) | Ish / Saksham | open |
+| 8 | Paired comparison: `bench/run_bench.py` with the locked spec, seeds 1–5, same model, tools and budgets; failures retained; report correctness, time, cost (or n/a), uncertainty, number of seeds | Akshat | blocked on 3–6 |
+
+No speedup or comparison claim is made until step 8 has run on comparable real episodes.
 
 ### TESS protocol proposal (for Hari)
 
 `bench/PROTOCOL_TESS.md` turns the TESS resolution-bias direction into a runnable protocol:
 - **Split:** a semi-synthetic resolution split inside the labeled CP vs FP+FA cohort replaces the impossible temporal split.
 - **Estimands:** the AUC overstatement Δ as the science estimand, and decision correctness on the best accuracy estimator as the benchmark metric.
-- **Oracle:** 6 candidates (2 models × 3 estimators).
+- **Oracle:** decision rule over 7 candidates (`no_correction` + 2 models × 3 estimators), replacing the v0.2 six-candidate check, which tied 5 of 6 on the fixture.
 - **Planner choice:** T2a (gap test) vs T2b (estimator comparison).
 - **Claims:** the exact claims it can support.
 

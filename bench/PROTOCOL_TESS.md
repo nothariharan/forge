@@ -1,10 +1,25 @@
-# Protocol: TESS resolution-bias audit (proposed, v0.2)
+# Protocol: TESS resolution-bias audit (v0.4, choices decided, lock pending the real-snapshot run)
 
-- **Status:** **PROPOSED v0.3.1 for joint review. Not locked.** Runner built and validated on synthetic fixtures only (section 11). Nothing here is run as benchmark evidence until Hari and Akshat mark it locked in the change log.
+- **Status:** **v0.4. Design choices decided (section 0). NOT LOCKED** until the real-snapshot pre-lock run passes its checks and Hari and Akshat record the lock in the change log. Runner validated on synthetic fixtures only (section 11). Nothing here is benchmark evidence yet.
 - **Owner:** Akshat (benchmark + rigor), science review: Hari.
 - **Date:** 2026-10-04.
 - **Instantiates:** `bench/PROTOCOL.md` (arms, metrics, analysis, failure rules, artifacts apply unchanged unless stated here).
 - **Built on:** `docs/coordination/SCIENCE_DECISION_PACKET.md` (gate update), `TESS_RESOLUTION_SHIFT_PREREGISTRATION.md` (T1), `schemas/examples/tess-reference-standard.json`, `schemas/examples/tess-resolution-shift.json`, `BENCHMARK_TESS_GATE_REVIEW.md`.
+
+## 0. Decided choices (v0.4)
+
+These were provisional in v0.2 to v0.3.1 and are now fixed. Changing any of them after the pre-lock run requires a change-log entry.
+
+| Choice | Decision |
+|---|---|
+| Selection strengths | γ = 0 (negative control), 1 (primary), 2 (stress) |
+| Pseudo-resolved share | ρ = 0.30 of labeled TOIs |
+| Practical threshold | Δ ≥ 0.02 AUC is a meaningful overstatement |
+| Replicates | 20 per seed, seeds 1–5, pooled to 100 for the science result and the oracle |
+| Oracle | decision rule (section 6): `no_correction` unless pooled Δ ≥ 0.02 with its 95% interval excluding 0, else the best correcting estimator |
+| **Nonlinear sensitivity arm** | **Included, report-only.** The same simulation with a gradient-boosting resolution model (`resolution_model: "hgb"`). It never changes the oracle decision. If it disagrees with the primary decision, the claim must say the linear mechanism may understate the selection effect. Reason: the fixture showed the linear resolution model recovers only part of a nonlinear selection (section 11). |
+| Cost reporting | Wall time is reported for both arms. Tokens / USD are reported only if **both** arms have usage capture; otherwise they read n/a, and **no cost ratio is claimed** (open item in `docs/coordination/BENCHMARK.md`). |
+| Literature access | Identical for both arms. The spec's current value (no literature tool) holds unless FORGE's Librarian has a tool in the benchmark run, in which case arm A gets the same one. |
 
 ## 1. Question
 
@@ -167,10 +182,10 @@ If the run goes as planned, these are the strongest statements allowed. Fill in 
 
 1. ~~**Hari:** review sections 4–7~~ done. γ 0/1/2, ρ = 0.30 and the 0.02 threshold stay provisional until lock.
 2. ~~**Runner**~~ done: `tools/tess_bias_run.py`, validated on fixtures (section 11).
-3. **Pre-lock oracle check on the real snapshot:** Hari runs `--fetch`, records the hash in the change log and in `bench/specs/tess_resolution_bias.json` (`data_ver`), re-runs T1 on that file, then runs `--oracle`. Lock only if it returns one decision and the γ = 0 control holds.
+3. **Pre-lock run on the real snapshot (one command, needs archive access):** `python tools/tess_prelock.py`. It fetches and saves the TOI table, pins its sha256 into `bench/specs/tess_resolution_bias.json` (`data_ver`, which the runner reads as the expected hash), re-runs T1 on that same file (`tools/tess_resolution_shift.py --csv`), runs the oracle with the nonlinear sensitivity arm, and writes `results/tess_prelock/summary.json`. **Lock only if `checks.lockable` is true:** the γ = 0 control is within 0.01, and the gap is not within one SE of the 0.02 threshold. Record the hash and the checks in the change log. Decide whether to commit the raw snapshot (gzipped) so others can reproduce after the archive changes.
 4. ~~**Referee search**~~ done: `docs/coordination/REFEREE_RESOLUTION_BIAS.md`. Verdict: partial overlap; claim wording in section 9 updated. A full-text / citation-chaining pass is optional.
 5. ~~**Adapt the baseline prompt**~~ done (v0.2): no OpenML wording, `{ANSWER_OPTIONS}` = the oracle's 7 candidates. Task text is in `bench/specs/tess_resolution_bias.json`. The episode metric is `gap`, which every run reports. Freeze with this protocol.
-6. **Provisional spec values to settle before lock:** the USD cap, and literature access. Both arms must get the same; the spec currently gives no literature tool, which only matches arm B if FORGE's Librarian is also offline for the benchmark.
+6. ~~**Provisional choices**~~ decided in section 0. Still to confirm with orchestration: FORGE's literature access in the benchmark run (it must equal arm A's) and the USD cap value once the model is fixed.
 7. **Arm B smoke run with real Omnigent (Ish + Saksham):** one FORGE episode on the fixture or the pinned snapshot via `bench/launch_arm_b.py`, checking it records the arm B contract items in `docs/coordination/BENCHMARK.md` (`candidate` in `RUN_COMPLETED`, `PREDICTION_COMMITTED` with `eid`, experiment cap).
 8. **No speedup or comparison claim** until both arms have comparable real episodes under the locked protocol.
 
@@ -197,5 +212,6 @@ Other observations:
 | Date | Change | By |
 |---|---|---|
 | 2026-10-04 | v0.2 proposed: TESS resolution-bias instantiation | Akshat |
+| 2026-10-04 | v0.4: title and status reconciled; section 0 fixes γ, ρ, the threshold, replicates and the decision rule; nonlinear sensitivity arm included as report-only; cost-reporting and literature-access rules; one-command pre-lock run (`tools/tess_prelock.py`, T1 `--csv` re-run on the pinned file). Not locked | Akshat |
 | 2026-10-04 | v0.3.1: Referee search done (partial overlap: IWCV method known, phenomenon described qualitatively, quantification not found); claim wording and the not-supported list updated; baseline prompt v0.2 and `bench/specs/tess_resolution_bias.json` added; open items refreshed | Akshat |
 | 2026-10-04 | v0.3: snapshot pinned at first fetch (T1's raw CSV was not saved); true AUC from the same fold models as the naive estimate; section 4.1 on replicates vs seeds; oracle replaced by a decision rule after the fixture showed a 5-of-6 tie; linear-resolution-model limitation; fixture validation (section 11). γ 0/1/2, ρ = 0.30 and the 0.02 threshold stay provisional (Hari, review of sections 4–7) | Akshat |

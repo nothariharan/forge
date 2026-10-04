@@ -77,8 +77,25 @@ def data_path() -> Path:
     return Path(os.environ.get("FORGE_TESS_CSV", DEFAULT_CSV))
 
 
+SPEC_PATH = REPO_ROOT / "bench" / "specs" / "tess_resolution_bias.json"
+
+
+def spec_path() -> Path:
+    return Path(os.environ.get("FORGE_TESS_SPEC", SPEC_PATH))
+
+
+def pinned_from_spec() -> str:
+    """The pin lives in the task spec (data_ver "nasa-toi@<sha256>"), so there is one source of truth."""
+    try:
+        ver = json.loads(spec_path().read_text()).get("data_ver", "")
+    except (OSError, ValueError):
+        return ""
+    sha = ver.split("@", 1)[-1]
+    return sha if len(sha) == 64 and all(c in "0123456789abcdef" for c in sha) else ""
+
+
 def expected_sha256() -> str:
-    return os.environ.get("FORGE_TESS_SHA256", PINNED_SHA256)
+    return os.environ.get("FORGE_TESS_SHA256") or PINNED_SHA256 or pinned_from_spec()
 
 
 def load_rows(path: Path, expected: str) -> tuple[list[dict[str, str]], str]:
@@ -93,8 +110,19 @@ def load_rows(path: Path, expected: str) -> tuple[list[dict[str, str]], str]:
     return list(csv.DictReader(io.StringIO(raw.decode("utf-8-sig", errors="replace")))), digest
 
 
-@functools.lru_cache(maxsize=4)
-def prepare(path_str: str, expected: str) -> dict:
+RESOLUTION_MODELS = ("lr", "hgb")  # lr = T1's model (primary); hgb = nonlinear sensitivity arm, reported only
+
+
+def _resolution_model(kind: str):
+    if kind == "lr":
+        return t1.make_model()
+    if kind == "hgb":
+        return HistGradientBoostingClassifier(random_state=0)
+    raise ValueError(f"resolution_model must be one of {RESOLUTION_MODELS}")
+
+
+@functools.lru_cache(maxsize=8)
+def prepare(path_str: str, expected: str, resolution_model: str = "lr") -> dict:
     """Load the snapshot, fit the resolution model once, and return the labeled cohort with e(x)."""
     rows, digest = load_rows(Path(path_str), expected)
     columns = list(rows[0].keys()) if rows else []
@@ -106,7 +134,7 @@ def prepare(path_str: str, expected: str) -> dict:
     splitter = GroupKFold(n_splits=N_SPLITS, shuffle=True, random_state=0)
     e = np.zeros(len(y_res))
     for tr, te in splitter.split(matrix, y_res, groups):
-        model = t1.make_model()
+        model = _resolution_model(resolution_model)
         model.fit(matrix[tr], y_res[tr])
         e[te] = model.predict_proba(matrix[te])[:, 1]
     resolution_auc = float(roc_auc_score(y_res, e))
@@ -118,6 +146,7 @@ def prepare(path_str: str, expected: str) -> dict:
     in_l = np.isin(states, RESOLVED)
     return {
         "digest": digest,
+        "resolution_model": resolution_model,
         "features": features,
         "dropped_empty_features": empty,
         "resolution_model_oof_auc": resolution_auc,
@@ -220,8 +249,9 @@ def replicate(prep: dict, model: str, gamma: float, seed: int, rho: float = RHO)
 
 
 @functools.lru_cache(maxsize=64)
-def _replicates(path_str: str, expected: str, model: str, gamma: float, seed: int, n: int, rho: float) -> tuple:
-    prep = prepare(path_str, expected)
+def _replicates(path_str: str, expected: str, model: str, gamma: float, seed: int, n: int, rho: float,
+                resolution_model: str = "lr") -> tuple:
+    prep = prepare(path_str, expected, resolution_model)
     return tuple(replicate(prep, model, gamma, 1000 * seed + r, rho) for r in range(n))
 
 
@@ -239,14 +269,17 @@ def run(task_id: str, params: dict, seed: int) -> dict:
     estimator = params.get("estimator", "naive")
     gamma = float(params.get("gamma", 1))
     n = int(params.get("replicates", DEFAULT_REPLICATES))
+    resolution_model = params.get("resolution_model", "lr")
+    if resolution_model not in RESOLUTION_MODELS:
+        raise ValueError(f"resolution_model must be one of {RESOLUTION_MODELS}")
     if model not in MODELS or estimator not in ESTIMATORS:
         raise ValueError(f"model must be one of {MODELS}, estimator one of {ESTIMATORS}")
     if gamma not in (0.0, 1.0, 2.0):
         raise ValueError("gamma must be 0, 1 or 2 (bench/PROTOCOL_TESS.md section 4)")
 
     path, expected = str(data_path()), expected_sha256()
-    prep = prepare(path, expected)
-    reps = _replicates(path, expected, model, gamma, seed, n, RHO)
+    prep = prepare(path, expected, resolution_model)
+    reps = _replicates(path, expected, model, gamma, seed, n, RHO, resolution_model)
     valid = [r for r in reps if r["valid"]]
     if not valid:
         raise RuntimeError("no valid replicate: a class is too rare in R* or U*")
@@ -271,6 +304,7 @@ def run(task_id: str, params: dict, seed: int) -> dict:
         "replicates_valid": len(valid),
         "replicate_seeds": [r["seed"] for r in reps],
         "data_sha256": prep["digest"],
+        "resolution_model": resolution_model,
         "resolution_model_oof_auc": prep["resolution_model_oof_auc"],
         "framing": "semi-synthetic simulation inside the labeled cohort; not accuracy on real unresolved TOIs",
     }
@@ -319,6 +353,22 @@ def build_oracle(seeds=(1, 2, 3, 4, 5), replicates: int = DEFAULT_REPLICATES) ->
                                  "n": int(len(err))}
 
     meaningful = gap["mean"] >= PRACTICAL_THRESHOLD and gap["ci95"][0] > 0
+
+    # Nonlinear sensitivity arm (reported only, never changes the decision): same simulation with a
+    # gradient-boosting resolution model, which can capture selection the linear model misses.
+    sens_reps = [r for s in seeds for r in _replicates(path, expected, "lr", 1.0, s, replicates, RHO, "hgb") if r["valid"]]
+    sens = np.array([r["gap"] for r in sens_reps])
+    sens_se = float(sens.std(ddof=1) / np.sqrt(len(sens)))
+    sensitivity = {
+        "resolution_model": "hgb",
+        "resolution_model_oof_auc": prepare(path, expected, "hgb")["resolution_model_oof_auc"],
+        "mean_gap": float(sens.mean()), "se": sens_se,
+        "ci95": [float(sens.mean() - 1.96 * sens_se), float(sens.mean() + 1.96 * sens_se)], "n": int(len(sens)),
+    }
+    sens_meaningful = sensitivity["mean_gap"] >= PRACTICAL_THRESHOLD and sensitivity["ci95"][0] > 0
+    sensitivity["agrees_with_primary"] = sens_meaningful == meaningful
+    sensitivity["note"] = ("reported only; if it disagrees with the primary decision, the claim must say the "
+                           "linear mechanism may understate the selection effect")
     if meaningful:
         correcting = {k: v for k, v in table.items() if not k.endswith("_naive")}
         best = min(correcting, key=lambda k: correcting[k]["mean_abs_error"])
@@ -338,6 +388,7 @@ def build_oracle(seeds=(1, 2, 3, 4, 5), replicates: int = DEFAULT_REPLICATES) ->
         "gap_gamma1_lr_naive": gap,
         "control_gamma0_mean_gap": control_mean,
         "control_within_bound": abs(control_mean) < 0.01,
+        "sensitivity_nonlinear_resolution": sensitivity,
         "practical_threshold": PRACTICAL_THRESHOLD,
         "decision": decision,
         "best": best,

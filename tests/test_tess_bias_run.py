@@ -151,7 +151,7 @@ def _fake_reps(gap, errors):
 
 
 def test_oracle_meaningful_gap_picks_a_correcting_estimator(fixture_env, monkeypatch):
-    monkeypatch.setattr(tb, "_replicates", lambda path, exp, model, gamma, seed, n, rho:
+    monkeypatch.setattr(tb, "_replicates", lambda path, exp, model, gamma, seed, n, rho, res="lr":
                         _fake_reps(0.05 if gamma == 1.0 else 0.0, {"iw": 0.004, "iw_clip": 0.02}))
     o = tb.build_oracle(seeds=(1,), replicates=10)
     assert o["decision"].startswith("overstated")
@@ -160,11 +160,14 @@ def test_oracle_meaningful_gap_picks_a_correcting_estimator(fixture_env, monkeyp
 
 
 def test_oracle_small_gap_means_no_correction(fixture_env, monkeypatch):
-    monkeypatch.setattr(tb, "_replicates", lambda path, exp, model, gamma, seed, n, rho:
-                        _fake_reps(0.011, {"iw": 0.003, "iw_clip": 0.003}))
+    monkeypatch.setattr(tb, "_replicates", lambda path, exp, model, gamma, seed, n, rho, res="lr":
+                        _fake_reps(0.011 if res == "lr" else 0.04, {"iw": 0.003, "iw_clip": 0.003}))
     o = tb.build_oracle(seeds=(1,), replicates=10)
     assert o["best"] == tb.NO_CORRECTION and o["within_threshold"] == ["hgb_naive", "lr_naive", "no_correction"]
     assert not o["control_within_bound"]  # the control gap of 0.011 breaks the 0.01 bound and is reported
+    # The nonlinear sensitivity arm finds a meaningful gap: reported, flagged, decision unchanged.
+    sens = o["sensitivity_nonlinear_resolution"]
+    assert sens["mean_gap"] > 0.02 and sens["agrees_with_primary"] is False and o["best"] == tb.NO_CORRECTION
 
 
 # ---------------------------------------------------------------- spec + prompt + arm A integration
@@ -205,3 +208,62 @@ def test_arm_a_episode_with_the_real_runner_on_the_fixture(fixture_env, tmp_path
     oracle = {"best": "no_correction", "within_threshold": ["hgb_naive", "lr_naive", "no_correction"]}
     m = report.episode_metrics(str(ep), oracle)
     assert m["valid_experiments"] == 1 and m["prereg_violations"] == 0 and m["correct"] is True
+
+
+def test_nonlinear_resolution_model_runs_and_is_recorded(fixture_env):
+    out = tb.run(tb.TASK_ID, {"model": "lr", "estimator": "naive", "gamma": 1, "replicates": 3,
+                              "resolution_model": "hgb"}, seed=4)
+    assert out["resolution_model"] == "hgb" and 0.5 < out["resolution_model_oof_auc"] < 1
+    with pytest.raises(ValueError, match="resolution_model must be"):
+        tb.run(tb.TASK_ID, {"resolution_model": "rf"}, seed=1)
+
+
+# ---------------------------------------------------------------- pre-lock run and T1 on a saved snapshot
+
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+
+TOOLS = os.path.join(HERE, "..", "tools")
+
+
+def test_pin_in_spec_is_the_expected_hash(fixture_env, tmp_path, monkeypatch):
+    path, digest = fixture_env
+    spec = tmp_path / "spec.json"
+    shutil.copy(SPEC, spec)
+    monkeypatch.setenv("FORGE_TESS_SPEC", str(spec))
+    monkeypatch.delenv("FORGE_TESS_SHA256")
+    assert tb.expected_sha256() == ""  # spec still says PIN_AFTER_FETCH, so nothing is pinned
+    import tess_prelock
+    tess_prelock.pin(spec, digest)
+    assert json.loads(spec.read_text())["data_ver"] == f"nasa-toi@{digest}" and tb.expected_sha256() == digest
+
+
+def test_prelock_on_the_fixture(fixture_env, tmp_path, monkeypatch):
+    path, digest = fixture_env
+    spec = tmp_path / "spec.json"
+    shutil.copy(SPEC, spec)
+    monkeypatch.setenv("FORGE_TESS_SPEC", str(spec))
+    monkeypatch.delenv("FORGE_TESS_SHA256")
+    import tess_prelock
+    monkeypatch.setattr(tess_prelock, "OUT", tmp_path / "prelock")
+    monkeypatch.setattr(tb, "DEFAULT_REPLICATES", 3)
+    monkeypatch.setattr(tb.build_oracle, "__defaults__", ((1, 2), 3))
+    code = tess_prelock.main(["--no-fetch", "--skip-t1"])
+    summary = json.loads((tmp_path / "prelock" / "summary.json").read_text())
+    assert summary["snapshot"]["sha256"] == digest and summary["status"].startswith("PRELOCK_RUN_SEMI_SYNTHETIC")
+    assert set(summary["checks"]) >= {"control_within_0.01", "single_decision", "decision_fragile", "sensitivity_agrees", "lockable"}
+    assert code == (0 if summary["checks"]["lockable"] else 3)
+    assert "sensitivity_nonlinear_resolution" in summary and summary["best"] in summary["within_threshold"]
+
+
+def test_t1_reruns_on_a_saved_csv_and_checks_its_hash(fixture_env, tmp_path):
+    path, digest = fixture_env
+    out = tmp_path / "t1.json"
+    base = [sys.executable, os.path.join(TOOLS, "tess_resolution_shift.py"), "--csv", str(path),
+            "--bootstrap", "20", "--skip-permutation", "--output", str(out)]
+    ok = subprocess.run(base + ["--expect-sha256", digest], capture_output=True, text=True, timeout=110)
+    assert ok.returncode == 0, ok.stderr[-500:]
+    t1 = json.loads(out.read_text())
+    assert t1["sha256_raw_csv"] == digest and "saved copy" in t1["data_source"]
+    bad = subprocess.run(base + ["--expect-sha256", "0" * 64], capture_output=True, text=True, timeout=60)
+    assert bad.returncode != 0 and "expected" in bad.stderr
