@@ -1,0 +1,272 @@
+{
+  "status": "REFERENCE_STANDARD_AUDIT_ONLY_NO_MODEL_NO_METRIC",
+  "retrieved_at_utc": "2026-10-04T05:45:43.838243+00:00",
+  "data_source": "NASA Exoplanet Archive TAP",
+  "tables": {
+    "toi": [
+      "toi",
+      "tid",
+      "sectors",
+      "toi_created",
+      "toipfx",
+      "tfopwg_disp"
+    ],
+    "pscomppars": [
+      "pl_name",
+      "hostname",
+      "tic_id",
+      "disc_year",
+      "discoverymethod"
+    ]
+  },
+  "sha256_raw_csv": {
+    "toi": "4a20007a8011fdd6f3059090f3658f86e497a1e53bd7ddaa67ef343095eb7352",
+    "pscomppars": "6178c2d69e2704ad4b6acdcbbe1995ec709c7cac0f9d898bb6950783ef58e575"
+  },
+  "row_counts": {
+    "toi": 8148,
+    "pscomppars": 6375
+  },
+  "ps_has_toi_column": false,
+  "toi_date_like_columns": [
+    "release_date",
+    "rowupdate",
+    "toi_created"
+  ],
+  "toi_disposition_like_columns": [
+    "tfopwg_disp"
+  ],
+  "disposition_date_column_present": false,
+  "disposition_date_note": "The TOI table exposes only toi_created, rowupdate and release_date. None records when tfopwg_disp was assigned, so a prospective temporal split on label availability cannot be constructed from this table.",
+  "cross_match": {
+    "join_level": "host star",
+    "join_key": {
+      "toi": "tid",
+      "pscomppars": "tic_id"
+    },
+    "tid_is_tic_id": true,
+    "pscomppars_distinct_tics": 4484,
+    "match_rate_by_state": {
+      "": {
+        "toi_rows": 14,
+        "host_in_pscomppars": 8,
+        "match_rate": 0.5714285714285714
+      },
+      "APC": {
+        "toi_rows": 487,
+        "host_in_pscomppars": 5,
+        "match_rate": 0.01026694045174538
+      },
+      "CP": {
+        "toi_rows": 813,
+        "host_in_pscomppars": 721,
+        "match_rate": 0.8868388683886839
+      },
+      "FA": {
+        "toi_rows": 100,
+        "host_in_pscomppars": 3,
+        "match_rate": 0.03
+      },
+      "FP": {
+        "toi_rows": 1314,
+        "host_in_pscomppars": 3,
+        "match_rate": 0.00228310502283105
+      },
+      "KP": {
+        "toi_rows": 607,
+        "host_in_pscomppars": 587,
+        "match_rate": 0.9670510708401977
+      },
+      "PC": {
+        "toi_rows": 4813,
+        "host_in_pscomppars": 210,
+        "match_rate": 0.04363183045917307
+      }
+    },
+    "identifier_diagnostics": {
+      "toi_tid_digit_length_histogram": {
+        "4": 2,
+        "5": 4,
+        "6": 6,
+        "7": 145,
+        "8": 1464,
+        "9": 6498,
+        "10": 29
+      },
+      "matched_digit_length_histogram": {
+        "6": 1,
+        "7": 41,
+        "8": 297,
+        "9": 1198
+      },
+      "unmatched_digit_length_histogram": {
+        "4": 2,
+        "5": 4,
+        "6": 5,
+        "7": 104,
+        "8": 1167,
+        "9": 5300,
+        "10": 29
+      },
+      "matched_rows_by_state": {
+        "": 8,
+        "APC": 5,
+        "CP": 721,
+        "FA": 3,
+        "FP": 3,
+        "KP": 587,
+        "PC": 210
+      },
+      "filter_policy": "No digit-length filter is applied. Real TIC identifiers of several lengths are present on both sides and short toi.tid values do match pscomppars TICs."
+    },
+    "disc_year_agreement": {
+      "KP": {
+        "hosts_matched": 587,
+        "min_disc_year_in_tess_era": 167,
+        "min_disc_year_pre_tess": 420,
+        "note": "KP is expected to be dominated by pre-TESS discoveries because KP means known planet from a previous survey. CP hosts should mostly have a TESS-era discovery."
+      },
+      "CP": {
+        "hosts_matched": 721,
+        "min_disc_year_in_tess_era": 717,
+        "min_disc_year_pre_tess": 4,
+        "note": "KP is expected to be dominated by pre-TESS discoveries because KP means known planet from a previous survey. CP hosts should mostly have a TESS-era discovery."
+      }
+    }
+  },
+  "star_level_caveat": "pscomppars has no toi column, so the join is host-star level. A match means the star carries at least one published confirmed planet, which is necessary but not sufficient for planet-level confirmation of a specific candidate. Rates are upper bounds.",
+  "multi_candidate_hosts": {
+    "hosts_with_multiple_resolved_candidates": 111,
+    "hosts_mixing_positive_and_negative_candidates": 12,
+    "examples": {
+      "100990000": {
+        "CP": 2
+      },
+      "101011575": {
+        "CP": 2
+      },
+      "102840239": {
+        "CP": 2
+      },
+      "118798035": {
+        "CP": 3
+      },
+      "120896927": {
+        "CP": 2
+      },
+      "120960812": {
+        "KP": 2
+      },
+      "122617317": {
+        "CP": 2
+      },
+      "127530399": {
+        "KP": 1,
+        "CP": 1
+      },
+      "130181866": {
+        "CP": 2
+      },
+      "136916387": {
+        "KP": 3
+      }
+    }
+  },
+  "label_semantics": {
+    "disposition_counts": {
+      "": 14,
+      "APC": 487,
+      "CP": 813,
+      "FA": 100,
+      "FP": 1314,
+      "KP": 607,
+      "PC": 4813
+    },
+    "unresolved_states": [
+      "PC",
+      "APC"
+    ],
+    "unresolved_rows": 5300,
+    "positive_class_variants": {
+      "exclude_kp": {
+        "positive_states": [
+          "CP"
+        ],
+        "negative_states": [
+          "FP"
+        ],
+        "positive": 813,
+        "negative": 1314,
+        "rationale": "Removes the catalog-lookup label that is not produced by TESS vetting.",
+        "labeled_cohort": 2127,
+        "positive_fraction": 0.382228490832158,
+        "meets_minimum_class": true
+      },
+      "kp_and_cp_as_positive": {
+        "positive_states": [
+          "KP",
+          "CP"
+        ],
+        "negative_states": [
+          "FP"
+        ],
+        "positive": 1420,
+        "negative": 1314,
+        "rationale": "Maximizes positive count but mixes two different label mechanisms.",
+        "labeled_cohort": 2734,
+        "positive_fraction": 0.5193855157278713,
+        "meets_minimum_class": true
+      }
+    },
+    "fa_handling_variants": {
+      "fa_as_negative": {
+        "negative": 1414,
+        "positive": 1420,
+        "rationale": "FA is a resolved non-candidate, so it is observed truth, not censored.",
+        "labeled_cohort": 2834,
+        "meets_minimum_class": true
+      },
+      "fa_as_censored": {
+        "negative": 1314,
+        "positive": 1420,
+        "rationale": "Treats FA as unresolved, which is the status quo.",
+        "labeled_cohort": 2734,
+        "meets_minimum_class": true
+      }
+    },
+    "recommended_pending_review": {
+      "positive_states": [
+        "CP"
+      ],
+      "negative_states": [
+        "FP",
+        "FA"
+      ],
+      "rationale": "CP is the only positive label produced by TESS-side adjudication. KP is a previous-survey catalog lookup and is not independent evidence about TESS vetting. FA is a resolved non-candidate, so censoring it discards observed truth."
+    }
+  },
+  "gate": {
+    "question": "Does pscomppars provide an independent reference standard for TESS positives?",
+    "cp_host_match_rate": 0.8868388683886839,
+    "fp_host_match_rate_negative_control": 0.00228310502283105,
+    "separation": 0.8845557633658528,
+    "criteria": {
+      "minimum_matched_cp_hosts": 200,
+      "minimum_separation_vs_fp_control": 0.4,
+      "note": "KP is excluded from the gate decision because its label is a previous-survey catalog lookup, so a high KP match rate is close to definitional."
+    },
+    "verdict": "PASSES_FOR_POSITIVES_AS_STAR_LEVEL_UPPER_BOUND",
+    "verdict_detail": "CP hosts match published confirmed planets at a materially higher rate than FP hosts, so pscomppars can adjudicate positives. It is an upper bound, not planet-level truth, and it supplies nothing for negatives.",
+    "negatives_remain_unadjudicated": true,
+    "negatives_note": "No per-object record of why a TOI was dispositioned FP exists in the archive. Negative labels stay committee judgments, which is the asymmetry Akshat flagged.",
+    "prospective_temporal_split_possible": false
+  },
+  "model_evaluation": null,
+  "limitations": [
+    "Star-level join; cannot separate planets within a multi-planet system.",
+    "A host match does not prove the specific candidate is the confirmed planet.",
+    "Negative labels have no independent source in the archive.",
+    "No disposition-assignment date exists, so no prospective temporal split is possible.",
+    "Label availability audit only. Not a scientific result, novelty claim, or benchmark evidence."
+  ]
+}

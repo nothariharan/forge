@@ -80,6 +80,41 @@ This passes the class-size gate with a near-balanced target, the censoring rule 
 
 If (1) fails, close the exoplanet domain and reopen the shortlist outside astronomy. **Do not fall back to the Kepler false-positive target.**
 
+## Gate update (2026-10-04): items 1, 3 and 4 are now measured
+
+[`BENCHMARK_TESS_GATE_REVIEW.md`](BENCHMARK_TESS_GATE_REVIEW.md) assigned the three run items below. All three are executed in [`tools/audit_tess_reference_standard.py`](../../tools/audit_tess_reference_standard.py), artifact [`schemas/examples/tess-reference-standard.json`](../../schemas/examples/tess-reference-standard.json).
+
+**1. Host-level positive consistency check, not per-TOI validation.** `tid` → `pscomppars.tic_id`:
+
+| Disposition | TOIs | Host in `pscomppars` | Rate |
+|---|---:|---:|---:|
+| `CP` | 813 | 721 | **0.8868** |
+| `KP` | 607 | 587 | 0.9671 |
+| `FP` (negative control) | 1314 | 3 | **0.0023** |
+| `PC` | 4813 | 210 | 0.0436 |
+| `APC` | 487 | 5 | 0.0103 |
+| `FA` | 100 | 3 | 0.0300 |
+
+Separation between `CP` and the `FP` control is **0.885**. Discovery-year patterns are consistent with the CP/KP distinction: 717 of 721 matched `CP` hosts have a discovery year of 2018 or later, while 420 of 587 `KP` hosts have an earlier year. This does not prove that the matched planet is the same TOI or that TESS made the discovery. `pscomppars` has no `toi` column, so the join is only host-star level and every rate is an upper bound on planet-level confirmation; only 111 hosts carry more than one resolved candidate and only 12 mix a positive with a negative.
+
+**Label decisions, now data-backed:** use `CP` as the positive class, exclude `KP`, and count **`FA` as a negative**. `FA`'s host-match rate (0.0300) sits with `FP` (0.0023) and nowhere near `CP` (0.8868), so `FA` is a resolved non-candidate and censoring it discards observed truth.
+
+**3. Prospective temporal split — IMPOSSIBLE, confirmed empirically.** The TOI table's only date-like columns are `toi_created`, `rowupdate` and `release_date`. None records when `tfopwg_disp` was assigned. Akshat rated this "weak"; it is worse than weak. Drop the prospective temporal split from the protocol.
+
+**4. Host grouping — `tid` is the TIC ID, so star-level disjointness is available.** No external cross-check is still required; grouping on `tid` is correct as-is.
+
+**2. Prior art — FAILS for plain classification.** Per Akshat's review, Kopparapu et al. (2026) is nearly the same design, and Kepler/TESS transfer is covered by ExoMiner++ among others. The exoplanet direction survives only as the **resolution-bias audit**, which still needs its own Referee search.
+
+## Resolution-shift smoke test (T1): prediction supported
+
+Preregistered in [`TESS_RESOLUTION_SHIFT_PREREGISTRATION.md`](TESS_RESOLUTION_SHIFT_PREREGISTRATION.md), executed by [`tools/tess_resolution_shift.py`](../../tools/tess_resolution_shift.py), artifact [`schemas/examples/tess-resolution-shift.json`](../../schemas/examples/tess-resolution-shift.json).
+
+Can a classifier tell resolved from unresolved TOIs using only triage-time features? Primary arm `{CP,FP}` vs `{PC,APC}`, 7427 rows over 7143 hosts, `tid`-grouped 5-fold CV, logistic regression:
+
+**Out-of-fold ROC AUC 0.7616, 95% cluster-bootstrap CI [0.7492, 0.7737].** The interval excludes 0.5, so the preregistered prediction holds and the falsifier did not trigger. Permutation control mean 0.4973, max 0.5257, so the pipeline does not manufacture AUC. Sensitivity arms agree: with numeric timestamp offsets 0.7992, with `FA` counted as resolved 0.7655.
+
+The result says that **current catalog fields** distinguish current resolved and unresolved TOIs. Historical feature availability at original disposition time is not established, so this is not a triage-time shift measurement. It also does not measure an accuracy gap; **0.7616 must not be quoted as an accuracy overstatement**. Timestamps add 0.038 AUC in the current snapshot, but this does not resolve whether non-timestamp fields were updated after disposition. See the post-run correction in the preregistration.
+
 ## Limits of this resolution
 
 This is a label-availability audit. It is not a scientific result, a novelty claim, a benchmark result, or evidence that any model works. Dispositions are the archive’s own best-knowledge automated and committee adjudications, not ground truth. Archive contents change; compare reruns using the stored timestamps and hashes. The previously withdrawn exoplanet classifier figures remain withdrawn.
@@ -139,15 +174,17 @@ The existing `schemas/examples/sample-run.jsonl` is fabricated Adult demo data, 
 
 ## Lock gate
 
-Item 2 is now partially satisfied for TESS (outcome definition and censoring are fixed) and item 4 is specified (host-disjoint split on `tid`). Still required before freezing:
+Items 2 (partly), 3 and 4 are now settled for TESS: the outcome definition and censoring rule are fixed, the reference standard for `CP` positives is measured and passes at host-star level, and `tid` gives star-level disjointness. The prospective temporal split is impossible and must be dropped.
 
-1. Exact research question and domain-reviewed decision consequence.
-2. **Open:** an independent adjudication/reference source for `KP`/`CP`, with cross-match rate. `ctoi_alias` does not qualify.
-3. Dataset table/version and snapshot dates; feature availability at the decision time.
-4. **Open:** verify `tid` → TIC host disjointness rather than assuming it.
-5. Baseline, candidate interventions, primary metric/direction, practical threshold, and uncertainty plan.
-6. At least two possible tests and why the first is best by expected learning, feasibility, and cost.
-7. Scoped prior-art query log including NASA completeness/reliability work and the 2026 instrument-agnostic paper.
-8. A reproducible smoke result with raw output, code/data hashes, runtime, and setup details.
+Still required before freezing:
 
-Until then, the science choice and benchmark protocol remain **not locked**. No current result supports a planet-precision, novelty, discovery, or acceleration claim.
+1. Exact research question, in the **resolution-bias** form rather than plain classification, since plain TESS classification fails prior art.
+2. ~~Independent adjudication source~~ **Done** for positives (`CP` via `pscomppars`, 88.7% vs a 0.2% `FP` control). Still open: **negatives have no independent source** in the archive, so `FP` remains a committee judgment.
+3. Dataset table/version and snapshot dates — done, recorded in the reference-standard artifact.
+4. ~~Host-disjoint split~~ **Done**: group on `tid`, which is the TIC ID.
+5. Baseline, candidate interventions, primary metric/direction, practical threshold, and uncertainty plan. T1 supplies a measured shift estimate; T2 must supply the accuracy-gap estimate and its practical threshold.
+6. At least two possible tests and why the first is best. T1 is done; T2 is specified in the TESS gate review.
+7. **Scoped prior-art query log on the resolution-bias question itself**, including positive-unlabeled learning and selection bias in vetting labels. Not yet done, and it is now the main scientific risk.
+8. A reproducible smoke result — done for T1, with raw artifact, hashes, runtime and setup issues recorded.
+
+Until then, the science choice and benchmark protocol remain **not locked**. No current result supports a planet-precision, novelty, discovery, or acceleration claim. The single measured science-adjacent number is the T1 shift AUC of 0.7616, which is a data property and not an accuracy result.
