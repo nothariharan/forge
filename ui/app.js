@@ -111,7 +111,7 @@ function fold(list) {
       case "PREDICTION_COMMITTED": s.preds[p.eid || p.hid] = { ...p, seq: e.seq }; break;
       case "EXPERIMENT_SELECTED": s.selections.push({ ...p, seq: e.seq }); s.budgetLeft = p.budget_left ?? s.budgetLeft; break;
       case "RUN_STARTED": s.runs[p.eid] = { ...p, state: "running", startSeq: e.seq }; s.dataVer = p.data_ver; break;
-      case "RUN_FINISHED": s.runs[p.eid] = { ...(s.runs[p.eid] || {}), ...p, state: p.status === "ok" ? "done" : "failed" }; break;
+      case "RUN_FINISHED": s.runs[p.eid] = { ...(s.runs[p.eid] || {}), ...p, state: p.status === "ok" ? "done" : "failed" }; s.dataVer = p.data_ver || s.dataVer; break;
       case "FINDING": s.findings[p.eid] = p; break;
       case "SURPRISE": s.surprises.push(p); break;
       case "REPLAN": s.replans.push(p); break;
@@ -268,7 +268,7 @@ function renderRun(s) {
     <div class="run-q">${esc(h ? h.claim : p.question)}</div>
     <dl class="kv">
       <dt>Experiment</dt><dd>${r ? `${esc(r.eid)} ${badge(r.state === "running" ? "TESTING" : r.state === "done" ? "done" : r.state)}` : "none"}</dd>
-      <dt>Dataset</dt><dd>${esc(p.dataset || s.dataVer || "n/a")}</dd>
+      <dt>Dataset</dt><dd>${esc(s.dataVer || p.dataset || "n/a")}</dd>
       <dt>Budget</dt><dd>${s.budgetLeft != null ? `${s.budgetLeft} left of ${s.budget}<div class="bar"><i style="width:${Math.max(0, Math.min(100, 100 * (1 - s.budgetLeft / s.budget)))}%"></i></div>` : s.budget ?? "n/a"}</dd>
       <dt>Approvals</dt><dd>${Object.values(s.gates).map((g) => `${esc(g.gate_id)} ${badge(g.status)}`).join(" ") || "none"}</dd>
       ${p.cohorts ? `<dt>Cohorts</dt><dd>resolved: ${esc(p.cohorts.resolved.join(" + "))}<br>unresolved: ${esc(p.cohorts.unresolved.join(", "))}<br>excluded: ${esc((p.cohorts.excluded || []).join(", "))}</dd>` : ""}
