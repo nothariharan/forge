@@ -70,7 +70,7 @@ The rubric comes from the official challenge brief ([`docs/references/reference-
 
 | Criterion | Weight | What FORGE shows | Where to look |
 |-----------|:------:|------------------|---------------|
-| **Omnigent orchestration** | 30% | A director agent routes work across specialists on two different harnesses (Claude and Codex) with structured JSON handoffs. A dispatch budget is enforced by the Omnigent policy engine, not by the prompt | [`omnigent/forge/`](omnigent/forge/), [smoke test](docs/coordination/OMNIGENT_SMOKE_TEST.md) |
+| **Omnigent orchestration** | 30% | A director agent routes work across seven specialists with structured JSON handoffs. All run on the `claude-sdk` harness so arm B uses the same model as the single-agent baseline; the smoke test also showed a Claude-to-Codex handoff. A dispatch budget is enforced by the Omnigent policy engine, not by the prompt | [`omnigent/forge/`](omnigent/forge/), [smoke test](docs/coordination/OMNIGENT_SMOKE_TEST.md) |
 | **Breakthrough potential** | 25% | A domain-agnostic lab for the full discovery loop, exercised on NASA exoplanet catalog vetting. Candidate questions are screened against prior art before any claim is made | [Science decision packet](docs/coordination/SCIENCE_DECISION_PACKET.md) |
 | **Discovery acceleration and learning** | 20% | A matched single-agent vs multi-agent protocol with stated denominators, budgets, seeds and an oracle. Measured results already changed the team's next decision more than once | [`bench/PROTOCOL.md`](bench/PROTOCOL.md), [Science Track Record](#science-track-record) |
 | **Scientific rigor** | 15% | Preregistration before compute, permutation controls, cluster-bootstrap intervals, object-disjoint splits, raw artifacts with SHA-256 of every source response, and withdrawn results kept on record | [Preregistration](docs/coordination/TESS_RESOLUTION_SHIFT_PREREGISTRATION.md), [`schemas/examples/`](schemas/examples/) |
@@ -146,7 +146,7 @@ Each agent owns one scientific decision and hands off structured JSON that is va
 |-------|------------------|--------|--------|
 | **Director** | Which specialist acts next | Dispatches and inbox reads | Running in Omnigent (`claude-sdk`) |
 | **Librarian** | Which sources support a claim | `EvidencePacket` | Running in Omnigent (`claude-sdk`) |
-| **Hypothesizer** | What is worth testing | `Hypothesis` | Running in Omnigent (`codex`) |
+| **Hypothesizer** | What is worth testing | `Hypothesis` | Running in Omnigent (`claude-sdk`) |
 | **Experimenter** | How a test is executed | `RunRecord` | Running in Omnigent (`claude-sdk`) |
 | **Referee** | Whether a hypothesis is already known | `NoveltyVerdict` | Interface draft |
 | **Planner** | Which experiment to run under the budget | `ExperimentSpec` | Interface draft |
@@ -259,7 +259,7 @@ The claim under test: on the locked question and a matched budget, does the FORG
 |------|---------|------------|
 | Python | 3.12 | Everything |
 | [Omnigent](https://omnigent.ai) | 0.16.0 | Running the agent graph |
-| Claude and Codex subscriptions | configured through `omni setup` | Agent harnesses. No API keys are stored in the repository |
+| Claude subscription | configured through `omni setup` | Agent harnesses. No API keys are stored in the repository |
 
 ### 1. Install
 
