@@ -136,7 +136,7 @@ h3 { margin: 0 0 10px; font-size: 15px; font-weight: 700; }
 .kv dd { margin: 0; }
 .run-head { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; }
 .run-q { color: #4a443c; margin-top: 6px; font-size: 13px; }
-.agent-row { display: grid; grid-template-columns: 18px 92px 1fr; gap: 8px; align-items: center; font-size: 13px; padding: 4px 0; }
+.agent-row { display: grid; grid-template-columns: 24px 96px 1fr; gap: 8px; align-items: center; font-size: 13px; padding: 4px 0; }
 .agent-row i { width: 14px; height: 14px; border-radius: 50%; }
 .agent-row span:last-child { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .timeline { display: flex; flex-direction: column; gap: 12px; position: relative; padding-left: 4px; }
@@ -169,3 +169,50 @@ tr.chosen td { background: var(--ok-soft); }
   .logo { font-size: 0; }
   .cli { display: none; }
 }
+
+.agent-row .mini svg { width: 24px; height: 24px; display: block; }
+.mascot { width: 58px; height: 58px; }
+.mascot .tag { top: 58px; }
+.mascot .eyes { animation: blinkeyes 4.5s infinite; transform-origin: center 28px; transform-box: fill-box; }
+@keyframes blinkeyes { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+.mascot .blink-dot { animation: blink 1.2s steps(2) infinite; }
+.mascot.active .glow { animation: glow 1s ease-in-out infinite alternate; }
+@keyframes glow { from { opacity: .3; } to { opacity: 1; } }
+.mascot .bubble1 { animation: rise 1.8s ease-in infinite; } .mascot .bubble2 { animation: rise 1.8s .7s ease-in infinite; }
+@keyframes rise { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-14px); opacity: 0; } }
+.room { transition: box-shadow .4s; }
+.room.busy { box-shadow: inset 0 0 0 5px #fbf7f1, inset 0 14px 0 5px #f4ede2, 0 0 0 3px rgba(226, 87, 76, .35); }
+.room.busy .room-label::after { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-left: 8px; vertical-align: middle; animation: blink 1s steps(2) infinite; }
+.room .props { transition: filter .4s; }
+.room.busy .props { filter: saturate(1.25) brightness(1.03); }
+@media (prefers-reduced-motion: reduce) { .mascot .eyes, .mascot .blink-dot, .mascot .glow, .mascot .bubble1, .mascot .bubble2, .room.busy .room-label::after { animation: none; } }
+
+.roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.ros { background: #f8f5f0; border-radius: 12px; padding: 10px; text-align: center; font-size: 12px; }
+.ros svg { width: 54px; height: 54px; display: block; margin: 0 auto 4px; }
+.ros b { display: block; font-size: 13px; }
+.ros span { color: var(--muted); }
+a.ref { color: var(--info); text-decoration: none; font-weight: 700; }
+a.ref:hover { text-decoration: underline; }
+
+[hidden] { display: none !important; }
+
+.act-code rect { opacity: .25; }
+.room.busy .act-code rect { animation: codeline 1.2s steps(1) infinite; }
+.room.busy .act-code rect:nth-child(2) { animation-delay: .3s; } .room.busy .act-code rect:nth-child(3) { animation-delay: .6s; } .room.busy .act-code rect:nth-child(4) { animation-delay: .9s; }
+@keyframes codeline { 0% { opacity: .25; } 30% { opacity: 1; } }
+.act-led { opacity: .5; }
+.room.busy .act-led { animation: blink .8s steps(2) infinite; opacity: 1; }
+.act-float { opacity: 0; }
+.room.busy .act-float { opacity: 1; animation: floaty 2.2s ease-in-out infinite; }
+@keyframes floaty { 50% { transform: translateY(-5px); } }
+.act-draw { stroke-dasharray: 120; stroke-dashoffset: 0; }
+.room.busy .act-draw { animation: draw 2.4s ease-in-out infinite; }
+@keyframes draw { from { stroke-dashoffset: 120; } to { stroke-dashoffset: 0; } }
+.room.busy .act-pulse { animation: pulse 1s ease-in-out infinite alternate; transform-origin: 248px 70px; transform-box: view-box; }
+@keyframes pulse { to { transform: scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .room.busy .act-code rect, .room.busy .act-led, .room.busy .act-float, .room.busy .act-draw, .room.busy .act-pulse { animation: none; } }
+
+.mascot.small { width: 44px; height: 44px; }
+.mascot.small .tag { top: 44px; font-size: 9px; }
+.mascot.active { z-index: 6; }

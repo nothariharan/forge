@@ -3,27 +3,17 @@
 //           ?sse=<url>                         (live EventSource; each message is one event JSON)
 // All state below is derived by folding events; nothing is stored outside the event list.
 
-const AGENTS = {
-  librarian:    { label: "Librarian",    color: "#f28c38", home: "library",    acc: "flower" },
-  referee:      { label: "Referee",      color: "#4a90e2", home: "library",    acc: "cap" },
-  hypothesizer: { label: "Hypothesizer", color: "#9b6cf0", home: "whiteboard", acc: "" },
-  planner:      { label: "Planner",      color: "#f27bb4", home: "whiteboard", acc: "bow" },
-  experimenter: { label: "Experimenter", color: "#8ccf3f", home: "compute",    acc: "" },
-  analyst:      { label: "Analyst",      color: "#f2c43a", home: "meeting",    acc: "glasses" },
-  safety:       { label: "Safety",       color: "#ef5b4f", home: "safety",     acc: "" },
-};
-const SYSTEM_COLOR = "#8a8378";
+import { resolveAgent, mascotSVG, ARCHETYPES } from "./mascots.js";
 
-// Room anchor points in % of the floor (x, y). Index picks a slot so mascots don't overlap.
-const ROOMS = {
-  library:    [[14, 26], [24, 30]],
-  whiteboard: [[44, 26], [56, 30]],
-  compute:    [[78, 28], [88, 30]],
-  safety:     [[15, 84], [24, 86]],
-  meeting:    [[42, 84], [50, 87], [58, 84], [46, 92]],
-  pi:         [[80, 84]],
-  corridor:   [[30, 50], [50, 50], [70, 50]],
-};
+// Room boxes in % of the floor, and slots inside a room (0..1 of the room box)
+// chosen to stay clear of the room label in the top-left corner and of each other.
+const ROOMS = { library: [0, 0], whiteboard: [1, 0], compute: [2, 0], safety: [0, 1], meeting: [1, 1], pi: [2, 1] };
+const SLOT = [[0.66, 0.5], [0.42, 0.68], [0.86, 0.68], [0.2, 0.74], [0.64, 0.8], [0.66, 0.3], [0.86, 0.36], [0.42, 0.82], [0.12, 0.5]];
+function slotPos(room, i) {
+  const [col, row] = ROOMS[room]; const [rx, ry] = SLOT[i % SLOT.length];
+  return [col * 33.333 + rx * 33.333, row * 59 + ry * 41];
+}
+const roomOfAgent = (name) => resolveAgent(name).home;
 
 // Where an agent goes for each event type (defaults to its home room).
 const MOVE = {
@@ -34,8 +24,19 @@ const MOVE = {
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// arXiv / DOI / URL refs become links. Demo placeholders (0000 ids) stay plain text.
+function refLink(ref) {
+  const r = String(ref || "");
+  const demo = /0000[.\/]/.test(r) || r.includes("demo");
+  let url = null;
+  if (/^arxiv:/i.test(r)) url = `https://arxiv.org/abs/${r.slice(6)}`;
+  else if (/^10\.\d{4,}\//.test(r)) url = `https://doi.org/${r}`;
+  else if (/^https?:\/\//.test(r)) url = r;
+  if (!url || demo) return `<span class="ref">${esc(r)}${demo ? ' <span class="badge grey">demo ref</span>' : ""}</span>`;
+  return `<a class="ref" href="${esc(url)}" target="_blank" rel="noopener">${esc(r)} ↗</a>`;
+}
 const hhmmss = (ts) => (ts || "").slice(11, 19);
-const agentOf = (name) => AGENTS[name] || { label: name[0].toUpperCase() + name.slice(1), color: SYSTEM_COLOR };
+const agentOf = (name) => (name === "system" ? { label: "System", color: "#8a8378" } : resolveAgent(name));
 
 let events = [];
 let pos = 0;           // number of events applied
@@ -91,14 +92,17 @@ function fold(list) {
     run: null, done: null, budget: null, budgetLeft: null, dataVer: null,
     hyps: {}, hypOrder: [], novelty: {}, preds: {}, selections: [], runs: {}, findings: {}, surprises: [],
     replans: [], claims: [], denials: [], gates: {}, errors: [],
-    agents: {}, lastByAgent: {}, place: {},
+    agents: {}, lastByAgent: {}, place: {}, seen: [],
   };
   for (const e of list) {
     const p = e.payload || {};
     s.lastByAgent[e.agent] = e;
-    if (AGENTS[e.agent]) s.place[e.agent] = MOVE[e.type] || AGENTS[e.agent].home;
-    if (e.type === "GATE_RESOLVED") s.place.safety = "safety";
-    if (e.type === "RUN_COMPLETED") Object.keys(AGENTS).forEach((n) => { s.place[n] = "meeting"; });
+    if (e.agent !== "system") {
+      if (!s.seen.includes(e.agent)) s.seen.push(e.agent);
+      s.place[e.agent] = MOVE[e.type] || roomOfAgent(e.agent);
+    }
+    if (e.type === "GATE_RESOLVED") { s.seen.filter((n) => resolveAgent(n).type === "safety").forEach((n) => { s.place[n] = "safety"; }); s.lastByAgent.human = e; }
+    if (e.type === "RUN_COMPLETED") s.seen.forEach((n) => { s.place[n] = roomOfAgent(n); });
     switch (e.type) {
       case "RUN_CREATED": s.run = e; s.budget = p.budget ?? null; break;
       case "EVIDENCE_ADDED": (p.claims || []).forEach((c) => s.claims.push({ ...c, seq: e.seq })); break;
@@ -133,45 +137,44 @@ const VERDICT_BADGE = { SUPPORTS: "ok", REFUTES: "bad", INCONCLUSIVE: "warn", TE
 const badge = (t) => `<span class="badge ${VERDICT_BADGE[t] || "grey"}">${esc(t)}</span>`;
 
 // ---------- mascots ----------
-function mascotSVG(name) {
-  const a = agentOf(name);
-  const acc = {
-    flower: `<circle cx="36" cy="8" r="5" fill="#fff"/><circle cx="36" cy="8" r="2.4" fill="#f6c343"/>`,
-    cap: `<path d="M10 16c2-10 30-10 32 0z" fill="#2f6fbf"/><rect x="26" y="13" width="18" height="4" rx="2" fill="#2f6fbf"/>`,
-    bow: `<path d="M32 6l8-4v10zM32 6l-8-4v10z" fill="#e2468f"/><circle cx="32" cy="7" r="2.5" fill="#e2468f"/>`,
-    glasses: `<circle cx="20" cy="26" r="6" fill="none" stroke="#3a2f20" stroke-width="2"/><circle cx="34" cy="26" r="6" fill="none" stroke="#3a2f20" stroke-width="2"/><path d="M26 26h2" stroke="#3a2f20" stroke-width="2"/>`,
-  }[a.acc] || "";
-  return `<svg viewBox="0 0 54 54" aria-hidden="true">
-    <ellipse cx="27" cy="50" rx="15" ry="3.5" fill="rgba(60,40,20,.15)"/>
-    <path d="M27 6c13 0 21 9 21 22 0 12-8 19-21 19S6 40 6 28C6 15 14 6 27 6z" fill="${a.color}"/>
-    <path d="M14 18c3-6 9-8 14-8" stroke="rgba(255,255,255,.55)" stroke-width="3" stroke-linecap="round" fill="none"/>
-    <ellipse cx="20" cy="26" rx="2.6" ry="3.4" fill="#2b2118"/><ellipse cx="34" cy="26" rx="2.6" ry="3.4" fill="#2b2118"/>
-    <circle cx="15" cy="32" r="2.6" fill="rgba(255,120,120,.45)"/><circle cx="39" cy="32" r="2.6" fill="rgba(255,120,120,.45)"/>
-    <path d="M23 33q4 4 8 0" stroke="#2b2118" stroke-width="2" fill="none" stroke-linecap="round"/>${acc}
-  </svg>`;
-}
-function buildMascots() {
-  const box = $("#mascots");
-  box.innerHTML = Object.keys(AGENTS).map((n) =>
-    `<div class="mascot" id="m-${n}" style="left:50%;top:50%">${mascotSVG(n)}<span class="tag">${AGENTS[n].label}</span></div>`).join("");
-}
-function placeMascots(s, current) {
-  const used = {};
-  for (const n of Object.keys(AGENTS)) {
-    const room = s.place[n] || AGENTS[n].home;
-    const slots = ROOMS[room];
-    const i = (used[room] = (used[room] ?? -1) + 1) % slots.length;
-    const [x, y] = slots[i];
-    const el = $(`#m-${n}`);
-    el.style.left = `${x}%`; el.style.top = `${y}%`;
-    el.classList.toggle("active", current && current.agent === n);
+function ensureMascot(name) {
+  const id = `m-${name.replace(/[^a-z0-9_-]/gi, "_")}`;
+  let el = document.getElementById(id);
+  if (!el) {
+    const a = resolveAgent(name);
+    el = document.createElement("div");
+    el.className = `mascot type-${a.type}`; el.id = id; el.style.left = "50%"; el.style.top = "50%";
+    el.title = `${a.label}: ${a.role}`;
+    el.innerHTML = `${mascotSVG(name)}<span class="tag">${esc(a.label)}</span>`;
+    $("#mascots").appendChild(el);
   }
+  return el;
+}
+const mascotEl = (name) => document.getElementById(`m-${String(name).replace(/[^a-z0-9_-]/gi, "_")}`);
+function placeMascots(s, current) {
+  const names = [...s.seen, "human"];
+  document.querySelectorAll(".mascot").forEach((el) => { if (!names.some((n) => mascotEl(n) === el)) el.remove(); });
+  const used = {};
+  for (const n of names) {
+    const room = n === "human" ? "pi" : s.place[n] || roomOfAgent(n);
+    const i = (used[room] = (used[room] ?? -1) + 1);
+    const [x, y] = slotPos(room, i);
+    const el = ensureMascot(n);
+    el.style.left = `${x}%`; el.style.top = `${y}%`;
+    const actor = current && (current.type === "GATE_RESOLVED" ? "human" : current.agent);
+    el.classList.toggle("active", actor === n);
+  }
+  for (const n of names) {
+    const room = n === "human" ? "pi" : s.place[n] || roomOfAgent(n);
+    ensureMascot(n).classList.toggle("small", used[room] >= 3);
+  }
+  document.querySelectorAll(".room").forEach((r) => r.classList.toggle("busy", !!current && current.agent !== "system" && (MOVE[current.type] || roomOfAgent(current.agent)) === r.dataset.room));
 }
 function renderAlerts(s, current) {
   const out = [];
   if (current) {
-    const bt = bubbleText(current);
-    const el = $(`#m-${current.agent}`);
+    const bt = current.type === "GATE_RESOLVED" ? [current.payload.status === "approved" ? "Approved ✓" : "Rejected", current.payload.action] : bubbleText(current);
+    const el = mascotEl(current.type === "GATE_RESOLVED" ? "human" : current.agent);
     if (bt && el) out.push(`<div class="bubble" style="left:${el.style.left};top:${el.style.top}"><b>${esc(bt[0])}</b>${esc(bt[1] || "")}</div>`);
   }
   const pending = Object.values(s.gates).filter((g) => g.status === "pending").pop();
@@ -221,10 +224,10 @@ function renderRun(s) {
     <div class="note-box"><b>Question</b><br>${esc(p.question)}</div>`;
 }
 function renderAgents(s) {
-  $("#agents").innerHTML = Object.keys(AGENTS).map((n) => {
-    const e = s.lastByAgent[n];
-    return `<div class="agent-row"><i style="background:${AGENTS[n].color}"></i><span>${AGENTS[n].label}</span><span title="${esc(e ? summary(e) : "")}">${esc(e ? summary(e) : "Idle")}</span></div>`;
-  }).join("");
+  $("#agents").innerHTML = [...s.seen, "human"].map((n) => {
+    const a = resolveAgent(n); const e = s.lastByAgent[n];
+    return `<div class="agent-row"><span class="mini">${mascotSVG(n)}</span><span title="${esc(a.role)}">${esc(a.label)}</span><span title="${esc(e ? summary(e) : "")}">${esc(e ? summary(e) : n === "human" ? "Watching" : "Idle")}</span></div>`;
+  }).join("") || `<p class="muted">No agents summoned yet.</p>`;
 }
 function renderRecent() {
   const last = events.slice(0, pos).slice(-6).reverse();
@@ -241,7 +244,7 @@ function renderLog() {
 function renderMinimap(s) {
   const order = ["library", "whiteboard", "compute", "safety", "meeting", "pi"];
   $("#minimap").innerHTML = order.map((room) =>
-    `<div title="${room}">${Object.keys(AGENTS).filter((n) => (s.place[n] || AGENTS[n].home) === room).map((n) => `<i style="background:${AGENTS[n].color}" title="${AGENTS[n].label}"></i>`).join("")}</div>`).join("");
+    `<div title="${room}">${[...s.seen, "human"].filter((n) => (n === "human" ? "pi" : s.place[n] || roomOfAgent(n)) === room).map((n) => `<i style="background:${resolveAgent(n).color}" title="${esc(resolveAgent(n).label)}"></i>`).join("")}</div>`).join("");
 }
 
 // ---------- pages ----------
@@ -262,7 +265,7 @@ function renderPages(s) {
     + s.denials.map((d) => `<div class="note-box bad"><b>${esc(d.policy_id)} denied ${esc(d.target_agent)}</b> · ${esc(d.reason)}</div>`).join("")
     || `<p class="muted">No experiments selected yet.</p>`;
 
-  $("#lit").innerHTML = s.claims.length ? s.claims.map((c, i) => `<div class="note-box"><b>${i + 1}. ${esc(c.ref)}</b><br>${esc(c.text)}<br><span class="muted">“${esc(c.quote_span)}”</span></div>`).join("")
+  $("#lit").innerHTML = s.claims.length ? s.claims.map((c, i) => `<div class="note-box"><b>${i + 1}. ${refLink(c.ref)}</b><br>${esc(c.text)}<br><span class="muted">“${esc(c.quote_span)}”</span></div>`).join("")
     + `<div class="note-box">Citation resolution and quote support are checked by <code>tools/citation_check.py</code>; agent-reported verification is never trusted on its own.</div>`
     + s.denials.filter((d) => d.policy_id === "P1").map((d) => `<div class="note-box bad"><b>P1 citation policy</b> · ${esc(d.reason)}</div>`).join("")
     : `<p class="muted">No evidence yet.</p>`;
@@ -284,6 +287,9 @@ function renderPages(s) {
       <tr><td>Experimenter</td><td>claude-sdk</td><td><span class="badge ok">yes</span></td></tr>
       <tr><td>Referee · Planner · Analyst · Safety</td><td>–</td><td><span class="badge warn">not yet (replay only)</span></td></tr>
     </table>
+    <h3 style="margin-top:18px">Agent roster</h3>
+    <p class="muted">Omnigent decides which sub-agents to summon. Any agent name that appears in the ledger gets a mascot: matched to one of these archetypes by name, or a generic dot if nothing matches.</p>
+    <div class="roster">${Object.entries(ARCHETYPES).map(([k, a]) => `<div class="ros">${mascotSVG(k)}<b>${esc(a.label)}</b><span>${esc(a.role)}</span></div>`).join("")}</div>
     <h3 style="margin-top:18px">Policies</h3>
     <table><tr><th>Policy</th><th>Enforcement</th><th>Status</th></tr>
       <tr><td>P2 dispatch budget</td><td>Omnigent CEL policy on sys_session_send</td><td><span class="badge ok">enforced · tested live</span></td></tr>
@@ -299,24 +305,28 @@ function renderPages(s) {
 const plant = (x, y, k = 1) => `<g transform="translate(${x} ${y}) scale(${k})"><rect x="-9" y="6" width="18" height="16" rx="3" fill="#c98a5b"/><path d="M0 8C-14 0-16-14-4-18 0-10 0-4 0 8zM0 8C14 0 16-14 4-18 0-10 0-4 0 8zM0 8C-4-6 4-20 0-26 6-14 4-4 0 8z" fill="#5fae5a"/></g>`;
 const desk = (x, y, w = 70) => `<g transform="translate(${x} ${y})"><rect width="${w}" height="26" rx="4" fill="#c7996b"/><rect y="22" width="${w}" height="6" rx="2" fill="#a97c52"/></g>`;
 const monitor = (x, y) => `<g transform="translate(${x} ${y})"><rect width="30" height="20" rx="3" fill="#3d4654"/><rect x="3" y="3" width="24" height="14" rx="1" fill="#8fc3f0"/><rect x="12" y="20" width="6" height="5" fill="#3d4654"/></g>`;
+const win = (x) => `<g transform="translate(${x} 6)"><rect width="46" height="26" rx="3" fill="#cfe7f7" stroke="#fff" stroke-width="3"/><path d="M23 0v26M0 13h46" stroke="#fff" stroke-width="2"/><path d="M4 22l10-10" stroke="rgba(255,255,255,.7)" stroke-width="3"/></g>`;
+const rug = (x, y, w, h, c) => `<ellipse cx="${x}" cy="${y}" rx="${w}" ry="${h}" fill="${c}" opacity=".55"/>`;
+const lamp = (x, y) => `<g transform="translate(${x} ${y})"><rect x="-1.5" y="0" width="3" height="26" fill="#8a8378"/><path d="M-10 0h20l-5-12h-10z" fill="#f6d27a"/><ellipse cx="0" cy="28" rx="7" ry="2" fill="#8a8378"/></g>`;
+const codeScreen = (x, y) => `<g transform="translate(${x} ${y})"><rect width="30" height="20" rx="3" fill="#2b3240"/><g class="act-code"><rect x="4" y="4" width="14" height="2" fill="#7ee081"/><rect x="7" y="8" width="16" height="2" fill="#8fc3f0"/><rect x="7" y="12" width="10" height="2" fill="#f2c43a"/><rect x="4" y="16" width="18" height="2" fill="#7ee081"/></g><rect x="12" y="20" width="6" height="5" fill="#3d4654"/></g>`;
 const FURNITURE = {
   library: () => { const books = ["#e07a5f", "#3d85c6", "#f2cc8f", "#81b29a", "#9b6cf0", "#e2468f"];
     let sh = `<rect x="200" y="46" width="88" height="96" rx="4" fill="#8b5e3c"/>`;
     for (let r = 0; r < 3; r++) for (let i = 0; i < 9; i++) sh += `<rect x="${205 + i * 9}" y="${52 + r * 30}" width="7" height="24" rx="1" fill="${books[(i + r) % 6]}"/>`;
-    return sh + desk(60, 110, 90) + `<rect x="70" y="102" width="22" height="10" rx="2" fill="#f2cc8f"/><rect x="120" y="100" width="18" height="12" rx="2" fill="#e07a5f"/>` + plant(26, 118, 1.1) + plant(270, 138, .8); },
+    return win(120) + rug(105, 132, 70, 14, "#e9b48a") + sh + desk(60, 110, 90) + `<g class="act-float"><rect x="84" y="84" width="10" height="13" rx="1" fill="#fff" transform="rotate(-12 89 90)"/><rect x="104" y="78" width="10" height="13" rx="1" fill="#fff" transform="rotate(10 109 84)"/><rect x="124" y="86" width="9" height="12" rx="1" fill="#fff"/></g>` + lamp(160, 98) + `<rect x="70" y="102" width="22" height="10" rx="2" fill="#f2cc8f"/><rect x="120" y="100" width="18" height="12" rx="2" fill="#e07a5f"/>` + plant(26, 118, 1.1) + plant(270, 138, .8); },
   whiteboard: () => { let wb = `<rect x="150" y="40" width="130" height="78" rx="5" fill="#fbfbf8" stroke="#c9c2b6" stroke-width="3"/>`;
     const notes = ["#f9e27d", "#f7a8c4", "#a8d8f0", "#b9e3a3"];
     for (let i = 0; i < 8; i++) wb += `<rect x="${160 + (i % 4) * 29}" y="${50 + Math.floor(i / 4) * 30}" width="20" height="18" rx="2" fill="${notes[i % 4]}"/>`;
-    return wb + `<path d="M170 105l20-8 18 6 22-12 22 4" stroke="#e2574c" stroke-width="2" fill="none"/>` + plant(30, 120) + plant(270, 140, .8); },
+    return win(70) + rug(150, 138, 90, 14, "#c9b3e8") + wb + `<path class="act-draw" d="M170 105l20-8 18 6 22-12 22 4" stroke="#e2574c" stroke-width="2.5" fill="none"/>` + `<rect x="150" y="118" width="130" height="5" rx="2" fill="#c9c2b6"/>` + plant(30, 120) + plant(270, 140, .8); },
   compute: () => { let racks = "";
     for (let i = 0; i < 3; i++) { racks += `<rect x="${206 + i * 28}" y="40" width="24" height="70" rx="3" fill="#4a5262"/>`;
-      for (let j = 0; j < 6; j++) racks += `<rect x="${210 + i * 28}" y="${46 + j * 10}" width="16" height="5" rx="1" fill="#2f3542"/><circle cx="${223 + i * 28}" cy="${48.5 + j * 10}" r="1.4" fill="${j % 2 ? "#7ee081" : "#f2c43a"}"/>`; }
-    return racks + desk(40, 112, 80) + monitor(50, 92) + monitor(86, 92) + desk(140, 120, 60) + monitor(155, 100) + plant(22, 122, .9); },
-  safety: () => desk(150, 104, 90) + monitor(175, 84) + `<path d="M248 50l22 38h-44z" fill="#f2c43a"/><rect x="246" y="62" width="4" height="14" fill="#3a2f20"/><circle cx="248" cy="81" r="2" fill="#3a2f20"/>` + plant(30, 120) + plant(274, 138, .8),
+      for (let j = 0; j < 6; j++) racks += `<rect x="${210 + i * 28}" y="${46 + j * 10}" width="16" height="5" rx="1" fill="#2f3542"/><circle class="act-led" style="animation-delay:${(i * 6 + j) * 0.13}s" cx="${223 + i * 28}" cy="${48.5 + j * 10}" r="1.4" fill="${j % 2 ? "#7ee081" : "#f2c43a"}"/>`; }
+    return win(120) + rug(110, 140, 85, 12, "#b9dba0") + racks + desk(40, 112, 80) + codeScreen(50, 92) + codeScreen(86, 92) + desk(140, 120, 60) + codeScreen(155, 100) + plant(22, 122, .9); },
+  safety: () => win(120) + rug(190, 136, 70, 12, "#f3b1aa") + desk(150, 104, 90) + monitor(175, 84) + `<path class="act-pulse" d="M248 50l22 38h-44z" fill="#f2c43a"/><rect x="246" y="62" width="4" height="14" fill="#3a2f20"/><circle cx="248" cy="81" r="2" fill="#3a2f20"/>` + plant(30, 120) + plant(274, 138, .8),
   meeting: () => `<ellipse cx="150" cy="118" rx="80" ry="24" fill="#c7996b"/><ellipse cx="150" cy="114" rx="80" ry="24" fill="#d8ad80"/>`
     + [90, 130, 170, 210].map((x) => `<rect x="${x - 8}" y="100" width="16" height="10" rx="2" fill="#fff" opacity=".9"/>`).join("")
-    + `<rect x="226" y="40" width="60" height="44" rx="4" fill="#fff" stroke="#c9c2b6" stroke-width="2"/><path d="M234 76l10-10 10 4 10-14 14 6" stroke="#3b82c4" stroke-width="2" fill="none"/>` + plant(28, 124),
-  pi: () => desk(150, 104, 100) + monitor(185, 84) + `<rect x="250" y="34" width="34" height="74" rx="3" fill="#b07d52"/><circle cx="278" cy="72" r="2.5" fill="#f2cc8f"/>` + plant(30, 122) + plant(140, 132, .8),
+    + `<rect x="226" y="40" width="60" height="44" rx="4" fill="#fff" stroke="#c9c2b6" stroke-width="2"/><path class="act-draw" d="M234 76l10-10 10 4 10-14 14 6" stroke="#3b82c4" stroke-width="2" fill="none"/>` + win(120) + plant(28, 124),
+  pi: () => win(60) + rug(200, 138, 80, 12, "#a9cdee") + lamp(132, 96) + desk(150, 104, 100) + monitor(185, 84) + `<rect x="250" y="34" width="34" height="74" rx="3" fill="#b07d52"/><circle cx="278" cy="72" r="2.5" fill="#f2cc8f"/>` + plant(30, 122) + plant(140, 132, .8),
 };
 function buildFurniture() {
   document.querySelectorAll(".room").forEach((room) => {
@@ -369,12 +379,13 @@ function initNav() {
 }
 
 (async function main() {
-  buildFurniture(); buildMascots(); initNav();
+  buildFurniture(); initNav();
   $("#play").addEventListener("click", () => (timer ? stop() : play()));
   $("#speed").addEventListener("change", () => { if (timer) { stop(); play(); } });
   $("#scrub").addEventListener("input", (e) => { stop(); pos = Number(e.target.value); render(); });
   const q = new URLSearchParams(location.search);
-  if (q.get("sse")) { connectSSE(q.get("sse")); render(); return; }
+  const sse = q.get("sse") || (q.get("run") ? `/events?run=${encodeURIComponent(q.get("run"))}` : null);
+  if (sse) { connectSSE(sse); render(); return; }
   const src = q.get("src") || "fixtures/exo-demo.jsonl";
   $("#source").textContent = `replay: ${src}`;
   try { events = await loadJsonl(src); } catch (err) { $("#status-text").textContent = `Could not load ${src}`; return; }
