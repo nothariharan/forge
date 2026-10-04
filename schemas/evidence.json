@@ -5,7 +5,6 @@
   "properties": {
     "claims": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "type": "object",
         "properties": {
@@ -29,7 +28,8 @@
           "ref",
           "quote_span"
         ]
-      }
+      },
+      "description": "May be empty: an honest 'no evidence found' when no literature tool is available. Never invent sources."
     }
   },
   "required": [

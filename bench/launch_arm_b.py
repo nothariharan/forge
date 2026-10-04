@@ -52,7 +52,7 @@ def _section(prompt: str, heading: str) -> str:
     return prompt[start:nxt if nxt != -1 else len(prompt)].strip()
 
 
-def task_message(spec: dict, run_id: str) -> str:
+def task_message(spec: dict, run_id: str, seed: int = 1) -> str:
     """FORGE's task: the arm A prompt's shared sections, verbatim, plus how to record the answer."""
     filled = shared.fill_prompt(spec)
     body = "\n\n".join(_section(filled, h) for h in SHARED_SECTIONS)
@@ -60,6 +60,13 @@ def task_message(spec: dict, run_id: str) -> str:
         f"Run id: {run_id}\n\n"
         "Investigate the research question below with the FORGE team and record every handoff in the ledger.\n\n"
         f"{body}\n\n"
+        "### Running an experiment\n\n"
+        "One experiment is one call of the simulation runner. The command the planner chooses and the experimenter "
+        "runs behind the P6 gate is exactly:\n"
+        f"    .venv/bin/python tools/tess_bias_run.py --model <lr|hgb> --estimator <naive|iw|iw_clip> "
+        f"--gamma <0|1|2> --seed {seed}\n"
+        "It prints JSON; its \"metrics\" object is the result (gap, estimate, true_auc, abs_error and their 95% ranges). "
+        f"Use code_hash \"tools/tess_bias_run.py\" and data_ver \"{spec['data_ver']}\".\n\n"
         "### Final answer\n\n"
         "End the run by recording RUN_COMPLETED with "
         '{"status": "completed", "summary": "<one paragraph>", "candidate": "<id of the candidate you recommend>"}. '
@@ -78,7 +85,7 @@ def _past_deadline(manifest: dict) -> bool:
 def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None, model: Optional[str] = None,
            agent_cmd: str = DEFAULT_AGENT_CMD, dry_run: bool = False) -> dict:
     run_id = run_id or f"B-seed{seed}-{int(time.time())}"
-    prompt = task_message(spec, run_id)  # fails before anything is created if a placeholder is missing
+    prompt = task_message(spec, run_id, seed)  # fails before anything is created if a placeholder is missing
     if os.path.exists(os.path.join(episode_dir, "manifest.json")):
         raise SystemExit(f"episode already started at {episode_dir}")
     os.makedirs(episode_dir, exist_ok=True)
@@ -122,7 +129,9 @@ def launch(spec: dict, seed: int, episode_dir: str, run_id: Optional[str] = None
                 json.dump(manifest, f, indent=2)
         completed = next(e for e in ledger.read(run_id) if e["type"] == "RUN_COMPLETED")
         record["outcome"] = completed["payload"].get("status")
-        if completed["payload"].get("candidate") is not None:
+        # Only a completed run submits an answer. An aborted run's candidate is a placeholder and must not be
+        # scored (failures count as incorrect).
+        if completed["payload"].get("status") == "completed" and completed["payload"].get("candidate") is not None:
             with open(os.path.join(episode_dir, "answer.json"), "w", encoding="utf-8") as f:
                 json.dump({"candidate": completed["payload"]["candidate"], "submitted_at": completed["ts"]}, f, indent=2)
 

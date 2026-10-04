@@ -26,6 +26,6 @@ prompt: |
   If the input names an exact command (it starts with .venv/bin/python
   tools/forge_gate.py), run it verbatim with sys_os_shell: it is the only shell
   command policy P5 allows you. It waits for a human approval (P6) and can
-  take several minutes; do not retry or stop it early. Then read
-  its --output JSON with sys_os_read for the metrics (e.g. verdict.primary_arm_auc
-  and its bootstrap interval). Use code_hash "tools/tess_resolution_shift.py@main".
+  take several minutes; do not retry or stop it early. Then take the metrics
+  from the JSON it prints (or its --output file, if it has one). Use the code_hash
+  and data_ver the task gives you; otherwise the script path of the command.

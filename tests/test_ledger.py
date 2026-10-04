@@ -89,6 +89,12 @@ def test_invalid_event_rejected_and_nothing_written(ledger, kwargs):
     assert ledger.verify("r1") == (True, None)
 
 
+def test_empty_evidence_is_an_honest_no_evidence_event(ledger):
+    assert ledger.append("r1", "librarian", "EVIDENCE_ADDED", {"claims": []})["seq"] == 1
+    with pytest.raises(ValidationError):  # a claim, when present, still needs text, ref and quote
+        ledger.append("r1", "librarian", "EVIDENCE_ADDED", {"claims": [{"text": "t"}]})
+
+
 def test_spec_chosen_must_be_a_candidate(ledger):
     assert ledger.append("r1", "planner", "EXPERIMENT_SELECTED", SPEC)["seq"] == 1
     with pytest.raises(ValidationError, match="chosen"):

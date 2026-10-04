@@ -37,7 +37,9 @@ sys.path.insert(0, str(ROOT))
 
 from core.ledger import Ledger  # noqa: E402
 
-APPROVED_TOOLS = ("tools/tess_resolution_shift.py",)
+APPROVED_TOOLS = ("tools/tess_resolution_shift.py", "tools/tess_bias_run.py")
+# Flags that would download data or rebuild the oracle instead of running one experiment.
+REFUSED_FLAGS = ("--fetch", "--oracle")
 
 
 def wait_for_decision(ledger: Ledger, run_id: str, gate_id: str, timeout: float, poll: float = 1.0,
@@ -72,6 +74,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if len(command) < 2 or command[1] not in APPROVED_TOOLS:
         print(f"FORGE_GATE_REFUSED: only {APPROVED_TOOLS} may run behind the gate")
+        return 5
+    if any(flag in command for flag in REFUSED_FLAGS):
+        print(f"FORGE_GATE_REFUSED: {REFUSED_FLAGS} are not experiments")
         return 5
 
     ledger = Ledger(args.db) if args.db else Ledger()

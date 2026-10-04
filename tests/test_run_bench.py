@@ -65,6 +65,11 @@ FAKE_B = """
 """
 
 
+def test_task_message_gives_forge_the_runner_command(spec):
+    msg = launch_arm_b.task_message(spec, "B-1", seed=3)
+    assert ".venv/bin/python tools/tess_bias_run.py --model" in msg and "--seed 3" in msg
+
+
 def test_task_message_shares_the_arm_a_sections_verbatim(spec):
     filled = launch_arm_a.fill_prompt(spec)
     msg = launch_arm_b.task_message(spec, "B-1")
@@ -92,6 +97,15 @@ def test_arm_b_without_completion_is_closed(spec, tmp_path):
     rec = launch_arm_b.launch(spec, 1, str(ep), run_id="B-1", agent_cmd=script(tmp_path, "quit.py", "pass\n"))
     assert rec["outcome"] == "aborted" and not (ep / "answer.json").exists()
     assert json.loads((ep / "manifest.json").read_text())["budget_end_ts"]
+
+
+def test_aborted_run_with_a_placeholder_candidate_is_not_scored(spec, tmp_path):
+    body = FAKE_B.split("    for eid")[0] + (
+        '    L.append(run_id, "system", "RUN_COMPLETED", {"status": "aborted", "summary": "no evidence", "candidate": "x"})\n')
+    ep = tmp_path / "B" / "seed-1"
+    rec = launch_arm_b.launch(spec, 1, str(ep), run_id="B-1", agent_cmd=script(tmp_path, "ab.py", body) + " -p {prompt}")
+    assert rec["outcome"] == "aborted" and not (ep / "answer.json").exists()
+    assert report.episode_metrics(str(ep), {"best": "x", "within_threshold": ["x"]})["correct"] is not True
 
 
 def test_run_order_alternates():
