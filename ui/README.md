@@ -45,10 +45,10 @@ Static page, no build step. Read-only: it folds ledger events into the view and 
 
 ```bash
 python3 -m http.server 8765        # from the repo root
-# open http://localhost:8765/ui/                       replays ui/fixtures/exo-demo.jsonl
-#      http://localhost:8765/ui/?src=../schemas/examples/sample-run.jsonl
-#      http://localhost:8765/ui/?at=16                 jump to event 16, paused
-#      http://localhost:8765/ui/?sse=<url>             live: EventSource, one event JSON per message (for Ish's SSE server)
+# open http://localhost:8765/ui/lab.html               replays the real run ui/fixtures/live-exo-9.jsonl
+#      http://localhost:8765/ui/lab.html?src=../schemas/examples/sample-run.jsonl
+#      http://localhost:8765/ui/lab.html?at=16                 jump to event 16, paused
+#      http://localhost:8765/ui/lab.html?sse=<url>             live: EventSource, one event JSON per message (for Ish's SSE server)
 ```
 
 - `ui/fixtures/make_exo_demo.py` writes the astronomy DEMO run (27 events) through the real `Ledger.append`, so it is schema-valid and hash-chained. Every payload has `"demo": true`; the question is marked not locked; ids, numbers and citations are placeholders; statuses stay distinct and no planet precision is shown.
@@ -70,5 +70,5 @@ Run it live:
 ```bash
 .venv/bin/python ui/live_server.py --port 8777 --db results/ledger.db
 FORGE_LEDGER_DB=results/ledger.db omni run omnigent/forge -p "Run id live-1. <question>"
-# open http://localhost:8777/ui/?run=live-1
+# open http://localhost:8777/ui/lab.html?run=live-1
 ```

@@ -5,7 +5,7 @@ Ledger.subscribe; when it lands, point the UI at it with ?sse=<its url> and
 delete this file. It exists so the UI can follow a real Omnigent run today.
 
     .venv/bin/python ui/live_server.py --port 8766
-    # http://localhost:8766/ui/?sse=/events?run=<run_id>
+    # http://localhost:8766/ui/lab.html?sse=/events?run=<run_id>
     # http://localhost:8766/runs   -> JSON list of run ids in the ledger
 
 Reads the same ledger as tools/forge_emit.py ($FORGE_LEDGER_DB or

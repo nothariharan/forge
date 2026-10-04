@@ -1,5 +1,5 @@
 // FORGE lab UI. Read-only consumer of ledger events (schemas/event.schema.json).
-// Sources:  ?src=<path to exported .jsonl>   (default fixtures/exo-demo.jsonl, replayed)
+// Sources:  ?src=<path to exported .jsonl>   (default fixtures/live-exo-9.jsonl, a real run, replayed)
 //           ?sse=<url>                         (live EventSource; each message is one event JSON)
 // All state below is derived by folding events; nothing is stored outside the event list.
 
@@ -544,7 +544,7 @@ function initNav() {
   const q = new URLSearchParams(location.search);
   const sse = q.get("sse") || (q.get("run") ? `/events?run=${encodeURIComponent(q.get("run"))}` : null);
   if (sse) { connectSSE(sse); render(); return; }
-  const src = q.get("src") || "fixtures/exo-demo.jsonl";
+  const src = q.get("src") || "fixtures/live-exo-9.jsonl";   // real run by default; ?src=fixtures/exo-demo.jsonl for the demo
   $("#source").textContent = `replay: ${src}`;
   try { events = await loadJsonl(src); } catch (err) { $("#status-text").textContent = `Could not load ${src}`; return; }
   pos = q.has("at") ? Number(q.get("at")) : 0;
