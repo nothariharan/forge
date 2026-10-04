@@ -152,8 +152,8 @@ Stored under `results/bench/<bench_id>/<arm>/seed-<n>/`:
 
 ## 13. Open questions for Hari (science)
 
-1. Is the Adult missingness question valuable enough for the 25% breakthrough-potential criterion, after a scoped prior-art check? If not, propose a more meaningful question that is still testable in the hackathon window.
-2. Once Hari locks the question: task ID, dataset version, split protocol, primary metric/direction/threshold, candidate space and oracle affordability.
+1. Can the provisional astronomy direction be expressed with an observed outcome, object-disjoint held-out cohort, and a defensible prior-art gap? See `docs/coordination/SCIENCE_DECISION_PACKET.md`; its old precision-transfer numbers are withdrawn.
+2. Once Hari locks a valid question: task/dataset version, split protocol, primary metric/direction/threshold, candidate space and oracle affordability.
 3. Primary benchmark outcome: decision correctness or experiments/time to reach the oracle top set; define the bottleneck and denominator explicitly.
 4. Matched wall-clock/token/USD/compute budgets and maximum attempts.
 5. Repetitions, paired seeds, uncertainty method, and whether `tools/openml_run.py` implements them as specified.

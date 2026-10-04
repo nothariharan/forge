@@ -1,0 +1,117 @@
+{
+  "status": "FEASIBILITY_DATA_AUDIT_ONLY_NO_MODEL_OR_PRECISION_RESULT",
+  "retrieved_at_utc": "2026-10-04T03:50:13.890636+00:00",
+  "data_source": "NASA Exoplanet Archive TAP",
+  "tables": {
+    "snapshot": "q1_q17_dr25_koi",
+    "current": "cumulative"
+  },
+  "queried_columns": [
+    "kepoi_name",
+    "koi_disposition",
+    "koi_pdisposition"
+  ],
+  "sha256_raw_csv": {
+    "q1_q17_dr25_koi": "25cb91da8bba7df989fdd70ee106ead37fde83936a1a64521b8c13065513456f",
+    "cumulative": "3ec104af285c345299079f7503fc27ce1eac7477e801734944b7811c4d4e6f32"
+  },
+  "row_counts": {
+    "q1_q17_dr25_koi": 8054,
+    "cumulative": 9564
+  },
+  "disposition_counts": {
+    "q1_q17_dr25_koi": {
+      "CANDIDATE": 1358,
+      "CONFIRMED": 2731,
+      "FALSE POSITIVE": 3965
+    },
+    "cumulative": {
+      "CANDIDATE": 1977,
+      "CONFIRMED": 2748,
+      "FALSE POSITIVE": 4839
+    }
+  },
+  "audits": [
+    {
+      "column": "disposition",
+      "common_ids": 8054,
+      "snapshot_labeled_candidate_or_fp_ids": 5323,
+      "changed_disposition_count_all_common_ids": 277,
+      "transition_counts": [
+        {
+          "snapshot": "CANDIDATE",
+          "current": "CANDIDATE",
+          "count": 1229
+        },
+        {
+          "snapshot": "CANDIDATE",
+          "current": "FALSE POSITIVE",
+          "count": 129
+        },
+        {
+          "snapshot": "CONFIRMED",
+          "current": "CONFIRMED",
+          "count": 2731
+        },
+        {
+          "snapshot": "FALSE POSITIVE",
+          "current": "CANDIDATE",
+          "count": 148
+        },
+        {
+          "snapshot": "FALSE POSITIVE",
+          "current": "FALSE POSITIVE",
+          "count": 3817
+        }
+      ],
+      "snapshot_candidate_ids_by_current_disposition": {
+        "CANDIDATE": 1229,
+        "FALSE POSITIVE": 129
+      },
+      "current_candidate_is_ground_truth": false,
+      "interpretation": "CANDIDATE is an unresolved/possible-planet status, not a confirmed-planet label. Counts by current disposition describe catalog status transitions only; they are not PPV, planet prevalence, or classifier precision."
+    },
+    {
+      "column": "pdisposition",
+      "common_ids": 8054,
+      "snapshot_labeled_candidate_or_fp_ids": 8054,
+      "changed_disposition_count_all_common_ids": 336,
+      "transition_counts": [
+        {
+          "snapshot": "CANDIDATE",
+          "current": "CANDIDATE",
+          "count": 3900
+        },
+        {
+          "snapshot": "CANDIDATE",
+          "current": "FALSE POSITIVE",
+          "count": 134
+        },
+        {
+          "snapshot": "FALSE POSITIVE",
+          "current": "CANDIDATE",
+          "count": 202
+        },
+        {
+          "snapshot": "FALSE POSITIVE",
+          "current": "FALSE POSITIVE",
+          "count": 3818
+        }
+      ],
+      "snapshot_candidate_ids_by_current_disposition": {
+        "CANDIDATE": 3900,
+        "FALSE POSITIVE": 134
+      },
+      "current_candidate_is_ground_truth": false,
+      "interpretation": "CANDIDATE is an unresolved/possible-planet status, not a confirmed-planet label. Counts by current disposition describe catalog status transitions only; they are not PPV, planet prevalence, or classifier precision."
+    }
+  ],
+  "model_evaluation": null,
+  "limitations": [
+    "CANDIDATE is not confirmed as a planet; unresolved cases have no observed truth label.",
+    "The snapshot-to-current join reuses object identifiers and is not an independent temporal test set.",
+    "Disposition transitions are descriptive catalog changes and cannot establish model precision or performance transfer.",
+    "This output is for schema/data feasibility only, not scientific evidence or a benchmark result."
+  ],
+  "next_requirement_for_valid_model_evaluation": "Define a target with independently resolved confirmed-planet/false-positive outcomes, construct disjoint train and held-out object cohorts, and exclude or explicitly censor unresolved objects."
+}

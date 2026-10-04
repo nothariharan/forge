@@ -6,7 +6,7 @@ The intended loop is **question → evidence → hypothesis → preregistered ex
 
 ## Project status
 
-The core event ledger, payload schemas, fake event stream, and Omnigent smoke-test graph are in `main`. Omnigent handoff and an engine-enforced dispatch cap passed the documented smoke test; human approval in the UI and schema validation at handoff remain unverified. OpenML Adult task 7592 has a corrected one-fold feasibility comparison, but the research question and benchmark protocol are not locked, the full ten-fold runner is not validated, and no comparative benchmark evidence exists. Treat all measured outputs as feasibility-only unless explicitly labeled otherwise.
+The core event ledger, payload schemas, fake event stream, and Omnigent smoke-test graph are in `main`. A mixed-harness handoff and engine-enforced dispatch cap passed the documented smoke test; human approval in the UI and enforced handoff validation remain unverified. OpenML Adult task 7592 has a validated ten-fold runner and a one-seed exploratory candidate sweep, both feasibility-only. Astronomy/exoplanet catalog vetting is the provisional product context, not a locked research question. Its first classifier precision-transfer analysis was invalidated because candidate status is not confirmed-planet truth and the temporal evaluation reused training objects; the replacement archive audit reports catalog transitions only. No valid exoplanet model result or A-vs-B benchmark exists. See `docs/coordination/SCIENCE_DECISION_PACKET.md` before using science claims.
 
 ## Start here
 

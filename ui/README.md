@@ -2,6 +2,12 @@
 
 Status: **not implemented**. The core/UI lane should build from `core/fake_events.py` and `core/ledger.py`; the UI must not depend on live agents to render a complete demo.
 
+## Provisional science context (2026-10-04)
+
+The team is using NASA Kepler/TESS catalog vetting as a provisional story context while the science question is reviewed. The existing exoplanet precision-transfer result was invalidated: a catalog `CANDIDATE` status is not confirmed-planet truth, and the old “temporal” evaluation reused training objects. The current corrected artifact is a catalog disposition audit only. No exoplanet classifier result is approved for display.
+
+The UI may start with the generic replay/event flow and astronomy-themed labels. Keep the statuses distinct (`CANDIDATE`, `CONFIRMED`, `FALSE POSITIVE`, `UNKNOWN`), show source/snapshot provenance, and label fixture values as demo data. Do not turn status counts into planet prevalence/precision or present candidate ranking as validated. The science owner will update this section once a valid outcome, holdout cohort, and metric are approved.
+
 ## What the demo needs to prove
 
 FORGE is a research lab in which a question moves through evidence, hypothesis, preregistration, experiment, analysis and a changed (or explicitly unchanged) next decision. Make that one concrete workflow the main story. A judge should be able to see what each agent contributed, what evidence supports a claim, what was predicted before an experiment, what the run measured, and why the next decision changed.
