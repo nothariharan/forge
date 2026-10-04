@@ -395,7 +395,7 @@ forge/
 | Member | Lane |
 |--------|------|
 | Hari ([@nothariharan](https://github.com/nothariharan)) | Science and planner |
-| Akshat | Benchmark and rigor |
+| Akshat ([@aksbhaskar](https://github.com/aksbhaskar)) | Benchmark and rigor |
 | Saksham | Orchestration and product UI |
 | Ish | Core and CLI |
 | Amaan ([@amaancoderx](https://github.com/amaancoderx)) | Documentation |
