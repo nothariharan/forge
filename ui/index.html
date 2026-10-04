@@ -21,6 +21,7 @@
     <a href="#run">A real run</a>
     <a href="#omnigent">Omnigent</a>
     <a href="#agents">Agents</a>
+    <a href="#run-it">Run it</a>
     <a class="pill small" href="lab.html">Open the lab</a>
   </nav>
 </header>
@@ -150,6 +151,26 @@
     <div class="roster" id="roster"></div>
     <p class="sub small">Also ready when Omnigent summons them:</p>
     <div class="roster mini" id="roster-more"></div>
+  </section>
+
+  <section class="block" id="run-it">
+    <h2>Run it yourself</h2>
+    <p class="sub">The website replays a recorded run. To run FORGE on your own question, you need Omnigent and a Claude subscription or API key on your machine (macOS or Linux, Python 3.12, Node 22, tmux).</p>
+    <ol class="steps">
+      <li><div class="step-head"><span class="m" data-agent="director"></span><b>Install Omnigent and connect Claude</b></div>
+        <div class="code"><code>curl -fsSL https://omnigent.ai/install.sh | sh &amp;&amp; omni setup</code><button class="copy" type="button">Copy</button></div>
+        <p>In <code>omni setup</code>, pick Claude (subscription or API key) as the default.</p></li>
+      <li><div class="step-head"><span class="m" data-agent="coder"></span><b>Get the code</b></div>
+        <div class="code"><code>git clone https://github.com/nothariharan/forge &amp;&amp; cd forge &amp;&amp; python3 -m venv .venv &amp;&amp; .venv/bin/pip install -r requirements.txt -r requirements-science.txt</code><button class="copy" type="button">Copy</button></div></li>
+      <li><div class="step-head"><span class="m" data-agent="data"></span><b>Start the lab (terminal 1)</b></div>
+        <div class="code"><code>.venv/bin/python ui/live_server.py --port 8777 --db results/ledger.db</code><button class="copy" type="button">Copy</button></div></li>
+      <li><div class="step-head"><span class="m" data-agent="librarian"></span><b>Ask your question (terminal 2, from the repo root)</b></div>
+        <div class="code"><code>FORGE_LEDGER_DB=$PWD/results/ledger.db omni run omnigent/forge --no-session -p "Run id my-run. Your research question here." &lt;/dev/null</code><button class="copy" type="button">Copy</button></div></li>
+      <li><div class="step-head"><span class="m" data-agent="human"></span><b>Watch it and approve the experiment</b></div>
+        <div class="code"><code>open http://localhost:8777/ui/lab.html?run=my-run</code><button class="copy" type="button">Copy</button></div>
+        <p>When Safety opens a gate, a red banner appears: press Approve. Or from a terminal: <code>.venv/bin/python -m cli.approve my-run G1</code></p></li>
+    </ol>
+    <p class="fine">Experiments only run through approved tools. Today that is the preregistered TESS T1 shift check; to add your own, list it in <code>tools/forge_gate.py</code> (APPROVED_TOOLS). Every run is checked with <code>.venv/bin/python -m cli.verify my-run</code>.</p>
   </section>
 
   <section class="finale">

@@ -69,3 +69,11 @@ async function day() {
   $("#day-note").textContent = `Real Omnigent run ${first.run_id}, ${first.ts.slice(0, 10)}, ${first.ts.slice(11, 16)} to ${last.ts.slice(11, 16)} UTC, on a NASA Exoplanet Archive snapshot. The hash chain verifies. It measures how well catalog values separate resolved from unresolved TOIs, not planet-vetting accuracy.`;
 }
 day();
+
+// copy buttons for the run-it-yourself commands
+document.querySelectorAll(".copy").forEach((b) => b.addEventListener("click", async () => {
+  const text = b.previousElementSibling.textContent;
+  try { await navigator.clipboard.writeText(text); b.textContent = "Copied"; }
+  catch { b.textContent = "Select + copy"; }
+  setTimeout(() => { b.textContent = "Copy"; }, 1600);
+}));
