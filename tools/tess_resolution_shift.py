@@ -81,6 +81,15 @@ def fetch_toi(columns: tuple[str, ...], timeout: int = 600, retries: int = 5) ->
     raise ArchiveError(f"could not fetch {TOI_TABLE}: {last}")
 
 
+def load_toi_csv(path: str, expect_sha256: str | None = None) -> tuple[list[dict[str, str]], str]:
+    """Rows and sha256 of a saved TOI CSV, so T1 can be re-run on a pinned snapshot."""
+    raw = Path(path).read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    if expect_sha256 and digest != expect_sha256:
+        raise ValueError(f"{path} has sha256 {digest}, expected {expect_sha256}")
+    return list(csv.DictReader(io.StringIO(raw.decode("utf-8-sig", errors="replace")))), digest
+
+
 def to_float(value: str | None) -> float:
     raw = (value or "").strip()
     if not raw:
@@ -352,19 +361,26 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument("--skip-permutation", action="store_true")
+    parser.add_argument("--csv", help="read a saved TOI CSV (e.g. the pinned snapshot) instead of querying the archive")
+    parser.add_argument("--expect-sha256", help="with --csv: refuse the file unless its sha256 matches")
     args = parser.parse_args()
 
-    all_columns = sorted(
-        {
-            "toi",
-            "tid",
-            TOI_DISPOSITION_COLUMN,
-            *TIMESTAMP_COLUMNS,
-            *_discover_columns(args.timeout),
-        }
-    )
-    rows, digest = fetch_toi(tuple(all_columns), timeout=args.timeout)
-    print(f"fetched {TOI_TABLE}: {len(rows)} rows, {len(all_columns)} columns")
+    if args.csv:
+        rows, digest = load_toi_csv(args.csv, args.expect_sha256)
+        all_columns = sorted(rows[0].keys()) if rows else []
+        print(f"loaded {args.csv}: {len(rows)} rows, {len(all_columns)} columns, sha256={digest}")
+    else:
+        all_columns = sorted(
+            {
+                "toi",
+                "tid",
+                TOI_DISPOSITION_COLUMN,
+                *TIMESTAMP_COLUMNS,
+                *_discover_columns(args.timeout),
+            }
+        )
+        rows, digest = fetch_toi(tuple(all_columns), timeout=args.timeout)
+        print(f"fetched {TOI_TABLE}: {len(rows)} rows, {len(all_columns)} columns")
 
     arms = [
         ("primary_cp_fp_vs_pc_apc", False, RESOLVED_STATES, UNRESOLVED_STATES),
@@ -410,7 +426,7 @@ def main() -> None:
         "status": "SHIFT_MEASUREMENT_ONLY_NOT_VETTING_ACCURACY_NOT_BENCHMARK_EVIDENCE",
         "preregistration": "docs/coordination/TESS_RESOLUTION_SHIFT_PREREGISTRATION.md",
         "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
-        "data_source": f"NASA Exoplanet Archive TAP table {TOI_TABLE}",
+        "data_source": f"NASA Exoplanet Archive TAP table {TOI_TABLE}" + (f" (saved copy {args.csv})" if args.csv else ""),
         "sha256_raw_csv": digest,
         "environment": {
             "python": platform.python_version(),

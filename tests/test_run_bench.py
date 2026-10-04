@@ -27,7 +27,7 @@ def spec(tmp_path, monkeypatch):
     return {
         "question": "Does y beat x?", "task_description": "stub task", "task_id": 1, "data_ver": "stub@1",
         "metric": "roc_auc", "direction": "higher", "practical_threshold": 0.003, "candidate_space": "x, y",
-        "wall_clock_minutes": 5, "max_experiments": 3, "usd_cap": "$1", "literature_tools": "none",
+        "wall_clock_minutes": 5, "max_experiments": 3, "usd_cap": "$1", "literature_tools": "none", "answer_options": "x, y",
         "runner": "bench_e2e_runner:run",
     }
 

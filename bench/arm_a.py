@@ -19,7 +19,7 @@ The episode folder comes from --episode or $FORGE_EPISODE_DIR.
     python bench/arm_a.py predict --eid E1 --hid H1 --mean 0.905 --sd 0.004 --falsifier "..."
     python bench/arm_a.py run --eid E1 --hid H1 --candidate lr_mode --params '{"model": "lr"}'
     python bench/arm_a.py decide --after E1 --decision "..." [--changed --reopen H1]
-    python bench/arm_a.py answer --candidate lr_mode --report final_report.md
+    python bench/arm_a.py answer --candidate lr_mode --report "$FORGE_EPISODE_DIR/final_report.md"
 
 Events go through the shared ledger (core/ledger.py, Ledger.append): the same
 payload validation, seq/prev_hash assignment and hash format as FORGE's own
@@ -255,12 +255,19 @@ def cmd_answer(ep: Episode, a) -> None:
         raise SystemExit("final answer already submitted")
     if _past_deadline(ep.manifest()):
         raise SystemExit("budget: wall clock ran out; answers after the deadline are not accepted")
+    report = None
+    if a.report:
+        report = a.report if os.path.isabs(a.report) or os.path.exists(a.report) else os.path.join(ep.path, a.report)
+        if not os.path.exists(report):
+            raise SystemExit(f"report file not found: {a.report}; write it to $FORGE_EPISODE_DIR/final_report.md")
     with open(os.path.join(ep.path, "answer.json"), "w", encoding="utf-8") as f:
         json.dump({"candidate": a.candidate, "submitted_at": _now()}, f, indent=2)
-    if a.report:
+    if report:
         dest = os.path.join(ep.path, "final_report.md")
-        if os.path.abspath(a.report) != os.path.abspath(dest):
-            shutil.copyfile(a.report, dest)
+        if os.path.abspath(report) != os.path.abspath(dest):
+            # Move, not copy: a report written outside the episode folder (e.g. the repo root)
+            # would otherwise be left behind and overwritten by the next episode.
+            shutil.move(report, dest)
     ep.emit("RUN_COMPLETED", {"status": "completed", "candidate": a.candidate}, True)
     print(f"final answer recorded: {a.candidate}")
 

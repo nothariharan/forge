@@ -25,7 +25,7 @@ def spec(tmp_path, monkeypatch):
     return {
         "question": "Does X beat Y?", "task_description": "stub task", "task_id": 1, "data_ver": "stub@1",
         "metric": "roc_auc", "direction": "higher", "practical_threshold": 0.003, "candidate_space": "x, y",
-        "wall_clock_minutes": 5, "max_experiments": 2, "usd_cap": "$1", "literature_tools": "none",
+        "wall_clock_minutes": 5, "max_experiments": 2, "usd_cap": "$1", "literature_tools": "none", "answer_options": "x, y",
         "runner": "stub_runner:run",
     }
 
@@ -44,7 +44,7 @@ def fake_agent(tmp_path, body: str) -> str:
 
 def test_fill_prompt_fills_every_placeholder_and_refuses_gaps(spec):
     prompt = launcher.fill_prompt(spec)
-    assert "Does X beat Y?" in prompt and "OpenML task 1" in prompt and "{" not in prompt.split("Tools")[0]
+    assert "Does X beat Y?" in prompt and "task id `1`" in prompt and "exactly one of: x, y" in prompt
     assert not launcher.PLACEHOLDER_RE.search(prompt)
     with pytest.raises(SystemExit, match="LITERATURE_TOOLS"):
         launcher.fill_prompt({k: v for k, v in spec.items() if k != "literature_tools"})
@@ -182,3 +182,72 @@ def test_agent_gets_the_filled_prompt_and_a_closed_stdin(spec, tmp_path):
     assert got["argv"][1:3] == ["--no-session", "-p"] and got["argv"][3] == (ep / "prompt.md").read_text()
     assert got["stdin"] == ""  # stdin is closed, so a REPL would not wait on it
     assert rec["outcome"] == "completed" and rec["command"][-1] == "<prompt.md>"
+
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+STRAY = os.path.join(REPO_ROOT, "final_report.md")
+
+
+@pytest.fixture
+def clean_repo_root():
+    if os.path.exists(STRAY):
+        pytest.skip("a final_report.md already exists in the repo root; not touching it")
+    yield
+    if os.path.exists(STRAY):
+        os.remove(STRAY)
+
+
+def test_report_written_in_repo_root_is_moved_into_the_episode(spec, tmp_path, clean_repo_root):
+    # The agent runs with cwd = repo root, writes final_report.md there and passes the relative path.
+    cmd = fake_agent(tmp_path, """
+        open("final_report.md", "w").write("# answer x")
+        r = call("answer", "--candidate", "x", "--report", "final_report.md")
+        print(r.stdout, r.stderr)
+    """)
+    ep = tmp_path / "A" / "seed-1"
+    rec = launcher.launch(spec, 1, str(ep), run_id="A-1", agent_cmd=cmd)
+    assert rec["outcome"] == "completed"
+    assert (ep / "final_report.md").read_text() == "# answer x"
+    assert not os.path.exists(STRAY)  # nothing left behind for the next episode to overwrite
+
+
+def test_stray_report_without_answer_flag_is_collected(spec, tmp_path, clean_repo_root):
+    cmd = fake_agent(tmp_path, """
+        open("final_report.md", "w").write("# stray")
+        call("answer", "--candidate", "x")
+    """)
+    ep = tmp_path / "A" / "seed-1"
+    rec = launcher.launch(spec, 1, str(ep), run_id="A-1", agent_cmd=cmd)
+    assert rec["stray_report_moved"] == "final_report.md" and not os.path.exists(STRAY)
+    assert (ep / "final_report.md").read_text() == "# stray"
+
+
+def test_missing_report_file_is_refused_before_answering(spec, tmp_path):
+    ep = tmp_path / "A" / "seed-1"
+    launcher.launch(spec, 1, str(ep), run_id="A-1", dry_run=True)
+    with pytest.raises(SystemExit, match="report file not found"):
+        arm_a.main(["--episode", str(ep), "answer", "--candidate", "x", "--report", "nope.md"])
+    assert not (ep / "answer.json").exists()
+
+
+def test_agent_dying_with_exit_code_0_records_the_reason(spec, tmp_path):
+    cmd = fake_agent(tmp_path, """
+        print("Error: authentication failed (401): invalid x-api-key", file=sys.stderr)
+        sys.exit(0)
+    """)
+    ep = tmp_path / "A" / "seed-1"
+    rec = launcher.launch(spec, 1, str(ep), run_id="A-1", agent_cmd=cmd)
+    assert rec["outcome"] == "aborted" and rec["returncode"] == 0
+    assert "exited with code 0 but submitted no answer" in rec["failure_reason"]
+    assert "authentication failed" in rec["failure_reason"]
+    saved = json.loads((ep / "launcher.json").read_text())
+    assert "authentication failed" in saved["failure_reason"]
+    closed = [e for e in arm_a.Episode(str(ep)).events() if e["type"] == "RUN_COMPLETED"][0]
+    assert "authentication failed" in closed["payload"]["summary"]
+
+
+def test_timeout_reason(spec, tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "GRACE_SECONDS", 0)
+    rec = launcher.launch({**spec, "wall_clock_minutes": 0.01}, 1, str(tmp_path / "ep"), run_id="A-1",
+                          agent_cmd=fake_agent(tmp_path, "time.sleep(30)\n"))
+    assert rec["failure_reason"].startswith("agent was stopped at the wall-clock budget")

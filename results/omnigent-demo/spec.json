@@ -1,0 +1,6 @@
+{"question": "Launcher smoke test only: does candidate y score higher than candidate x on the stub runner?",
+ "task_description": "stub task for testing the launcher; not a real dataset", "task_id": 1, "data_ver": "stub@1",
+ "metric": "roc_auc", "direction": "higher", "practical_threshold": 0.003,
+ "candidate_space": "x, y (pass as --params '{\"candidate\": \"x\"}' or '{\"candidate\": \"y\"}')",
+ "wall_clock_minutes": 6, "max_experiments": 2, "usd_cap": "$1", "literature_tools": "none",
+ "runner": "stub_runner:run"}

@@ -15,7 +15,7 @@
 [![Built with Omnigent](https://img.shields.io/badge/built%20with-Omnigent%200.16.0-6f42c1?style=flat-square)](docs/coordination/OMNIGENT_SMOKE_TEST.md)
 [![Python](https://img.shields.io/badge/python-3.12-3776ab?style=flat-square&logo=python&logoColor=white)](requirements-science.txt)
 [![Last commit](https://img.shields.io/github/last-commit/nothariharan/forge?label=last%20update&style=flat-square)](https://github.com/nothariharan/forge/commits/main)
-[![Status](https://img.shields.io/badge/status-work%20in%20progress-yellow?style=flat-square)](#-project-status)
+[![Status](https://img.shields.io/badge/status-work%20in%20progress-yellow?style=flat-square)](#project-status)
 
 </div>
 
@@ -34,24 +34,24 @@ Omnigent is the runtime that composes the agents and enforces the policies. FORG
 
 ## Table of Contents
 
-- [Why FORGE](#-why-forge)
-- [How FORGE Maps to the Judging Criteria](#-how-forge-maps-to-the-judging-criteria)
-- [The Discovery Loop](#-the-discovery-loop)
-- [Architecture](#-architecture)
-- [Specialist Agents](#-specialist-agents)
-- [Policies and Human Approval](#-policies-and-human-approval)
-- [The Research Ledger](#-the-research-ledger)
-- [Science Track Record](#-science-track-record)
-- [Benchmark: Single Agent vs FORGE](#-benchmark-single-agent-vs-forge)
-- [Quick Start](#-quick-start)
-- [Project Status](#-project-status)
-- [Repository Layout](#-repository-layout)
-- [Documentation](#-documentation)
-- [Responsible Use and Limits](#-responsible-use-and-limits)
-- [Team](#-team)
-- [Contributing](#-contributing)
+- [Why FORGE](#why-forge)
+- [How FORGE Maps to the Judging Criteria](#how-forge-maps-to-the-judging-criteria)
+- [The Discovery Loop](#the-discovery-loop)
+- [Architecture](#architecture)
+- [Specialist Agents](#specialist-agents)
+- [Policies and Human Approval](#policies-and-human-approval)
+- [The Research Ledger](#the-research-ledger)
+- [Science Track Record](#science-track-record)
+- [Benchmark: Single Agent vs FORGE](#benchmark-single-agent-vs-forge)
+- [Quick Start](#quick-start)
+- [Project Status](#project-status)
+- [Repository Layout](#repository-layout)
+- [Documentation](#documentation)
+- [Responsible Use and Limits](#responsible-use-and-limits)
+- [Team](#team)
+- [Contributing](#contributing)
 
-## 💡 Why FORGE
+## Why FORGE
 
 The bottleneck FORGE attacks is not idea generation. It is the slow, error-prone path from a plausible idea to a result a scientist can trust. Agent-written research tends to fail in the same places:
 
@@ -64,7 +64,7 @@ The bottleneck FORGE attacks is not idea generation. It is the slow, error-prone
 | A research record that can be quietly edited | Events are append-only and hash-chained, and `cli.verify` detects any tampering |
 | Agents acting without oversight | Omnigent policies cap dispatches and route experiment execution to a human for approval |
 
-## 🎯 How FORGE Maps to the Judging Criteria
+## How FORGE Maps to the Judging Criteria
 
 The rubric comes from the official challenge brief ([`docs/references/reference-02.pdf`](docs/references/reference-02.pdf), page 4). Each row links to the evidence a judge can open.
 
@@ -72,11 +72,11 @@ The rubric comes from the official challenge brief ([`docs/references/reference-
 |-----------|:------:|------------------|---------------|
 | **Omnigent orchestration** | 30% | A director agent routes work across specialists on two different harnesses (Claude and Codex) with structured JSON handoffs. A dispatch budget is enforced by the Omnigent policy engine, not by the prompt | [`omnigent/forge/`](omnigent/forge/), [smoke test](docs/coordination/OMNIGENT_SMOKE_TEST.md) |
 | **Breakthrough potential** | 25% | A domain-agnostic lab for the full discovery loop, exercised on NASA exoplanet catalog vetting. Candidate questions are screened against prior art before any claim is made | [Science decision packet](docs/coordination/SCIENCE_DECISION_PACKET.md) |
-| **Discovery acceleration and learning** | 20% | A matched single-agent vs multi-agent protocol with stated denominators, budgets, seeds and an oracle. Measured results already changed the team's next decision more than once | [`bench/PROTOCOL.md`](bench/PROTOCOL.md), [Science Track Record](#-science-track-record) |
+| **Discovery acceleration and learning** | 20% | A matched single-agent vs multi-agent protocol with stated denominators, budgets, seeds and an oracle. Measured results already changed the team's next decision more than once | [`bench/PROTOCOL.md`](bench/PROTOCOL.md), [Science Track Record](#science-track-record) |
 | **Scientific rigor** | 15% | Preregistration before compute, permutation controls, cluster-bootstrap intervals, object-disjoint splits, raw artifacts with SHA-256 of every source response, and withdrawn results kept on record | [Preregistration](docs/coordination/TESS_RESOLUTION_SHIFT_PREREGISTRATION.md), [`schemas/examples/`](schemas/examples/) |
-| **Creativity and responsibility** | 10% | AI-generated labels on every agent hypothesis, a human approval gate, a hash-chained audit trail, and honest reporting of null and negative results | [`AGENTS.md`](AGENTS.md), [Ledger](#-the-research-ledger) |
+| **Creativity and responsibility** | 10% | AI-generated labels on every agent hypothesis, a human approval gate, a hash-chained audit trail, and honest reporting of null and negative results | [`AGENTS.md`](AGENTS.md), [Ledger](#the-research-ledger) |
 
-## 🔁 The Discovery Loop
+## The Discovery Loop
 
 ```mermaid
 flowchart LR
@@ -101,7 +101,7 @@ flowchart LR
 5. **Experiment.** After the safety gate, the Experimenter runs a deterministic computational test and records code hash, data version, seed and metrics.
 6. **Analysis and replanning.** The Analyst compares the observation with the committed prediction. A surprising result reopens an earlier assumption and changes what is investigated next.
 
-## 🏗 Architecture
+## Architecture
 
 ```mermaid
 flowchart TB
@@ -138,7 +138,7 @@ flowchart TB
 
 The UI and CLI only read events. Agents never write directly to UI state, so everything a viewer sees can be reconstructed from the ledger.
 
-## 🤖 Specialist Agents
+## Specialist Agents
 
 Each agent owns one scientific decision and hands off structured JSON that is validated at the boundary.
 
@@ -155,7 +155,7 @@ Each agent owns one scientific decision and hands off structured JSON that is va
 
 Role definitions live in [`agents/`](agents/) and the runnable graph lives in [`omnigent/forge/`](omnigent/forge/).
 
-## 🛡 Policies and Human Approval
+## Policies and Human Approval
 
 | ID | Policy | Purpose | Status |
 |----|--------|---------|--------|
@@ -168,7 +168,7 @@ Role definitions live in [`agents/`](agents/) and the runnable graph lives in [`
 
 Scaffolds in [`policies/`](policies/) describe intent only and are not claimed as active controls. Details and observed output are in the [Omnigent smoke test](docs/coordination/OMNIGENT_SMOKE_TEST.md).
 
-## 📒 The Research Ledger
+## The Research Ledger
 
 Every decision in a run is one event in an append-only SQLite log. Each event stores the hash of the previous one, so a single edited value breaks the chain from that point on.
 
@@ -215,7 +215,7 @@ hash = sha256(prev_hash + canonical_json(event_without_hash))
 
 An invalid payload raises a validation error and writes nothing. Full payload reference with examples: [`LEDGER.md`](LEDGER.md).
 
-## 🔭 Science Track Record
+## Science Track Record
 
 The provisional domain is **exoplanet catalog vetting** using public NASA Exoplanet Archive tables. The research question is not locked yet. What the repository already shows is the loop the challenge asks for: a measured result changing the next decision, including decisions to withdraw and to close.
 
@@ -233,7 +233,7 @@ Every row is reproducible from a script in [`tools/`](tools/) and backed by a ra
 > [!NOTE]
 > Row 6 measures separability in the **current** catalog snapshot only. It is not a triage-time shift measurement, not an accuracy gap, and not a discovery. The full reasoning, limits and open gates are in the [science decision packet](docs/coordination/SCIENCE_DECISION_PACKET.md) and the [science contract](docs/coordination/SCIENCE_CONTRACT.md).
 
-## 📊 Benchmark: Single Agent vs FORGE
+## Benchmark: Single Agent vs FORGE
 
 The claim under test: on the locked question and a matched budget, does the FORGE multi-agent harness produce a better or faster research loop than one plain agent?
 
@@ -251,7 +251,7 @@ The claim under test: on the locked question and a matched budget, does the FORG
 
 **No A vs B result exists yet, and none is claimed.** The protocol stays a draft until the science question is locked, and it is frozen before any comparative run. The challenge brief asks teams to report the improvement they actually observe, so FORGE will report the measured ratio with its uncertainty and cost, including the case where the multi-agent arm is slower or worse. See [`bench/PROTOCOL.md`](bench/PROTOCOL.md).
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Requirements
 
@@ -334,7 +334,7 @@ python tools/citation_check.py <refs.json | report.md> -o citations.json
 
 </details>
 
-## 📌 Project Status
+## Project Status
 
 Status as of 2026-10-04. The complete FORGE workflow is not yet runnable end to end.
 
@@ -346,7 +346,7 @@ Status as of 2026-10-04. The complete FORGE workflow is not yet runnable end to 
 | **Benchmark** | Protocol v0.1, oracle, baseline arm and launcher, statistics, report generator | Frozen protocol, arm B runner, A vs B result |
 | **UI** | Direction and demo contract documented | Lab floor UI, in progress on the `ui/lab-floor` branch |
 
-## 📁 Repository Layout
+## Repository Layout
 
 ```text
 forge/
@@ -364,7 +364,7 @@ forge/
 └── docs/             Plan, coordination notes, challenge brief, sources
 ```
 
-## 📚 Documentation
+## Documentation
 
 | Document | What it covers |
 |----------|----------------|
@@ -381,7 +381,7 @@ forge/
 | [UI direction](ui/README.md) | Visual direction and demo path |
 | [Source index](docs/SOURCE_INDEX.md) | Provenance of supplied documents |
 
-## ⚖ Responsible Use and Limits
+## Responsible Use and Limits
 
 - Experiments are computational only and use public datasets and approved tools.
 - Agent-generated hypotheses and conclusions are marked `ai_generated` in the ledger and must not be described as discoveries.
@@ -390,17 +390,17 @@ forge/
 - Hash chaining detects modification relative to a trusted head. It does not prove who created an event.
 - Consequential actions and final recommendations require human approval, and any finding needs expert validation before real-world use.
 
-## 👥 Team
+## Team
 
 | Member | Lane |
 |--------|------|
 | Hari ([@nothariharan](https://github.com/nothariharan)) | Science and planner |
-| Akshat | Benchmark and rigor |
+| Akshat ([@aksbhaskar](https://github.com/aksbhaskar)) | Benchmark, rigor and core |
 | Saksham | Orchestration and product UI |
 | Ish | Core and CLI |
 | Amaan ([@amaancoderx](https://github.com/amaancoderx)) | Documentation |
 
-## 🤝 Contributing
+## Contributing
 
 Work happens in shared lanes and reaches `main` only through reviewed pull requests.
 

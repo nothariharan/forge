@@ -1,0 +1,16 @@
+{
+  "run_id": "A-demo-5",
+  "arm": "A",
+  "seed": 1,
+  "question": "Launcher smoke test only: does candidate y score higher than candidate x on the stub runner?",
+  "task_id": "1",
+  "metric_name": "roc_auc",
+  "runner": "stub_runner:run",
+  "data_ver": "stub@1",
+  "ledger_path": null,
+  "deadline_ts": "2026-10-04T08:49:30Z",
+  "max_experiments": 2,
+  "model": null,
+  "git_commit": "9e52fce3d7585cadca350e526fd62d5fe2ed5941",
+  "started_at": "2026-10-04T08:43:30.444826Z"
+}
