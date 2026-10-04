@@ -1,0 +1,169 @@
+{
+  "status": "FIXTURE_VALIDATION_ONLY_SYNTHETIC_DATA_NOT_TESS_NOT_A_RESULT",
+  "what": "Validation of tools/tess_bias_run.py on synthetic TOI-shaped fixtures (tests/tess_fixture.py). No real TESS data was used; numbers here say nothing about the real catalog.",
+  "commit": "af42645f92281c28527eef397d1ac703e4bdd2e3",
+  "environment": {
+    "python": "3.11.15",
+    "numpy": "2.4.6",
+    "sklearn": "1.9.1"
+  },
+  "fixtures": {
+    "easy_selection_0": {
+      "description": "resolution depends on features only (linear in the generating model)",
+      "fixture_sha256": "bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+      "oracle": {
+        "schema_version": "1.0",
+        "status": "SEMI_SYNTHETIC_SIMULATION_NOT_REAL_UNRESOLVED_ACCURACY",
+        "data_sha256": "bd9aba94f7ad727a3106317e12def93b2b51854ce47f23feeffc23572bfc0390",
+        "seeds": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "replicates_per_seed": 20,
+        "resolution_model_oof_auc": 0.7522336310863,
+        "labeled_cohort": {
+          "n": 1194,
+          "positive": 421,
+          "n_unresolved": 1731
+        },
+        "gap_gamma1_lr_naive": {
+          "mean": -0.0002331944669218955,
+          "se": 0.0028453668809111546,
+          "ci95": [
+            -0.005810113553507758,
+            0.005343724619663968
+          ],
+          "replicate_range95": [
+            -0.049685287823761096,
+            0.05041779599298594
+          ],
+          "n": 100
+        },
+        "control_gamma0_mean_gap": -0.002533644609844492,
+        "control_within_bound": true,
+        "practical_threshold": 0.02,
+        "decision": "not meaningfully overstated under this mechanism: report resolved-set AUC with its interval",
+        "best": "no_correction",
+        "within_threshold": [
+          "hgb_naive",
+          "lr_naive",
+          "no_correction"
+        ],
+        "estimator_table": {
+          "lr_naive": {
+            "mean_abs_error": 0.022968536393027053,
+            "mean_signed_error": -0.0002331944669218955,
+            "n": 100
+          },
+          "lr_iw": {
+            "mean_abs_error": 0.029245660983445058,
+            "mean_signed_error": -0.004009751635576331,
+            "n": 100
+          },
+          "lr_iw_clip": {
+            "mean_abs_error": 0.026632570704417026,
+            "mean_signed_error": -0.005140056137708357,
+            "n": 100
+          },
+          "hgb_naive": {
+            "mean_abs_error": 0.02430562137964838,
+            "mean_signed_error": 0.004167454374762214,
+            "n": 100
+          },
+          "hgb_iw": {
+            "mean_abs_error": 0.026250517589124032,
+            "mean_signed_error": -0.0013622412831089425,
+            "n": 100
+          },
+          "hgb_iw_clip": {
+            "mean_abs_error": 0.024652673092278574,
+            "mean_signed_error": -0.00227119799989376,
+            "n": 100
+          }
+        }
+      }
+    },
+    "easy_selection_3": {
+      "description": "resolution additionally favors easy cases (depth far from the class boundary); nonlinear",
+      "fixture_sha256": "1d6962feef9e9de4b480d9295d54efabfa065df03b99e5fe6b85f08296a22d79",
+      "oracle": {
+        "schema_version": "1.0",
+        "status": "SEMI_SYNTHETIC_SIMULATION_NOT_REAL_UNRESOLVED_ACCURACY",
+        "data_sha256": "1d6962feef9e9de4b480d9295d54efabfa065df03b99e5fe6b85f08296a22d79",
+        "seeds": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "replicates_per_seed": 20,
+        "resolution_model_oof_auc": 0.7560802957050398,
+        "labeled_cohort": {
+          "n": 1269,
+          "positive": 515,
+          "n_unresolved": 1642
+        },
+        "gap_gamma1_lr_naive": {
+          "mean": 0.010722472993773007,
+          "se": 0.0029233390503516045,
+          "ci95": [
+            0.004992728455083862,
+            0.016452217532462152
+          ],
+          "replicate_range95": [
+            -0.04344462848777314,
+            0.07011987076891134
+          ],
+          "n": 100
+        },
+        "control_gamma0_mean_gap": 0.0018007728180628247,
+        "control_within_bound": true,
+        "practical_threshold": 0.02,
+        "decision": "not meaningfully overstated under this mechanism: report resolved-set AUC with its interval",
+        "best": "no_correction",
+        "within_threshold": [
+          "hgb_naive",
+          "lr_naive",
+          "no_correction"
+        ],
+        "estimator_table": {
+          "lr_naive": {
+            "mean_abs_error": 0.024103930806853118,
+            "mean_signed_error": 0.010722472993773007,
+            "n": 100
+          },
+          "lr_iw": {
+            "mean_abs_error": 0.027549313168524284,
+            "mean_signed_error": 0.0037199513816963403,
+            "n": 100
+          },
+          "lr_iw_clip": {
+            "mean_abs_error": 0.02558636827452474,
+            "mean_signed_error": 0.002860722407824401,
+            "n": 100
+          },
+          "hgb_naive": {
+            "mean_abs_error": 0.024286373860360925,
+            "mean_signed_error": -0.0006243779576030417,
+            "n": 100
+          },
+          "hgb_iw": {
+            "mean_abs_error": 0.026385598143771144,
+            "mean_signed_error": -0.001646761252669644,
+            "n": 100
+          },
+          "hgb_iw_clip": {
+            "mean_abs_error": 0.025309215530089045,
+            "mean_signed_error": -0.002826207655408913,
+            "n": 100
+          }
+        }
+      }
+    }
+  },
+  "reproduce": "python3 -c \"import sys; sys.path.insert(0,'tests'); from pathlib import Path; from tess_fixture import make_fixture; print(make_fixture(Path('fx.csv'), easy_selection=E))\"  then  FORGE_TESS_CSV=fx.csv FORGE_TESS_SHA256=<printed hash> python3 tools/tess_bias_run.py --oracle oracle.json"
+}

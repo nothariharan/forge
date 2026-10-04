@@ -137,3 +137,31 @@ def test_oracle_decision_rule_shape(fixture_env):
     else:
         assert not any(k.endswith("_naive") for k in o["within_threshold"])
     assert isinstance(o["control_within_bound"], bool)
+
+
+def _fake_reps(gap, errors):
+    """Replicates with a fixed naive gap and per-estimator signed errors (truth = 0.80)."""
+    reps = []
+    for i in range(10):
+        noise = (i - 4.5) * 0.001
+        est = {e: 0.80 + d + noise for e, d in errors.items()}
+        est["naive"] = 0.80 + gap + noise
+        reps.append({"valid": True, "gap": gap + noise, "true_auc": 0.80, "estimates": est})
+    return tuple(reps)
+
+
+def test_oracle_meaningful_gap_picks_a_correcting_estimator(fixture_env, monkeypatch):
+    monkeypatch.setattr(tb, "_replicates", lambda path, exp, model, gamma, seed, n, rho:
+                        _fake_reps(0.05 if gamma == 1.0 else 0.0, {"iw": 0.004, "iw_clip": 0.02}))
+    o = tb.build_oracle(seeds=(1,), replicates=10)
+    assert o["decision"].startswith("overstated")
+    assert o["best"] in ("lr_iw", "hgb_iw") and set(o["within_threshold"]) == {"lr_iw", "hgb_iw"}
+    assert o["control_within_bound"]
+
+
+def test_oracle_small_gap_means_no_correction(fixture_env, monkeypatch):
+    monkeypatch.setattr(tb, "_replicates", lambda path, exp, model, gamma, seed, n, rho:
+                        _fake_reps(0.011, {"iw": 0.003, "iw_clip": 0.003}))
+    o = tb.build_oracle(seeds=(1,), replicates=10)
+    assert o["best"] == tb.NO_CORRECTION and o["within_threshold"] == ["hgb_naive", "lr_naive", "no_correction"]
+    assert not o["control_within_bound"]  # the control gap of 0.011 breaks the 0.01 bound and is reported

@@ -1,6 +1,6 @@
 # Protocol: TESS resolution-bias audit (proposed, v0.2)
 
-- **Status:** **PROPOSED for joint review. Not locked.** Nothing here is run as benchmark evidence until Hari and Akshat mark it locked in the change log.
+- **Status:** **PROPOSED v0.3 for joint review. Not locked.** Runner built and validated on synthetic fixtures only (section 11). Nothing here is run as benchmark evidence until Hari and Akshat mark it locked in the change log.
 - **Owner:** Akshat (benchmark + rigor), science review: Hari.
 - **Date:** 2026-10-04.
 - **Instantiates:** `bench/PROTOCOL.md` (arms, metrics, analysis, failure rules, artifacts apply unchanged unless stated here).
@@ -71,6 +71,7 @@ There are two separate sources of uncertainty, and they are reported separately:
 - **It recreates a second round of selection inside an already-selected cohort.** L is itself the resolved part of the catalog. The simulation shows how much bias this *kind* of selection produces, not the bias of the real resolved/unresolved boundary.
 - **Asymmetric labels.** `FP` remains a TFOPWG committee judgment with no independent source. Positives have a host-level check only.
 - **Scale.** L is 2,227 TOIs, so U\* carries about 1,560 per replicate. Replicate-to-replicate spread is part of the reported interval.
+- **The simulation can only recreate selection the resolution model captures (added in v0.3).** The resolution model is linear (T1's). On a fixture where resolution strongly favored easy cases, a nonlinear pattern, the simulated gap was only 0.011 (section 11). A small simulated Δ is therefore not evidence that the real selection is harmless; it may be partly invisible to a linear model. A sensitivity arm with a nonlinear resolution model (e.g. gradient boosting) would probe this. It is **not** in the preregistered design; adding it is a decision for the lock review.
 
 **Rejected alternative, kept as a sensitivity arm only:** a split on `toi_created` (train on TOIs created before the median date, test after) uses *current* labels. The later TOIs that are already resolved are the fastest-resolved ones, so this split measures resolution latency, not deployment conditions. It is reported, never used as the primary result.
 
@@ -85,9 +86,9 @@ There are two separate sources of uncertainty, and they are reported separately:
 
 ## 6. Candidate space and oracle (for the benchmark)
 
-The benchmark question both arms answer is **which accuracy estimator to use**. Its correct answer can be computed exactly from the semi-synthetic truth.
+The benchmark question both arms answer: **should resolved-set AUC be corrected before it is quoted as triage accuracy, and if so, with which estimator?** Its correct answer is computed exactly from the semi-synthetic truth (changed in v0.3, see below).
 
-**Candidates** = 2 vetting models × 3 estimators = **6**:
+**Candidates** = `no_correction` + 2 vetting models × 3 estimators = **7**:
 
 | Estimator | Estimate of deployment AUC |
 |---|---|
@@ -97,17 +98,29 @@ The benchmark question both arms answer is **which accuracy estimator to use**. 
 
 Vetting models: `lr` (logistic regression, as T1) and `hgb` (`HistGradientBoostingClassifier`, default settings, `random_state` = replicate seed).
 
-- **Oracle metric:** absolute error |estimate − true deployment AUC|, averaged over replicates at γ = 1. Lower is better.
-- **Oracle:** `bench/oracle.py` with `direction: minimize`, `practical_threshold: 0.005`. The top set is every candidate within 0.005 of the best mean error.
-- **Check before lock:** if the top set holds more than 2 of the 6 candidates, the estimators are not distinguishable at this scale and the question is too flat to separate the arms. Revise before locking.
+**Oracle: a decision rule (changed in v0.3).** Built by `python tools/tess_bias_run.py --oracle results/bench/<id>/oracle.json` over the 100 pooled replicates (section 4.1):
+
+1. Pool the gap Δ (`lr`, `naive`, γ = 1).
+2. If mean Δ < 0.02, or its 95% interval includes 0: the correct recommendation is **report resolved-set AUC as is, with its interval**. The top set is {`no_correction`, `lr_naive`, `hgb_naive`}, which is one decision with three equivalent spellings.
+3. Otherwise: the correct recommendation is a **correcting** estimator. The top set is every non-naive candidate within 0.005 of the lowest mean |estimate − true AUC|.
+
+**Why the v0.2 oracle was replaced.** It was "lowest mean absolute error among 6 estimators, top set within 0.005". On the fixture it put **5 of 6** candidates in the top set, failing the pre-lock check. Each replicate's error (about 0.023) is almost all cross-validation noise on a few hundred objects. When there is no meaningful gap, there is nothing for a correction to fix, so "which estimator" has no real answer. The decision rule gives a single correct decision in both cases.
+
+**Check before lock (revised):** on the pinned real snapshot, the oracle must return a single decision, and the γ = 0 control must stay within 0.01. If the gap lands within one standard error of 0.02, the decision is fragile; flag it before locking.
+
+**Known weakness:** if the real-data answer is "no correction", an arm that always says "no correction" scores as correct without investigating. Decision correctness then separates the arms weakly. The secondary metrics carry the comparison: experiments and time to a preregistered, evidenced answer, preregistration violations, and result-driven replans. This must be stated next to any correctness result.
 
 ### Runner contract (science lane, `tools/tess_bias_run.py`)
 
 ```
 run(task_id="tess-resolution-bias", params={"model": "lr"|"hgb", "estimator": "naive"|"iw"|"iw_clip", "gamma": 1}, seed)
-  -> {"metrics": {"abs_error": float, "estimate": float, "true_auc": float, "naive_auc": float, "gap": float},
-      "replicates": 20, "data_sha256": "..."}
+  -> {"metrics": {"abs_error": float, "estimate": float, "true_auc": float, "naive_auc": float, "gap": float,
+                  "gap_low": float, "gap_high": float, "abs_error_low": float, "abs_error_high": float, "share_r": float},
+      "replicates": 20, "replicates_valid": int, "replicate_seeds": [...], "data_sha256": "...",
+      "framing": "semi-synthetic simulation ...; not accuracy on real unresolved TOIs"}
 ```
+
+Implemented in `tools/tess_bias_run.py` (v0.3). `_low` / `_high` are the 2.5–97.5 percentiles over that call's replicates. A replicate is invalid, and is reported as such, if either class has fewer than 10 TOIs in R\* or U\*.
 
 The runner reads a cached copy of the snapshot (checked against the hash above), so episodes and the oracle never hit the network and always see the same data.
 
@@ -139,7 +152,7 @@ T2a goes first: it is a third of the cost and decides whether T2b is worth runni
 If the run goes as planned, these are the strongest statements allowed. Fill in the measured values and do not strengthen the wording:
 
 1. **Science (simulation):** "On the 2026-10-04 TESS TOI snapshot, under a semi-synthetic resolution mechanism fitted to current catalog fields, evaluating a vetting classifier only on resolved TOIs overstated its AUC on a deployment-like population by Δ = __ (95% replicate interval __–__). The `__` estimator recovered that AUC within __ on average. This is a simulation under a covariate-shift assumption, not a measurement of accuracy on real unresolved candidates."
-2. **Benchmark:** "On this task, FORGE reached the oracle-correct estimator in __/5 episodes vs __/5 for a single agent with the same model, tools and budget, taking __× the time (95% CI __–__) at __× the cost." If FORGE is slower or worse, that is the claim.
+2. **Benchmark:** "On this task, FORGE reached the oracle-correct recommendation in __/5 episodes vs __/5 for a single agent with the same model, tools and budget, taking __× the time (95% CI __–__) at __× the cost." If FORGE is slower or worse, that is the claim. If the correct answer is "no correction", also say that correctness alone separates the arms weakly (section 6).
 
 **Not supported, whatever the numbers:**
 - accuracy on real unresolved TOIs;
@@ -157,8 +170,27 @@ If the run goes as planned, these are the strongest statements allowed. Fill in 
 5. **Adapt `bench/baseline_prompt.md`** to this task: an estimator recommendation instead of an OpenML candidate. Then freeze it with this protocol.
 6. **Orchestration:** the arm B contract items in `docs/coordination/BENCHMARK.md`.
 
+## 11. Runner validation on synthetic fixtures (v0.3)
+
+`tools/tess_bias_run.py` implements the runner contract. It was validated on two **synthetic** TOI-shaped fixtures (`tests/tess_fixture.py`). These are not real TESS data, and no number below describes the real catalog. Raw output: `schemas/examples/tess-bias-fixture-validation.json`. Tests: `tests/test_tess_bias_run.py` (15 tests).
+
+| Check (Hari's request) | Result on fixtures | Status |
+|---|---|---|
+| Host-level sampling well defined | R\* share = 0.30 ± one host's TOIs in every replicate; no host split across R\*/U\*; identical split for the same seed; separation increases with γ (tested for γ = 0, 1, 2) | **pass** |
+| γ = 0 control within 0.01 | mean Δ −0.0025 (fixture 1) and +0.0018 (fixture 2), each over 100 pooled replicates, SE ≈ 0.003 | **pass** |
+| 6-candidate oracle has a useful top set | v0.2 oracle: **5 of 6** candidates tied | **fail**, so the oracle was replaced by the decision rule (section 6) |
+| Decision-rule oracle gives one decision | both fixtures: "no correction" (Δ = −0.0002 [−0.006, 0.005]; Δ = 0.0107 [0.005, 0.017]). The "correct with an estimator" branch is covered by unit tests | **pass** |
+
+Other observations:
+- **Single replicates are noisy:** per-replicate Δ spans about ±0.05. Pooling 100 replicates brings the SE to about 0.003, which is why the science result pools across seeds and a single episode's 20 replicates are treated as noisy evidence.
+- **Weighting reduces bias but adds noise.** On fixture 2, `iw`/`iw_clip` cut the `lr` bias from 0.0107 to 0.0037 / 0.0029, but their mean absolute error is higher than naive's. That is why the oracle only prefers a correcting estimator when the gap is meaningful.
+- **Runtime:** the full oracle (lr and hgb at γ = 1, lr at γ = 0, 5 seeds × 20 replicates) takes about 2 minutes per fixture on one CPU core. `hgb` dominates. Real L is about 1.8× the fixture's.
+
+**Not validated:** anything on the real snapshot. Hari runs `--fetch`, pins the hash, then `--oracle`, before lock.
+
 ## Change log
 
 | Date | Change | By |
 |---|---|---|
 | 2026-10-04 | v0.2 proposed: TESS resolution-bias instantiation | Akshat |
+| 2026-10-04 | v0.3: snapshot pinned at first fetch (T1's raw CSV was not saved); true AUC from the same fold models as the naive estimate; section 4.1 on replicates vs seeds; oracle replaced by a decision rule after the fixture showed a 5-of-6 tie; linear-resolution-model limitation; fixture validation (section 11). γ 0/1/2, ρ = 0.30 and the 0.02 threshold stay provisional (Hari, review of sections 4–7) | Akshat |
