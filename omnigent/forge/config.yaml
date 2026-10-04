@@ -1,11 +1,13 @@
-# FORGE director: the lead agent that routes work between specialists.
-# Smoke-test graph (Omnigent 0.16.0). Run from the repo root:
+# FORGE director: the lead agent that routes work between specialists and
+# writes every handoff to the ledger through tools/forge_emit.py.
+# Omnigent 0.16.0. Run from the repo root (needs .venv, see LEDGER.md):
 #   omni run omnigent/forge
 spec_version: 1
 name: forge
 description: >-
   FORGE director. Routes a research question through specialist agents
-  (librarian -> hypothesizer -> experimenter) using structured JSON handoffs.
+  (librarian -> hypothesizer -> experimenter) and records every handoff in
+  the hash-chained ledger. Invalid handoffs are rejected and cannot advance.
 
 executor:
   type: omnigent
@@ -13,23 +15,44 @@ executor:
     harness: claude-sdk
 
 prompt: |
-  You are the FORGE director. You do not do research yourself; you route it.
-  Specialists (dispatch with sys_session_send, one title per specialist):
-  - `librarian`    returns an EvidencePacket JSON
-  - `hypothesizer` takes an EvidencePacket, returns a Hypothesis JSON
-  - `experimenter` takes a Hypothesis, runs it, returns a RunRecord JSON
+  You are the FORGE director. You do not do research yourself; you route it
+  and record it. Use run id from the user's message, or `forge-<short slug>`.
 
-  Rules:
-  - Pass each specialist the previous specialist's JSON verbatim.
-  - After dispatching, END YOUR TURN; the inbox wakes you. Read it once with
-    sys_read_inbox. Do not poll.
-  - If a specialist returns something that is not valid JSON with the
-    required keys, say HANDOFF_INVALID and which keys are missing; do not
-    forward it.
-  - If a policy denies a dispatch, report the denial reason verbatim and stop.
+  Specialists (dispatch with sys_session_send, one title per specialist):
+  - `librarian`    -> EVIDENCE_ADDED payload
+  - `hypothesizer` -> HYPOTHESIS_PROPOSED payload
+  - `experimenter` -> RUN_FINISHED payload
+
+  Recording (mandatory, in this order):
+  1. At the start, record RUN_CREATED {"question": ..., "mode": "live"}.
+  2. Before each dispatch, record nothing; after each specialist replies,
+     write its JSON verbatim to results/handoffs/<run_id>-<n>.json with
+     sys_os_write, then record it:
+       .venv/bin/python tools/forge_emit.py --run-id <run_id> --agent <name>
+         --type <TYPE> --payload @results/handoffs/<run_id>-<n>.json --ai-generated
+  3. If the output says FORGE_EMIT_REJECTED, do NOT forward that payload.
+     Tell the user which handoff was rejected and why. The runtime will also
+     block your next dispatch.
+  4. If a policy denies anything, record POLICY_DENIED
+     {"policy_id": <id>, "target_agent": ..., "reason": <verbatim>} with
+     P2 = dispatch budget, P5 = shell allowlist, P6 = human approval.
+     A handoff-gate denial is already logged as an ERROR by forge_emit;
+     do not record it again.
+  5. At the end, record RUN_COMPLETED {"status": "completed" | "aborted", "summary": ...}.
+
+  Shell commands must be exactly the forge_emit command above, one per call,
+  with no ; & | > < ` $ characters. Anything else is denied by policy.
+  After dispatching, END YOUR TURN; the inbox wakes you. Read it once with
+  sys_read_inbox. Do not poll.
 
 async: true
 cancellable: true
+
+os_env:
+  type: caller_process
+  cwd: .
+  sandbox:
+    type: none
 
 guardrails:
   policies:
@@ -46,6 +69,52 @@ guardrails:
             ? ((has(event.session_state.forge_dispatches) && event.session_state.forge_dispatches >= 3)
                ? {"result": "DENY", "reason": "P2 budget: dispatch cap (3) reached for this run"}
                : {"result": "ALLOW", "state_updates": [{"key": "forge_dispatches", "action": "increment", "value": 1}]})
+            : false
+
+    # Tool permission: the director's shell may only run the ledger gate,
+    # one command, no chaining or redirection.
+    shell_allowlist:
+      type: function
+      on: [tool_call]
+      function:
+        path: omnigent.policies.builtins.cel.cel_policy
+        arguments:
+          expression: >-
+            event.type == "tool_call" && event.data.name == "sys_os_shell"
+            ? ((event.data.arguments.command.startsWith(".venv/bin/python tools/forge_emit.py ")
+                && !event.data.arguments.command.matches("[;&|<>`$]"))
+               ? {"result": "ALLOW"}
+               : {"result": "DENY", "reason": "director shell is limited to tools/forge_emit.py"})
+            : false
+
+    # Handoff gate, part 1: remember whether the last ledger write was rejected.
+    handoff_gate_record:
+      type: function
+      on: [tool_result]
+      function:
+        path: omnigent.policies.builtins.cel.cel_policy
+        arguments:
+          expression: >-
+            event.type == "tool_result" && event.target == "sys_os_shell"
+            && type(event.data.result) == string
+            ? (event.data.result.contains("FORGE_EMIT_REJECTED")
+               ? {"result": "ALLOW", "state_updates": [{"key": "handoff_blocked", "action": "set", "value": true}]}
+               : (event.data.result.contains("FORGE_EMIT_OK")
+                  ? {"result": "ALLOW", "state_updates": [{"key": "handoff_blocked", "action": "set", "value": false}]}
+                  : false))
+            : false
+
+    # Handoff gate, part 2: no dispatch while the last handoff is rejected.
+    handoff_gate_block:
+      type: function
+      on: [tool_call]
+      function:
+        path: omnigent.policies.builtins.cel.cel_policy
+        arguments:
+          expression: >-
+            event.type == "tool_call" && event.data.name == "sys_session_send"
+            && has(event.session_state.handoff_blocked) && event.session_state.handoff_blocked == true
+            ? {"result": "DENY", "reason": "handoff gate: last handoff failed ledger schema validation"}
             : false
 
 tools:
