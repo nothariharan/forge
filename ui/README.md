@@ -38,3 +38,37 @@ Show Omnigent as the underlying runtime: identify the active harnesses, show spe
 5. Open the Runtime detail to show Omnigent handoffs and policy enforcement, then return to the research view.
 
 Avoid claiming scientific discovery or benchmark superiority from the UI. Those claims must come from the locked protocol and reproducible artifacts.
+
+## Lab Floor (implemented, v0)
+
+Static page, no build step. Read-only: it folds ledger events into the view and never keeps its own run state.
+
+```bash
+python3 -m http.server 8765        # from the repo root
+# open http://localhost:8765/ui/                       replays ui/fixtures/exo-demo.jsonl
+#      http://localhost:8765/ui/?src=../schemas/examples/sample-run.jsonl
+#      http://localhost:8765/ui/?at=16                 jump to event 16, paused
+#      http://localhost:8765/ui/?sse=<url>             live: EventSource, one event JSON per message (for Ish's SSE server)
+```
+
+- `ui/fixtures/make_exo_demo.py` writes the astronomy DEMO run (27 events) through the real `Ledger.append`, so it is schema-valid and hash-chained. Every payload has `"demo": true`; the question is marked not locked; ids, numbers and citations are placeholders; statuses stay distinct and no planet precision is shown.
+- Views: Lab Floor (rooms, mascots, approval card, event log, overview), Experiments (planner candidates, EIG/cost, preregistration check, runs, denials), Hypotheses, Literature, Ledger (hash-link check), Benchmarks (honest "no result yet"), Runtime (Omnigent harnesses and policy status).
+- The approval buttons are disabled: in replay the recorded decision follows, and in live mode approval happens in the Omnigent session (P6).
+
+## Live wiring status (what is real vs stubbed)
+
+| Piece | Status | Where |
+|---|---|---|
+| Omnigent director + librarian / hypothesizer / experimenter writing to the ledger | **wired** (each handoff goes through `tools/forge_emit.py`) | `omnigent/forge/` |
+| UI following a live run | **wired via a temporary bridge**: `ui/live_server.py` streams `Ledger.subscribe` as SSE. Replace with the core lane's SSE server when it lands (`?sse=<url>`) | `ui/live_server.py` |
+| Dynamic sub-agents | **wired**: any agent name in the ledger gets a mascot, matched to one of 15 archetypes by name (`ui/mascots.js`), generic dot otherwise | `ui/mascots.js` |
+| Approve / Reject buttons | **stub**: disabled. Live approval happens in the Omnigent session (P6 ASK card). TODO: POST to an approval endpoint once one exists | `renderAlerts` in `ui/app.js` |
+| Referee / planner / analyst / safety live agents | **not yet in Omnigent**: they appear in the demo replay only. Add `omnigent/forge/agents/<name>/config.yaml`; the UI needs no change | `omnigent/forge/agents/` |
+| Policy denials from the engine itself | **partial**: the director records POLICY_DENIED after a denial; the engine does not write to the ledger directly. TODO: an Omnigent hook or session-export importer | `omnigent/forge/config.yaml` |
+
+Run it live:
+```bash
+.venv/bin/python ui/live_server.py --port 8777 --db results/ledger.db
+FORGE_LEDGER_DB=results/ledger.db omni run omnigent/forge -p "Run id live-1. <question>"
+# open http://localhost:8777/ui/?run=live-1
+```

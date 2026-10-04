@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FORGE Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="nav">
+    <div class="logo"><span class="logo-mark"></span>FORGE</div>
+    <nav id="nav">
+      <button data-view="floor" class="active"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Lab Floor</button>
+      <button data-view="experiments"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>Experiments</button>
+      <button data-view="hypotheses"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg>Hypotheses</button>
+      <button data-view="literature"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h5v18H6a2 2 0 0 0-2 2zM20 5a2 2 0 0 0-2-2h-5v18h5a2 2 0 0 1 2 2z"/></svg>Literature</button>
+      <button data-view="ledger"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Ledger</button>
+      <button data-view="benchmarks"><svg viewBox="0 0 24 24"><path d="M5 21V10M12 21V4M19 21v-7"/></svg>Benchmarks</button>
+      <button data-view="runtime"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Runtime</button>
+    </nav>
+    <div class="cli">
+      <div class="cli-head">$ forge <span class="caret">_</span></div>
+      <ul><li>run</li><li>status</li><li>tail</li><li>approve</li><li>replay</li><li>verify</li></ul>
+    </div>
+  </aside>
+
+  <header class="top">
+    <div class="subtitle">AI Scientific Discovery Lab <span class="sep">·</span> built on Omnigent</div>
+    <div class="top-right">
+      <span id="demo-badge" class="badge demo" hidden>DEMO DATA · question not locked</span>
+      <span class="status"><span id="status-dot" class="dot"></span><span id="status-text">Loading</span></span>
+      <span id="context" class="muted"></span>
+      <span class="clock"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="clock">--:--</span></span>
+    </div>
+  </header>
+
+  <main class="main">
+    <section id="view-floor" class="view active">
+      <div class="floor" id="floor">
+        <div class="room" style="--x:0;--y:0" data-room="library"><div class="room-label"><b>Library</b><span>Literature + Referee</span></div><div class="props props-library"></div></div>
+        <div class="room" style="--x:1;--y:0" data-room="whiteboard"><div class="room-label"><b>Whiteboard</b><span>Hypotheses + Planning</span></div><div class="props props-whiteboard"></div></div>
+        <div class="room" style="--x:2;--y:0" data-room="compute"><div class="room-label"><b>Compute Bench</b><span>Experimenter</span></div><div class="props props-compute"></div></div>
+        <div class="corridor"></div>
+        <div class="room" style="--x:0;--y:1" data-room="safety"><div class="room-label"><b>Safety Desk</b><span>Policy &amp; Approval</span></div><div class="props props-safety"></div></div>
+        <div class="room" style="--x:1;--y:1" data-room="meeting"><div class="room-label"><b>Meeting Room</b><span>Analysis &amp; Replan</span></div><div class="props props-meeting"></div></div>
+        <div class="room" style="--x:2;--y:1" data-room="pi"><div class="room-label"><b>PI Office (You)</b><span>Human-in-the-loop</span></div><div class="props props-pi"></div></div>
+        <div id="mascots"></div>
+        <div id="packets"></div>
+        <div id="alerts"></div>
+        <div id="hud" class="hud" aria-live="polite"></div>
+      </div>
+      <div class="bottom">
+        <div class="card log-card"><h3>Live Event Log</h3><div id="log" class="log"></div></div>
+        <div class="card"><h3>Lab Overview</h3><div id="minimap" class="minimap"></div></div>
+      </div>
+    </section>
+    <section id="view-experiments" class="view"><div class="card page"><h2>Experiment candidates (Planner)</h2><div id="exp"></div></div></section>
+    <section id="view-hypotheses" class="view"><div class="card page"><h2>Hypotheses</h2><div id="hyp"></div></div></section>
+    <section id="view-literature" class="view"><div class="card page"><h2>Literature evidence</h2><div id="lit"></div></div></section>
+    <section id="view-ledger" class="view"><div class="card page"><h2>Ledger</h2><div id="led"></div></div></section>
+    <section id="view-benchmarks" class="view"><div class="card page"><h2>Benchmarks</h2><div id="bench"></div></div></section>
+    <section id="view-runtime" class="view"><div class="card page"><h2>Runtime: Omnigent</h2><div id="rt"></div></div></section>
+
+    <div class="replay card">
+      <button id="play" aria-label="Play or pause">▶</button>
+      <input id="scrub" type="range" min="0" max="0" value="0" aria-label="Replay position">
+      <span id="pos" class="mono">0 / 0</span>
+      <select id="speed" aria-label="Replay speed"><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option></select>
+      <span id="source" class="muted mono"></span>
+    </div>
+  </main>
+
+  <aside class="side">
+    <div class="card"><h3>Current Run</h3><div id="run"></div></div>
+    <div class="card"><h3>Agent Status</h3><div id="agents"></div></div>
+    <div class="card"><h3>Recent Events</h3><div id="recent" class="timeline"></div></div>
+  </aside>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
