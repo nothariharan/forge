@@ -1,7 +1,7 @@
 # Benchmark lane: status and interfaces
 
 - **Owner:** Akshat
-- **Branch:** task branches from `main` (latest: `bench/arm-a-launcher`)
+- **Branch:** task branches from `main` (latest: `bench/run-bench`)
 - **Status:** protocol draft v0.1, citation checker, report generator, oracle sweep and arm A tools ready; arm A writes through the shared ledger. The science question is not locked (see `BENCHMARK_TESS_GATE_REVIEW.md`), so the protocol and baseline prompt stay drafts. No matched A-vs-B benchmark has been run.
 
 ## Done
@@ -50,6 +50,28 @@ Also used: `RUN_CREATED` and `RUN_COMPLETED` timestamps mark the timed window.
 
 **Arm A now writes through `Ledger.append` (2026-10-04).** Each command appends via `core/ledger.py`, so validation, seq/prev_hash assignment and hashing are the same code FORGE uses; an invalid payload is rejected before anything is written. After every append the run is re-exported to the episode's `events.jsonl`, which `bench/report.py` reads. Each episode has its own `<episode>/ledger.db` by default; `init --ledger results/ledger.db` writes into a shared ledger instead, so the UI/CLI can follow a baseline run. Arm A also fills the optional `refs` field (`hid`, `eid`). Checked: an episode verifies with `python -m cli.verify --db <episode>/ledger.db <run_id>`.
 
+### Arm B (FORGE) episode contract (for Saksham)
+
+`bench/launch_arm_b.py` runs FORGE headless (`omni run omnigent/forge --no-session -p <task message>`) with `FORGE_LEDGER_DB` set to the episode ledger. The task message starts with `Run id: <id>` and repeats arm A's question, task, budget and research rules verbatim.
+
+The harness itself:
+- records `RUN_CREATED` (opens the timed window);
+- enforces the wall clock;
+- closes the episode if FORGE does not;
+- exports `events.jsonl`.
+
+For the comparison to be fair and scorable, FORGE's events need:
+
+| Need | Why | Status in `orch/ledger-handoff` |
+|---|---|---|
+| `RUN_COMPLETED` payload includes `"candidate": "<id>"` | That is FORGE's scored answer (saved as `answer.json`) | Director records `status` and `summary` only; please add `candidate` |
+| `PREDICTION_COMMITTED` with `eid` before each experiment | Otherwise every FORGE run counts as a preregistration violation (S7) and is not a valid experiment | Not recorded yet |
+| `RUN_FINISHED` with `eid`, `status`, `metrics` (and `candidate` if no `RUN_STARTED`) | Attempts and valid experiments are counted from it | Recorded by the experimenter |
+| Experiment cap = spec `max_experiments` | Matched budget; arm A's cap is enforced by `arm_a.py` | P2 caps all dispatches at 3, not experiments |
+| Token / USD usage per episode (`usage.json`) | Cost metrics (S9); without it they read n/a for both arms | Not available for either arm yet. Does Omnigent expose usage? |
+
+`bench/report.py` now counts a run seen only as `RUN_FINISHED` as an attempt, using it for the preregistration check, so FORGE runs are counted even without `RUN_STARTED`.
+
 ### Science contract (for Hari)
 
 The open questions are listed in `bench/PROTOCOL.md` section 13. First review whether the Adult missingness question has enough scientific value; then lock task, metric and threshold, candidate space for the oracle sweep, primary outcome, budget values, and seed handling in `tools/openml_run.py` with Hari.
@@ -87,4 +109,6 @@ Arm A must run with the same model, tools and sandbox limits as FORGE. `bench/ar
 1. ~~Prior-art and value review~~ done for Adult, Kepler and TESS (`BENCHMARK_REVIEW_EXOPLANET.md`, `BENCHMARK_TESS_GATE_REVIEW.md`); waiting on Hari's TESS cross-match and Referee search.
 2. With Hari, lock the question and protocol TBDs, including the bottleneck/denominator, candidate tests, budgets, primary metric, seeds and stopping rule.
 3. ~~Migrate Arm A to `Ledger.append`~~ done; ~~independent prompt review~~ done (Hari). ~~Single-agent launcher~~ done (`bench/launch_arm_a.py`), pending one real `omni run` check. Still to do: adapting the prompt to the locked question.
+
+**End-to-end runner (`bench/run_bench.py`):** one command runs arm A and arm B for every seed (alternating which arm goes first), builds the oracle if an oracle spec is given, and writes `report.md` / `report.json` with the throughput multiplier and its interval. Interrupted benchmarks resume, and failed launches are recorded in `bench_manifest.json`. Tested end to end with fake agents only. Do not run it for real until the protocol is frozen.
 4. Validate the full OpenML runner before writing/running an oracle sweep. Then complete the matched comparison, uncertainty/cost analysis, citation/novelty checks, and next-experiment write-up.
