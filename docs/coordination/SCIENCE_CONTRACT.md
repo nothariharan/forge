@@ -13,6 +13,18 @@ Status: **No scientific question or benchmark protocol is locked. The Kepler exo
 
 See [`SCIENCE_DECISION_PACKET.md`](SCIENCE_DECISION_PACKET.md) for the full tables and the open gate list. Adult remains retired as a science candidate and retained only as the deterministic runner/ledger integration task. Nothing is locked pending that gate and a prior-art review with the benchmark lead.
 
+**2026-10-04 gate update — the TESS data gates are now measured, and one science-adjacent smoke test has been preregistered and run.**
+
+- **Independent reference for positives: PASSES at host-star level.** `tid` → `pscomppars.tic_id` matches **88.7%** of `CP` hosts against **0.23%** for `FP`, a separation of 0.885. Internal check: 717 of 721 matched `CP` hosts have a TESS-era discovery year, while 420 of 587 `KP` hosts do not, confirming `KP` is a previous-survey catalog lookup. Artifact: [`schemas/examples/tess-reference-standard.json`](../../schemas/examples/tess-reference-standard.json).
+- **Label semantics settled by measurement:** positive = `CP`; exclude `KP`; **`FA` is a negative**, because its 0.030 host-match rate behaves like `FP` (0.0023) rather than `CP`. Censored = `PC`/`APC`.
+- **Host disjointness: `tid` is the TIC ID,** so grouping on `tid` is star-level grouping. 223 hosts in the T1 cohort carry more than one TOI.
+- **Prospective temporal split: impossible.** The TOI table has no disposition-assignment date, only `toi_created`, `rowupdate` and `release_date`. Remove it from the protocol.
+- **Still no independent source for negatives.** `FP` remains a TFOPWG committee judgment; that asymmetry is a permanent limit, not a task to close.
+- **Prior art fails for plain TESS classification** (Kopparapu et al. 2026 is nearly the same design). The direction survives only as the resolution-bias audit, which still needs its own Referee search. That search is now the main scientific risk.
+- **T1 resolution-shift smoke test: prediction supported.** Out-of-fold AUC for resolved vs unresolved TOIs is **0.7616**, 95% cluster-bootstrap CI **[0.7492, 0.7737]**, permutation null mean 0.4973. Resolved and unresolved candidates are not exchangeable given triage features. Timestamps add only 0.038 AUC, so the shift is not merely an age artifact. **This is a data property, not an accuracy result: 0.7616 must never be quoted as an accuracy overstatement.** Preregistration: [`TESS_RESOLUTION_SHIFT_PREREGISTRATION.md`](TESS_RESOLUTION_SHIFT_PREREGISTRATION.md).
+
+**Remaining before lock:** the resolution-bias question wording, T2's accuracy-gap estimate and practical threshold, and the prior-art search on the resolution-bias question itself.
+
 **2026-10-04 earlier update — Adult is retired as a science candidate, not as a runner check.** OpenML Adult 7592 keeps its role as the deterministic runner/ledger integration task. An audit found the first precision-transfer analysis mislabeled candidate status as planet truth and reused training objects in its temporal score; those metrics are withdrawn.
 
 ## Challenge alignment
