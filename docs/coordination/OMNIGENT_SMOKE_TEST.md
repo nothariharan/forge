@@ -1,6 +1,6 @@
 # Omnigent feasibility smoke test
 
-Status: **partial pass** (2026-10-04). Owner: Saksham (orchestration).
+Status: **pass except P6 UI confirmation** (2026-10-04). Owner: Saksham (orchestration).
 
 ## Environment
 
@@ -23,10 +23,11 @@ Status: **partial pass** (2026-10-04). Owner: Saksham (orchestration).
 | 1. Install and run | PASS | `omni run hello` returned the expected token |
 | 2. Two agents, different harnesses | PASS | Claude director → Codex worker, reply came back through the inbox (`HANDOFF_OK 391`) |
 | 3. Structured handoff | PASS (prompt-level) | 3 librarian runs each returned a valid `EvidencePacket` JSON (keys checked by the director) |
-| 4. Invalid handoff rejected | NOT DONE | Validation is prompt-level only (`HANDOFF_INVALID`). Still needed: an enforced validator on the handoff boundary |
+| 4. Invalid handoff rejected | **PASS** | `tools/forge_emit.py` validates against the ledger schema and writes an `ERROR` with the raw input instead; Omnigent's `handoff_gate_*` policies then deny the next `sys_session_send` (`Denied by policy: handoff gate: last handoff failed ledger schema validation`). Live run, ledger chain verified |
 | 5. Real policy denial | **PASS** | P2: cap of 3 dispatches. Dispatches 1-3 allowed, #4 returned `Denied by policy: P2 budget: dispatch cap (3) reached for this run`. Enforced by the Omnigent policy engine, not the prompt |
 | 5b. Human approval (P6, `ASK`) | UNVERIFIED | In a headless run the experimenter loaded the shell tool and the marker command never executed, but the run ended when the REPL's stdin closed, so it is not yet clear whether `ASK` paused the call. Next: confirm the approval card in the web UI |
-| 6. Events → ledger | NOT DONE | Next PR: map dispatch / result / policy decisions to `core/ledger.py` events |
+| 6. Events → ledger | **PASS** | Director records RUN_CREATED, each specialist result, POLICY_DENIED and RUN_COMPLETED through `Ledger.append` (via forge_emit). Live run wrote 4 events, `verify` = OK |
+| 7. Tool permission (P5) | **PASS** | Director shell limited to `tools/forge_emit.py`, no chaining; `ls` → `Denied by policy: director shell is limited to tools/forge_emit.py` |
 
 ## Observations
 
