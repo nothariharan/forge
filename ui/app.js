@@ -111,7 +111,7 @@ function fold(list) {
       case "PREDICTION_COMMITTED": s.preds[p.eid || p.hid] = { ...p, seq: e.seq }; break;
       case "EXPERIMENT_SELECTED": s.selections.push({ ...p, seq: e.seq }); s.budgetLeft = p.budget_left ?? s.budgetLeft; break;
       case "RUN_STARTED": s.runs[p.eid] = { ...p, state: "running", startSeq: e.seq }; s.dataVer = p.data_ver; break;
-      case "RUN_FINISHED": s.runs[p.eid] = { ...(s.runs[p.eid] || {}), ...p, state: p.status === "ok" ? "done" : "failed" }; break;
+      case "RUN_FINISHED": s.runs[p.eid] = { ...(s.runs[p.eid] || {}), ...p, state: p.status === "ok" ? "done" : "failed" }; s.dataVer = p.data_ver || s.dataVer; break;
       case "FINDING": s.findings[p.eid] = p; break;
       case "SURPRISE": s.surprises.push(p); break;
       case "REPLAN": s.replans.push(p); break;
@@ -249,6 +249,10 @@ function renderTop(s) {
   $("#clock").textContent = last ? hhmmss(last.ts) : "--:--";
   const demo = s.run && (s.run.payload.mode === "demo" || s.run.payload.mode === "fake" || s.run.payload.demo);
   $("#demo-badge").hidden = !demo;
+  // A recorded real run played back from its exported ledger is labelled as a replay.
+  const replayOfLive = !live && s.run && s.run.payload.mode === "live";
+  $("#replay-badge").hidden = !replayOfLive;
+  if (replayOfLive) $("#replay-badge").textContent = `REPLAY of live Omnigent run ${s.run.run_id}`;
 }
 function renderRun(s) {
   if (!s.run) { $("#run").innerHTML = `<p class="muted">No run yet.</p>`; return; }
@@ -264,7 +268,7 @@ function renderRun(s) {
     <div class="run-q">${esc(h ? h.claim : p.question)}</div>
     <dl class="kv">
       <dt>Experiment</dt><dd>${r ? `${esc(r.eid)} ${badge(r.state === "running" ? "TESTING" : r.state === "done" ? "done" : r.state)}` : "none"}</dd>
-      <dt>Dataset</dt><dd>${esc(p.dataset || s.dataVer || "n/a")}</dd>
+      <dt>Dataset</dt><dd>${esc(s.dataVer || p.dataset || "n/a")}</dd>
       <dt>Budget</dt><dd>${s.budgetLeft != null ? `${s.budgetLeft} left of ${s.budget}<div class="bar"><i style="width:${Math.max(0, Math.min(100, 100 * (1 - s.budgetLeft / s.budget)))}%"></i></div>` : s.budget ?? "n/a"}</dd>
       <dt>Approvals</dt><dd>${Object.values(s.gates).map((g) => `${esc(g.gate_id)} ${badge(g.status)}`).join(" ") || "none"}</dd>
       ${p.cohorts ? `<dt>Cohorts</dt><dd>resolved: ${esc(p.cohorts.resolved.join(" + "))}<br>unresolved: ${esc(p.cohorts.unresolved.join(", "))}<br>excluded: ${esc((p.cohorts.excluded || []).join(", "))}</dd>` : ""}
@@ -430,6 +434,50 @@ function renderHud(s, list) {
     <span class="agents-n">${s.seen.length} agents summoned</span>`;
 }
 
+
+// ---------- self-playing demo tour: ?tour=1 (switches views and shows captions) ----------
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function showView(v) { document.querySelector(`#nav button[data-view="${v}"]`).click(); }
+const CAPTIONS = new URLSearchParams(location.search).get("captions") !== "0";   // ?captions=0 hides them
+function caption(t) { const c = $("#caption"); c.hidden = !t || !CAPTIONS; c.textContent = t || ""; }
+async function stepTo(n, perEvent) {
+  while (pos < n) { pos += 1; render(); sendPacket(events[pos - 1]); await sleep(perEvent); }
+}
+function highlightLedger(seqs) {
+  document.querySelectorAll("#led tr").forEach((tr) => {
+    const seq = Number(tr.firstElementChild && tr.firstElementChild.textContent);
+    tr.classList.toggle("hl", seqs.includes(seq));
+  });
+}
+async function runTour() {
+  stop(); pos = 0; $("#speed").value = "1"; render(); showView("floor");   // tour always plays at 1x
+  const ev = 2200;
+  const idx = (type) => events.findIndex((e) => e.type === type) + 1;   // 1-based position
+  caption("FORGE turns a research question into a reviewable experiment loop, built on Omnigent.");
+  await sleep(4500);
+  caption("The Librarian gathers cited evidence; the Hypothesizer proposes an AI-generated hypothesis.");
+  await stepTo(idx("EXPERIMENT_SELECTED"), ev);
+  caption("Every hypothesis has a prediction and a falsifier...");
+  showView("hypotheses"); await sleep(4000);
+  caption("...committed to the ledger before any compute runs.");
+  showView("ledger"); highlightLedger([idx("PREDICTION_COMMITTED"), idx("RUN_STARTED")]); await sleep(4500);
+  showView("floor");
+  caption("A human approves the experiment (P6). Then it runs on the real NASA archive.");
+  await stepTo(idx("RUN_FINISHED"), ev);
+  caption("Result: AUC 0.76, 95% interval 0.75 to 0.77, prediction supported.");
+  showView("experiments"); await sleep(4500);
+  caption("Omnigent runs all eight agents and enforces the budget, tool and approval policies.");
+  showView("runtime"); await sleep(4500);
+  showView("floor");
+  caption("The result changes the next decision: the analyst proposes the next experiment.");
+  await stepTo(idx("REPLAN"), ev); await sleep(1500);
+  caption("Every step lives in one hash-chained ledger, so the run stays inspectable.");
+  showView("ledger"); highlightLedger([]); await sleep(4000);
+  showView("floor"); await stepTo(events.length, ev);
+  caption("This run measures catalog separability, not planet-vetting accuracy.");
+  await sleep(5000); caption("");
+}
+
 // ---------- render + replay ----------
 function render() {
   const s = fold(events.slice(0, pos));
@@ -501,5 +549,6 @@ function initNav() {
   try { events = await loadJsonl(src); } catch (err) { $("#status-text").textContent = `Could not load ${src}`; return; }
   pos = q.has("at") ? Number(q.get("at")) : 0;
   render();
+  if (q.has("tour")) { setTimeout(runTour, 2500); return; }
   if (!q.has("at")) play();
 })();
