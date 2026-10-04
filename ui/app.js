@@ -97,7 +97,7 @@ function fold(list) {
   for (const e of list) {
     const p = e.payload || {};
     s.lastByAgent[e.agent] = e;
-    if (e.agent !== "system") {
+    if (e.agent !== "system" && e.agent !== "human") {
       if (!s.seen.includes(e.agent)) s.seen.push(e.agent);
       s.place[e.agent] = MOVE[e.type] || roomOfAgent(e.agent);
     }
@@ -152,7 +152,7 @@ function ensureMascot(name) {
 }
 const mascotEl = (name) => document.getElementById(`m-${String(name).replace(/[^a-z0-9_-]/gi, "_")}`);
 function placeMascots(s, current) {
-  const names = [...s.seen, "human"];
+  const names = [...new Set([...s.seen, "human"])];
   document.querySelectorAll(".mascot").forEach((el) => { if (!names.some((n) => mascotEl(n) === el)) el.remove(); });
   const used = {};
   for (const n of names) {
@@ -164,7 +164,7 @@ function placeMascots(s, current) {
       el.classList.add("walking"); clearTimeout(el._walk); el._walk = setTimeout(() => el.classList.remove("walking"), 1100);
     }
     el.style.left = `${x}%`; el.style.top = `${y}%`;
-    const actor = current && (current.type === "GATE_RESOLVED" ? "human" : current.agent);
+    const actor = current && (current.type === "GATE_RESOLVED" || current.agent === "human" ? "human" : current.agent);
     el.classList.toggle("active", actor === n);
   }
   for (const n of names) {
@@ -184,8 +184,8 @@ function renderAlerts(s, current) {
   if (pending) {
     out.push(`<div class="alert danger" style="left:3%;top:73%"><b>⚠ Requires human approval</b>Action: ${esc(pending.action)}<br>Policy: ${esc(pending.policy || "P6")} · risk ${esc(pending.risk)}</div>`);
     out.push(`<div class="alert" style="left:69%;top:63%"><b>Agent knock</b>${esc(pending.action)} needs your approval.
-      <div class="btns"><button class="approve" disabled>Approve</button><button class="reject" disabled>Reject</button></div>
-      <div class="note">${live ? "Approve in the Omnigent session (P6 card)." : "Replay: the recorded decision follows."}</div></div>`);
+      <div class="btns"><button class="approve" data-gate="${esc(pending.gate_id)}" data-decision="approve" ${live ? "" : "disabled"}>Approve</button><button class="reject" data-gate="${esc(pending.gate_id)}" data-decision="deny" ${live ? "" : "disabled"}>Reject</button></div>
+      <div class="note">${live ? "Your decision is written to the ledger; the experiment waits for it (P6)." : "Replay: the recorded decision follows."}</div></div>`);
   }
   const lastDenial = current && current.type === "POLICY_DENIED" ? current.payload : null;
   if (lastDenial) out.push(`<div class="alert danger" style="left:3%;top:73%"><b>${esc(lastDenial.policy_id)} denied</b>${esc(lastDenial.reason)}</div>`);
@@ -227,7 +227,7 @@ function renderRun(s) {
     <div class="note-box"><b>Question</b><br>${esc(p.question)}</div>`;
 }
 function renderAgents(s) {
-  $("#agents").innerHTML = [...s.seen, "human"].map((n) => {
+  $("#agents").innerHTML = [...new Set([...s.seen, "human"])].map((n) => {
     const a = resolveAgent(n); const e = s.lastByAgent[n];
     return `<div class="agent-row"><span class="mini">${mascotSVG(n)}</span><span title="${esc(a.role)}">${esc(a.label)}</span><span title="${esc(e ? summary(e) : "")}">${esc(e ? summary(e) : n === "human" ? "Watching" : "Idle")}</span></div>`;
   }).join("") || `<p class="muted">No agents summoned yet.</p>`;
@@ -247,7 +247,7 @@ function renderLog() {
 function renderMinimap(s) {
   const order = ["library", "whiteboard", "compute", "safety", "meeting", "pi"];
   $("#minimap").innerHTML = order.map((room) =>
-    `<div title="${room}">${[...s.seen, "human"].filter((n) => (n === "human" ? "pi" : s.place[n] || roomOfAgent(n)) === room).map((n) => `<i style="background:${resolveAgent(n).color}" title="${esc(resolveAgent(n).label)}"></i>`).join("")}</div>`).join("");
+    `<div title="${room}">${[...new Set([...s.seen, "human"])].filter((n) => (n === "human" ? "pi" : s.place[n] || roomOfAgent(n)) === room).map((n) => `<i style="background:${resolveAgent(n).color}" title="${esc(resolveAgent(n).label)}"></i>`).join("")}</div>`).join("");
 }
 
 // ---------- pages ----------
@@ -418,6 +418,21 @@ function connectSSE(url) {
     if (pos === events.length - 1) { pos = events.length; render(); sendPacket(e); } else render();
   };
 }
+
+// The UI's only write: a human decision on a P6 gate, sent to the bridge.
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button[data-gate]");
+  if (!b || b.disabled) return;
+  const run = events[0] && events[0].run_id;
+  b.parentElement.querySelectorAll("button").forEach((x) => { x.disabled = true; });
+  b.textContent = "Sending…";
+  try {
+    const r = await fetch("/api/approve", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run_id: run, gate_id: b.dataset.gate, decision: b.dataset.decision }) });
+    const j = await r.json();
+    b.textContent = j.ok ? (j.status === "approved" ? "Approved ✓" : "Rejected") : "Failed";
+  } catch { b.textContent = "Failed"; }
+});
 
 function initNav() {
   document.querySelectorAll("#nav button").forEach((b) => b.addEventListener("click", () => {

@@ -12,20 +12,8 @@ os_env:
   sandbox:
     type: none
 
-guardrails:
-  policies:
-    # P6 human approval: every shell command (i.e. every experiment run)
-    # pauses for a human ALLOW/DENY in the Omnigent UI before it executes.
-    p6_human_approval:
-      type: function
-      on: [tool_call]
-      function:
-        path: omnigent.policies.builtins.cel.cel_policy
-        arguments:
-          expression: >-
-            event.type == "tool_call" && event.data.name == "sys_os_shell"
-            ? {"result": "ASK", "reason": "P6: experiment execution needs human approval"}
-            : false
+# Human approval (P6) is enforced on the director's dispatch to this agent:
+# sub-agents run headless and cannot answer an ASK themselves.
 
 prompt: |
   You are the FORGE experimenter. Given HYPOTHESIS_PROPOSED JSON, run the
@@ -35,3 +23,9 @@ prompt: |
      "data_ver": "<dataset id/version>", "seed": <int>,
      "status": "ok" | "<failure reason>", "metrics": {<name>: <number>}}
   Use {} for metrics on a failed run. Never report a number you did not compute.
+  If the input names an exact command (it starts with .venv/bin/python
+  tools/forge_gate.py), run it verbatim with sys_os_shell: it is the only shell
+  command policy P5 allows you. It waits for a human approval (P6) and can
+  take several minutes; do not retry or stop it early. Then read
+  its --output JSON with sys_os_read for the metrics (e.g. verdict.primary_arm_auc
+  and its bootstrap interval). Use code_hash "tools/tess_resolution_shift.py@main".
