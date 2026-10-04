@@ -217,15 +217,18 @@ The full benchmark (section 8) is not run before the deadline. Instead:
 | Budget per episode | 10 min wall clock and 10 experiment runs, the same for both arms (`bench/specs/tess_resolution_bias.json`) |
 | Arms | Same model ID and the same built-in tools. No literature tool in either arm, so no citation-quality claim. The comparison is about the protocol: committed predictions, budget, ledger, approval gate. |
 | Snapshot | The pre-lock snapshot pinned in the spec. `bench/run_lite_seed.py` refuses to start if it is not pinned or the cached file differs. |
+| Shared setup | `bench/specs/lite_lock.json` pins the omni version, model, snapshot and code commit for all three seeds. It is written once (`--write-lock --model <id>`) on a clean checkout after the snapshot pin and the FORGE event fixes are merged. A seed refuses to run if the git tree has uncommitted changes, the code under `code_paths` differs from the locked commit, or the omni version, model or snapshot differ. The model reaches both arms as `ANTHROPIC_MODEL`; that the harness honours it is confirmed from the arm B smoke run, not assumed. |
+| Recorded settings | `command.json` keeps only allowlisted `FORGE_*` path/hash settings; any other `FORGE_*` value is redacted, and commands are scrubbed of credential-like values (`bench/redact.py`). |
 | Failures | Failed, timed-out and budget_exhausted episodes stay in every denominator. An episode with no answer scores as incorrect. No re-runs. |
-| Cost | n/a unless both arms capture usage |
-| Pre-lock outcome | If the γ=0 control fails or the gap is too close to 0.02, the protocol is not re-engineered. The run goes ahead and every result is labelled **semi-synthetic, protocol not lockable** (`bench/aggregate_lite.py` reads `results/tess_prelock/summary.json`). |
+| Cost | n/a: usage is not captured |
+| Pre-lock outcome | If the γ=0 control fails or the gap is too close to 0.02, the protocol is not re-engineered. The run goes ahead and every result is labelled **semi-synthetic, preliminary, protocol not lockable** (`bench/aggregate_lite.py` reads `results/tess_prelock/summary.json`), with no correctness or speedup claim. If lockable, the summary is shared so the lock is recorded in the change log. |
 | Artifacts | `results/bench-lite/seed-N/`: `A/` and `B/` episode folders (events.jsonl, ledger.db, logs, manifest, answer, report), `command.json` (exact command, git commit, host, model, snapshot hash), `summary.json` |
 | Claim wording | Fixed: "in a lite benchmark (n=3 seeds), FORGE vs a single-agent baseline on this TESS task". Always labelled semi-synthetic. No claim beyond that. |
 
 Commands (in Colab: `bench/colab_lite.ipynb`):
 
     python tools/tess_prelock.py                 # once, by one person; commit the snapshot, spec pin and results/tess_prelock/
+    python bench/run_lite_seed.py --write-lock --model <id>   # once, after the pin and FORGE fixes are on main; commit the lock
     python bench/run_lite_seed.py --seed N       # each machine, after the pin is on main; commit results/bench-lite/seed-N/
     python bench/aggregate_lite.py               # after all seeds are merged; writes results/bench-lite/report.md and report.json
 

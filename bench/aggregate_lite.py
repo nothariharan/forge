@@ -33,10 +33,23 @@ def _load(path: str) -> Optional[dict]:
         return json.load(f)
 
 
-def labels(prelock: Optional[dict]) -> list[str]:
-    out = ["semi-synthetic"]
+SETUP_KEYS = ("omni_version", "model", "snapshot_sha256", "code_commit")
+
+
+def setup_consistent(seeds: list[dict]) -> bool:
+    """All seeds ran on the same locked omni version, model, snapshot and code commit."""
+    setups = [s.get("setup") for s in seeds]
+    if not setups or any(not st for st in setups):
+        return False
+    return all(tuple(st.get(k) for k in SETUP_KEYS) == tuple(setups[0].get(k) for k in SETUP_KEYS) for st in setups)
+
+
+def labels(prelock: Optional[dict], seeds: Optional[list[dict]] = None) -> list[str]:
+    out = ["semi-synthetic", "preliminary"]
     if not (prelock and prelock.get("checks", {}).get("lockable") is True):
         out.append("protocol not lockable")
+    if seeds is not None and not setup_consistent(seeds):
+        out.append("setup differs across seeds")
     return out
 
 
@@ -49,7 +62,8 @@ def collect(out_root: str, oracle: Optional[dict]) -> tuple[dict[str, list[dict]
             continue
         seed = int(name.split("-", 1)[1])
         summary = _load(os.path.join(seed_dir, "summary.json")) or {}
-        seeds.append({"seed": seed, "command": (_load(os.path.join(seed_dir, "command.json")) or {}).get("command"),
+        command = _load(os.path.join(seed_dir, "command.json")) or {}
+        seeds.append({"seed": seed, "command": command.get("command"), "setup": command.get("lock"),
                       "outcomes": {a: e.get("outcome") for a, e in summary.get("episodes", {}).items()}})
         for arm in ("A", "B"):
             # A launch that crashed before the episode existed still scores as a failed attempt.
@@ -63,10 +77,11 @@ def collect(out_root: str, oracle: Optional[dict]) -> tuple[dict[str, list[dict]
 def render(cmp: dict, oracle: Optional[dict], prelock: Optional[dict], seeds: list[dict]) -> str:
     n = len(cmp["paired_seeds"])
     head = [f"# Lite benchmark: {CLAIM.format(n=n)}", "",
-            f"**Labels: {', '.join(labels(prelock))}.** Results are on a semi-synthetic simulation built on the "
+            f"**Labels: {', '.join(labels(prelock, seeds))}.** Results are on a semi-synthetic simulation built on the "
             "TESS TOI snapshot, not accuracy on real unresolved TOIs. No claim beyond this task and these seeds.", "",
             "- Budget per episode, same for both arms: see command.json and summary.json in each seed folder.",
-            "- Cost: n/a unless both arms capture usage.",
+            "- Cost: n/a (usage is not captured).",
+            "- Not lockable or preliminary means no correctness or speedup claim is made from these numbers.",
             "- Failed, timed-out and budget_exhausted episodes are included; nothing was re-run.",
             "- Literature tooling was not provided to either arm; this compares the protocol (committed "
             "predictions, budget, ledger, approval gate), not citation quality.", "",
@@ -74,6 +89,13 @@ def render(cmp: dict, oracle: Optional[dict], prelock: Optional[dict], seeds: li
     for s in seeds:
         head.append(f"| {s['seed']} | {s['outcomes'].get('A') or 'missing'} | {s['outcomes'].get('B') or 'missing'} | "
                     f"`{s['command'] or 'n/a'}` |")
+    head += ["", "## Setup (from each seed's command.json)", "", "| Seed | omni | model | code commit | snapshot |",
+             "|---|---|---|---|---|"]
+    for s in seeds:
+        st = s.get("setup") or {}
+        head.append(f"| {s['seed']} | {st.get('omni_version', 'n/a')} | {st.get('model', 'n/a')} | "
+                    f"{(st.get('code_commit') or 'n/a')[:12]} | {(st.get('snapshot_sha256') or 'n/a')[:12]} |")
+    head.append("")
     body = report.render_markdown(cmp, oracle).split("\n", 2)[2]  # drop the generic title
     return "\n".join(head) + "\n" + body
 
@@ -93,8 +115,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     with open(os.path.join(a.out, "report.md"), "w", encoding="utf-8") as f:
         f.write(md)
     with open(os.path.join(a.out, "report.json"), "w", encoding="utf-8") as f:
-        json.dump({"claim": CLAIM.format(n=len(cmp["paired_seeds"])), "labels": labels(prelock),
-                   "cost": "n/a unless both arms capture usage", "seeds": seeds, "comparison": cmp}, f,
+        json.dump({"claim": CLAIM.format(n=len(cmp["paired_seeds"])), "labels": labels(prelock, seeds),
+                   "cost": "n/a: usage is not captured", "seeds": seeds, "comparison": cmp}, f,
                   indent=2, default=str)
     print(md)
     return 0

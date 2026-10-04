@@ -89,7 +89,7 @@ Nothing below is done until checked off here with evidence (a PR, a run artifact
 
 No speedup or comparison claim is made until step 8 has run on comparable real episodes.
 
-**Lite benchmark (replaces step 8 before the deadline, `bench/PROTOCOL_TESS.md` section 12):** seeds 1–3 in parallel (Akshat 1, Ish 2, Hari 3), 10 min / 10 runs, no literature tool, failures kept, cost n/a. Steps: pre-lock in Colab (`bench/colab_lite.ipynb`) and merge the pin; each person runs `bench/run_lite_seed.py --seed N` and opens a PR with `results/bench-lite/seed-N/`; then `bench/aggregate_lite.py`. Still needs steps 5 and 6 for arm B to be scorable. Claim wording is fixed: "in a lite benchmark (n=3 seeds), FORGE vs a single-agent baseline on this TESS task".
+**Lite benchmark (replaces step 8 before the deadline, `bench/PROTOCOL_TESS.md` section 12):** seeds 1–3 in parallel (Akshat 1, Ish 2, Hari 3), 10 min / 10 runs, no literature tool, failures kept, cost n/a (usage not captured). Steps: pre-lock in Colab (`bench/colab_lite.ipynb`) and merge the pin; after Saksham's event fixes and Ish's arm B smoke run, write and merge `bench/specs/lite_lock.json` (same omni version, model, clean code commit and snapshot for all seeds); each person runs `bench/run_lite_seed.py --seed N` and opens a PR with `results/bench-lite/seed-N/`; then `bench/aggregate_lite.py`. Still needs steps 5 and 6 for arm B to be scorable. Claim wording is fixed: "in a lite benchmark (n=3 seeds), FORGE vs a single-agent baseline on this TESS task".
 
 ### TESS protocol proposal (for Hari)
 
