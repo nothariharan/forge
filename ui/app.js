@@ -438,7 +438,8 @@ function renderHud(s, list) {
 // ---------- self-playing demo tour: ?tour=1 (switches views and shows captions) ----------
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function showView(v) { document.querySelector(`#nav button[data-view="${v}"]`).click(); }
-function caption(t) { const c = $("#caption"); c.hidden = !t; c.textContent = t || ""; }
+const CAPTIONS = new URLSearchParams(location.search).get("captions") !== "0";   // ?captions=0 hides them
+function caption(t) { const c = $("#caption"); c.hidden = !t || !CAPTIONS; c.textContent = t || ""; }
 async function stepTo(n, perEvent) {
   while (pos < n) { pos += 1; render(); sendPacket(events[pos - 1]); await sleep(perEvent); }
 }
