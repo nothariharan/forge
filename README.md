@@ -27,6 +27,8 @@ FORGE runs that loop as a visible, auditable workflow:
 
 **Question → Evidence → Hypothesis → Preregistered experiment → Result → Updated decision**
 
+**Live site:** [forge-omnigent.vercel.app](https://forge-omnigent.vercel.app) · **Lab replay of a real run:** [forge-omnigent.vercel.app/lab.html](https://forge-omnigent.vercel.app/lab.html)
+
 Omnigent is the runtime that composes the agents and enforces the policies. FORGE is the scientific workflow on top of it: structured handoffs, a tamper-evident research record, a reproducible experiment runner, and a benchmark that compares the multi-agent lab against a matched single-agent baseline.
 
 > [!IMPORTANT]
@@ -70,7 +72,7 @@ The rubric comes from the official challenge brief ([`docs/references/reference-
 
 | Criterion | Weight | What FORGE shows | Where to look |
 |-----------|:------:|------------------|---------------|
-| **Omnigent orchestration** | 30% | A director agent routes work across specialists on two different harnesses (Claude and Codex) with structured JSON handoffs. A dispatch budget is enforced by the Omnigent policy engine, not by the prompt | [`omnigent/forge/`](omnigent/forge/), [smoke test](docs/coordination/OMNIGENT_SMOKE_TEST.md) |
+| **Omnigent orchestration** | 30% | A director agent routes work across seven specialists with structured JSON handoffs, verified end to end in live runs. Budget (P2), tool allowlist (P5) and the handoff gate are enforced by the Omnigent policy engine, not by the prompt; experiments wait on human approval (P6) | [`omnigent/forge/`](omnigent/forge/), [smoke test](docs/coordination/OMNIGENT_SMOKE_TEST.md) |
 | **Breakthrough potential** | 25% | A domain-agnostic lab for the full discovery loop, exercised on NASA exoplanet catalog vetting. Candidate questions are screened against prior art before any claim is made | [Science decision packet](docs/coordination/SCIENCE_DECISION_PACKET.md) |
 | **Discovery acceleration and learning** | 20% | A matched single-agent vs multi-agent protocol with stated denominators, budgets, seeds and an oracle. Measured results already changed the team's next decision more than once | [`bench/PROTOCOL.md`](bench/PROTOCOL.md), [Science Track Record](#science-track-record) |
 | **Scientific rigor** | 15% | Preregistration before compute, permutation controls, cluster-bootstrap intervals, object-disjoint splits, raw artifacts with SHA-256 of every source response, and withdrawn results kept on record | [Preregistration](docs/coordination/TESS_RESOLUTION_SHIFT_PREREGISTRATION.md), [`schemas/examples/`](schemas/examples/) |
@@ -146,12 +148,12 @@ Each agent owns one scientific decision and hands off structured JSON that is va
 |-------|------------------|--------|--------|
 | **Director** | Which specialist acts next | Dispatches and inbox reads | Running in Omnigent (`claude-sdk`) |
 | **Librarian** | Which sources support a claim | `EvidencePacket` | Running in Omnigent (`claude-sdk`) |
-| **Hypothesizer** | What is worth testing | `Hypothesis` | Running in Omnigent (`codex`) |
+| **Hypothesizer** | What is worth testing | `Hypothesis` | Running in Omnigent (`claude-sdk`) |
 | **Experimenter** | How a test is executed | `RunRecord` | Running in Omnigent (`claude-sdk`) |
-| **Referee** | Whether a hypothesis is already known | `NoveltyVerdict` | Interface draft |
-| **Planner** | Which experiment to run under the budget | `ExperimentSpec` | Interface draft |
-| **Analyst** | What the result means | `Finding` | Interface draft |
-| **Safety** | Whether an action needs human approval | `Gate` | Interface draft |
+| **Referee** | Whether a hypothesis is already known | `NoveltyVerdict` | Running in Omnigent (`claude-sdk`) |
+| **Planner** | Which experiment to run under the budget | `ExperimentSpec` | Running in Omnigent (`claude-sdk`) |
+| **Analyst** | What the result means | `Finding` | Running in Omnigent (`claude-sdk`) |
+| **Safety** | Whether an action needs human approval | `Gate` | Running in Omnigent (`claude-sdk`) |
 
 Role definitions live in [`agents/`](agents/) and the runnable graph lives in [`omnigent/forge/`](omnigent/forge/).
 
@@ -281,7 +283,8 @@ One smoke-scale run of the lite protocol ([`bench/PROTOCOL_TESS.md`](bench/PROTO
 |------|---------|------------|
 | Python | 3.12 | Everything |
 | [Omnigent](https://omnigent.ai) | 0.16.0 | Running the agent graph |
-| Claude and Codex subscriptions | configured through `omni setup` | Agent harnesses. No API keys are stored in the repository |
+| Node.js and tmux | Node 22 LTS, any tmux | Omnigent prerequisites |
+| Claude subscription or Anthropic API key | configured through `omni setup` | Every FORGE agent runs on the `claude-sdk` harness. No API keys are stored in the repository |
 
 ### 1. Install
 
@@ -318,12 +321,41 @@ run 'demo': chain OK, 31 events
 
 The science requirements are only needed by the TESS shift test and the experiment tools. The remaining tests run on `requirements.txt` alone.
 
-### 4. Run the agent graph
+### 4. Run a live research loop
+
+Install Omnigent and connect Claude once:
 
 ```bash
-omni setup              # once, to connect the harnesses
-omni run omnigent/forge
+curl -fsSL https://omnigent.ai/install.sh | sh
+omni setup              # pick Claude (subscription or API key) as the default
 ```
+
+Start the lab in one terminal. It serves the UI and streams the ledger live:
+
+```bash
+.venv/bin/python ui/live_server.py --port 8777 --db results/ledger.db
+```
+
+Ask a question in a second terminal, from the repository root:
+
+```bash
+FORGE_LEDGER_DB=$PWD/results/ledger.db omni run omnigent/forge --no-session \
+  -p "Run id my-run. Your research question here." </dev/null
+```
+
+Watch it in the lab at <http://localhost:8777/ui/lab.html?run=my-run>. The director routes the question through the librarian, hypothesizer, referee, planner, safety, experimenter and analyst, and every handoff lands in the ledger. When Safety opens a gate, a red **Approval needed** banner appears: press **Approve**. The experiment waits until you do (policy P6). You can also approve from a terminal:
+
+```bash
+.venv/bin/python -m cli.approve my-run G1
+```
+
+Verify the record when the run completes:
+
+```bash
+.venv/bin/python -m cli.verify my-run
+```
+
+Experiments only run through approved tools behind the P6 gate. Today that is the preregistered TESS T1 shift check (`tools/tess_resolution_shift.py`); add your own to `APPROVED_TOOLS` in `tools/forge_gate.py`. The landing page is at <http://localhost:8777/ui/>, and `lab.html` without `?run=` replays the recorded live run `live-exo-9`.
 
 ### 5. Reproduce the science audits
 
@@ -363,7 +395,7 @@ Status as of 2026-10-04. The complete FORGE workflow is not yet runnable end to 
 | Area | Verified in `main` | Still open |
 |------|--------------------|------------|
 | **Core** | Hash-chained ledger, payload schemas for all 17 event types, 31 event sample run, verify CLI | SSE server, full `forge` CLI (`run`, `status`, `tail`, `replay`) |
-| **Orchestration** | Omnigent 0.16.0 graph, Claude to Codex handoff, P2 denial enforced by the engine | P6 approval confirmed in the UI, enforced handoff validation, agent events written to the ledger |
+| **Orchestration** | Omnigent 0.16.0 graph with seven specialists, full live loop verified (run `live-exo-9`: 13 events, chain OK), handoff gate and P2/P5 enforced by the engine, P6 approval from the lab UI or `cli.approve`, every handoff written to the ledger | P1 citation bouncing as an engine policy, analyst SURPRISE events |
 | **Science** | Ten-fold experiment runner, Kepler and TESS audits, preregistered T1 smoke test | Locked research question, prior-art search on the resolution-bias question |
 | **Benchmark** | Lite protocol, oracle, both arm launchers, setup lock, report generator; one preliminary A vs B run on the synthetic fixture (baseline 3/3 correct, FORGE 1/3) | A vs B on the real TESS snapshot, sequential seeds, per-experiment timeout for FORGE, usage capture for cost |
 | **UI** | Direction and demo contract documented | Lab floor UI, in progress on the `ui/lab-floor` branch |
